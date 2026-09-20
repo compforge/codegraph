@@ -132,6 +132,11 @@ goraphdb 更偏持久化数据库，其当前普通 MATCH 执行与变长路径�
 查询使用参数化 Cypher，不自造查询语言。提供节点、关系和路径的结果投影，而不是只提供若干固定
 的 FindCallers 类封闭查询。公开查询只读，通过图引擎只读执行入口限制写语句。
 
+常见的消费者定位不必拼接内部 ID：`Find(path, kind, qualifiedName)` 按源码位置返回声明，
+`Node` 按源码身份读取单节点，`RelationsFrom` / `RelationsTo` 提供有界邻接。它们与 Cypher
+共享同一 detached 投影和排序语义；消费者可以把 diff 的行范围映射到 `Location.EndLine`，
+不需要再次解析 AST 或复制 CodeGraph 的身份算法。
+
 例如，查询两跳以内、每条边均符合条件的调用路径：
 
 ```cypher

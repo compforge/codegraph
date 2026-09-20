@@ -110,6 +110,20 @@ The same `Build`/`AddFiles` entrypoints accept mixed-language paths, such as
 `[]string{"server.go", "worker.py", "web/app.ts"}`. Names in different languages do not bind to one another.
 `ModulePath` controls Go module imports only; all languages share scope, budget, and atomic-publication rules.
 
+Consumers can locate declarations without rebuilding an ID scheme:
+
+```go
+entries := graph.Find("src/service.py", codegraph.Function, "Service.run")
+for _, entry := range entries {
+    callers := graph.RelationsTo(entry.ID, codegraph.Calls)
+    _ = callers
+}
+```
+
+`Find` is ordered by source position; `Node`, `RelationsFrom`, and `RelationsTo` return detached values.
+Node locations include both start and end line/column, so diff consumers do not need to parse source again
+just to map a changed range to a declaration. An empty kind or qualified name is a wildcard.
+
 ## Language extension
 
 Language recognition is not a fixed CodeGraph allowlist. Register additional grammars through
@@ -136,7 +150,7 @@ expressions are not evaluated.
 
 | Object | Common properties |
 |---|---|
-| Node | id, kind, name, qualifiedName, language, path, line, column, startByte, endByte, snapshot |
+| Node | id, kind, name, qualifiedName, language, path, line, column, endLine, endColumn, startByte, endByte, snapshot |
 | Declaration marker | markers (list of kinds), spec/case/rule/link/doc (lists of contents), markerData (full structure as JSON) |
 | Relation | id, kind, source, target, confidence, basis, path, line, column, startByte, endByte |
 
