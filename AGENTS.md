@@ -8,6 +8,7 @@ CodeGraph 是可内嵌的代码属性图 Go 库，直接依赖 gotreesitter 与 
 ## 代码地图与核心模块
 
 ```text
+VERSION                                # 项目版本
 graph.go、node.go、relation.go、marker.go  # 公共图模型与能力声明
 build.go、build_graph.go                 # 范围构建、诊断及原子发布
 query.go                                # 只读查询及领域结果还原
@@ -27,6 +28,7 @@ docs/design.md                          # 稳定模型、主流程与设计依�
 4. AST 与图引擎内部类型不穿透公共 API；局部分析与未解析引用必须保留可辨识的覆盖信息。
 5. 同一 Graph 只容纳同一源码快照；修改批次必须完成构建后原子发布。新增语言先声明能力并补契约测试。
 6. 验证入口为 `make lint test build`，测试启用 race detector。
+7. 根目录 `VERSION` 记录项目版本，格式为 `X.Y.Z`。任何代码文件变更（含测试代码、增删及重命名）必须在同一提交同步 bump `VERSION`，默认递增 patch；纯文档变更无需 bump。
 
 ## References
 
