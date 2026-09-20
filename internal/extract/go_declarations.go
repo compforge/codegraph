@@ -7,7 +7,7 @@ import (
 )
 
 // FactProgram supplies declaration spans but groups Go types together and does
-// not emit fields, interface methods or aliases. Supplement those facts here;
+// not emit fields, interface methods, aliases, variables, or constants. Supplement those facts here;
 // do not expose parser node names as the public graph's category vocabulary.
 func enrichGoDeclarations(f *Facts, file *ast.File, fset *token.FileSet) {
 	offset := func(p token.Pos) int { return fset.Position(p).Offset }
@@ -15,16 +15,18 @@ func enrichGoDeclarations(f *Facts, file *ast.File, fset *token.FileSet) {
 	for i, d := range f.Declarations {
 		decls[d.Start] = i
 	}
-	upsert := func(name, kind string, n ast.Node, doc *ast.CommentGroup) int {
-		start := offset(n.Pos())
+	upsertSpan := func(name, kind string, start, end int, doc *ast.CommentGroup) int {
 		i, ok := decls[start]
 		if !ok {
 			i = len(f.Declarations)
 			decls[start] = i
 			f.Declarations = append(f.Declarations, Declaration{})
 		}
-		f.Declarations[i] = Declaration{Name: name, Kind: kind, Span: Span{start, offset(n.End())}, Comments: comments(doc, fset)}
+		f.Declarations[i] = Declaration{Name: name, Kind: kind, Span: Span{start, end}, Comments: comments(doc, fset)}
 		return i
+	}
+	upsert := func(name, kind string, n ast.Node, doc *ast.CommentGroup) int {
+		return upsertSpan(name, kind, offset(n.Pos()), offset(n.End()), doc)
 	}
 	ast.Inspect(file, func(n ast.Node) bool {
 		switch n := n.(type) {
@@ -37,36 +39,49 @@ func enrichGoDeclarations(f *Facts, file *ast.File, fset *token.FileSet) {
 			f.Declarations[i].Receiver = receiver
 		case *ast.GenDecl:
 			for _, spec := range n.Specs {
-				ts, ok := spec.(*ast.TypeSpec)
-				if !ok {
-					continue
-				}
-				doc := ts.Doc
-				if doc == nil && len(n.Specs) == 1 {
-					doc = n.Doc
-				}
-				kind := "type"
-				switch ts.Type.(type) {
-				case *ast.StructType:
-					kind = "struct"
-				case *ast.InterfaceType:
-					kind = "interface"
-				}
-				if ts.Assign.IsValid() {
-					kind = "type_alias"
-				}
-				upsert(ts.Name.Name, kind, ts, doc)
-				switch typ := ts.Type.(type) {
-				case *ast.StructType:
-					appendGoMembers(f, typ.Fields, "field", fset)
-				case *ast.InterfaceType:
-					appendGoMembers(f, typ.Methods, "method", fset)
+				switch spec := spec.(type) {
+				case *ast.TypeSpec:
+					doc := declarationDoc(spec.Doc, n.Doc, len(n.Specs))
+					kind := "type"
+					switch spec.Type.(type) {
+					case *ast.StructType:
+						kind = "struct"
+					case *ast.InterfaceType:
+						kind = "interface"
+					}
+					if spec.Assign.IsValid() {
+						kind = "type_alias"
+					}
+					upsert(spec.Name.Name, kind, spec, doc)
+					switch typ := spec.Type.(type) {
+					case *ast.StructType:
+						appendGoMembers(f, typ.Fields, "field", fset)
+					case *ast.InterfaceType:
+						appendGoMembers(f, typ.Methods, "method", fset)
+					}
+				case *ast.ValueSpec:
+					if len(spec.Names) != 1 || n.Tok != token.CONST && n.Tok != token.VAR {
+						continue
+					}
+					kind := "variable"
+					if n.Tok == token.CONST {
+						kind = "constant"
+					}
+					doc := declarationDoc(spec.Doc, n.Doc, len(n.Specs))
+					upsertSpan(spec.Names[0].Name, kind, offset(spec.Names[0].Pos()), offset(spec.End()), doc)
 				}
 			}
 		}
 		return true
 	})
 	assignDeclarationParents(f.Declarations)
+}
+
+func declarationDoc(spec, group *ast.CommentGroup, groupSize int) *ast.CommentGroup {
+	if spec == nil && groupSize == 1 {
+		return group
+	}
+	return spec
 }
 
 func appendGoMembers(f *Facts, fields *ast.FieldList, kind string, fset *token.FileSet) {
