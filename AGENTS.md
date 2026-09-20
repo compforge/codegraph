@@ -17,7 +17,7 @@ internal/
   resolve/                              # 范围内 import、调用目标与置信依据
   graphstore/                           # GoGraph、查询限制及引擎值转换
 graph_test.go、example_test.go           # 契约测试与可执行示例
-docs/design.md                          # 稳定模型、主流程与设计依据
+docs/kernel.md                          # 稳定模型、主流程与设计依据
 ```
 
 ## 关键约定
@@ -32,4 +32,4 @@ docs/design.md                          # 稳定模型、主流程与设计依�
 
 ## References
 
-- [设计方案](docs/design.md) — 模型、构建与查询流程、依赖边界和验证状态。
+- [内核设计](docs/kernel.md) — 模型、构建与查询流程、依赖边界和验证状态。

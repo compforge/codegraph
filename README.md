@@ -99,7 +99,7 @@ returns `ErrSnapshotChanged`. The caller is responsible for `fs.FS` immutability
 // +spec=`Calls must preserve source locations`
 // +case:id=parallel,expect=`Preserve both call sites`
 // +rule=`Do not merge relations by endpoints`
-// +link=docs/design.md
+// +link=docs/kernel.md
 // +doc=`Entry function`
 func Entry() { Work(); Work() }
 ```
@@ -134,4 +134,4 @@ make lint test build
 
 Tests cover cross-file calls, aliased imports, parallel edges, marker round trips, path confidence
 filters, read-only queries and budgets, batch rollback, and concurrent queries.
-See the [design document](docs/design.md) (in Chinese) for source structure and design rationale.
+See the [kernel design](docs/kernel.md) (in Chinese) for source structure and design rationale.
