@@ -4,7 +4,7 @@
 
 ## 定位与概念
 
-CodeGraph 是代码特化的属性图 Go 库：从指定源码范围提取 File、Symbol 及其关系，
+CodeGraph 是代码特化的属性图 Go 库：从指定源码范围提取文件、代码声明及其关系，
 提供可追溯、带置信依据的关联查询，供代码评审、影响分析等消费者使用。
 
 CodeGraph 在进程内直接依赖 gotreesitter 与 GoGraph。gotreesitter 提供语法解析与可用的
@@ -13,7 +13,7 @@ CodeGraph 在进程内直接依赖 gotreesitter 与 GoGraph。gotreesitter 提�
 ### Graph、Node 与 Relation
 
 - Graph 对应一个源码快照下已构建的局部图。范围外的文件不等于不存在关系。
-- Node.Kind 为 File 或 Symbol。函数、方法、类等属于 Symbol 的属性，不增加顶层节点种类。
+- Node.Kind 直接表达 File、Struct、Interface、Field、Method、Function、Type、TypeAlias 等具体类别。
 - Relation 即有向 Edge，Kind 包括 contains、imports、calls、references、extends、implements。
 - Relation 有独立身份，允许递归自环，以及相同端点之间不同关系或不同调用位置的多条边。
 - Path 与 Subgraph 沿用图的概念，保留参与查询的节点、关系及其证据，不只返回文件名集合。
@@ -21,9 +21,27 @@ CodeGraph 在进程内直接依赖 gotreesitter 与 GoGraph。gotreesitter 提�
 节点使用源码侧身份，GoGraph 内部 ID 不作为消费者持久化的符号身份。身份在同一快照和相同输入下
 应可复现；跨版本重命名匹配是另一个问题，不能由内部数字 ID 推断。
 
+### 具体类别与声明归属
+
+每个节点的具体 Kind 是唯一的图分类，同时映射为 `kind` 属性和 Cypher 标签；symbol 仅作为代码
+声明的统称，不形成上位图标签或第二套分类字段。通用遍历使用无标签节点模式，精确查询使用具体标签。
+公开类别表达代码语义，不照搬底层 AST 类型；新增类别与语言提取能力一起声明和验证。
+
+Struct、Interface 表达直接以对应语法声明的类型；Type 表达 `type ID int` 等其他命名类型，
+TypeAlias 表达显式别名，不因右侧是结构体而丢失别名语义。没有类型检查证据时不推断底层类别。
+
+字段和接口中的显式方法有独立节点身份、位置、marker 与关系。`contains` 的 `declaration` 依据
+表达词法归属：文件包含顶层声明，结构体包含字段，接口包含声明的方法，函数包含局部类型声明。
+同组字段分别成节点，不互相包含；内嵌结构体字段按其类型的非限定名称命名。
+
+接收者方法保留文件词法归属，并通过 `receiver_declaration` 依据关联已加载的包级接收者类型。
+类型与方法可以跨文件；嵌套局部同名类型不参与匹配。唯一目标为 exact，多个目标为 candidate 并记录
+歧义，缺少目标记录未解析诊断。关系位置指向方法声明，不指向接收者类型所在文件。该关系只说明
+声明归属，不代表已解析接收者调用或已验证编译器类型约束。
+
 ### Marker 与关系置信依据
 
-spec、case、rule、link、doc 是 CodeGraph 的核心 MarkerKind，作为 Symbol 的结构化属性存在。
+spec、case、rule、link、doc 是 CodeGraph 的核心 MarkerKind，作为声明节点的结构化属性存在。
 Marker 保留内容与源码位置；不会因使用通用图引擎而变成某个消费者私有的约定。
 
 Relation 的 confidence、判定依据和来源位置是关系属性。能够提出候选目标时，可以形成带依据的
@@ -43,7 +61,7 @@ codegraph/
 ├── README.md
 ├── AGENTS.md
 ├── graph.go                   # 公共 Graph 入口与生命周期
-├── node.go                    # Node、NodeKind；File / Symbol 属性
+├── node.go                    # Node、具体 NodeKind 与源码属性
 ├── relation.go                # Relation、RelationKind、置信依据
 ├── marker.go                  # Marker、MarkerKind 及源码绑定信息
 ├── build.go                   # 构图输入、范围、预算与构建报告
@@ -52,13 +70,16 @@ codegraph/
 ├── internal/
 │   ├── extract/               # gotreesitter 适配与语言事实提取
 │   │   ├── extract.go
-│   │   └── go.go              # Go 词法绑定与 marker 文档归属
+│   │   ├── go.go              # Go 词法绑定与 marker 文档归属
+│   │   └── go_declarations.go # Go 声明分类、成员与词法归属
 │   ├── resolve/               # 作用域、import 与引用目标解析
-│   │   └── resolve.go
+│   │   ├── resolve.go
+│   │   └── receiver.go        # 包级接收者类型索引
 │   └── graphstore/            # GoGraph 适配、属性编码、边身份与结果转换
 │       ├── store.go
 │       └── policy.go          # 使用上游 AST 检查路径边界
 ├── graph_test.go              # 真实解析/查询的内存源码夹具与契约测试
+├── node_kinds_test.go         # 具体类别、成员与跨文件归属契约
 ├── example_test.go            # 可执行使用示例
 ├── Makefile                   # 格式、静态检查、race 测试和编译入口
 └── docs/
@@ -75,7 +96,7 @@ internal 按实际职责组织，不预建多后端框架，也不引入 cmd、s
    不是图必须认识的业务对象，也不是唯一构图方式。
 2. CodeGraph 在范围内按需加载文件，通过 gotreesitter 提取声明、引用、import 和注释事实。
    适配层在释放语法树之前保留独立的事实与位置。
-3. 构建 File / Symbol 节点及 contains 等已知关系，将 marker 绑定到所属 Symbol。
+3. 构建具体类别节点及 contains 等已知关系，将 marker 绑定到所属声明节点。
 4. 结合语言作用域与依赖规则解析引用目标，构建带置信依据的关系，记录未解析和范围受限诊断。
 5. 通过 Go API 将节点与关系写入内嵌 GoGraph，完成当前构建批次，再提供一致的只读查询。
 6. 消费者使用 Cypher 查询关联节点、关系、路径或子图，结合构建覆盖情况形成业务结果。
@@ -100,7 +121,7 @@ goraphdb 更偏持久化数据库，其当前普通 MATCH 执行与变长路径�
 
 ### 保留代码语义，复用 Cypher
 
-公开模型保持 Graph / Node / Relation 的图概念；File / Symbol 映射到节点标签，RelationKind
+公开模型保持 Graph / Node / Relation 的图概念；具体 NodeKind 映射到节点标签，RelationKind
 映射到关系类型。调用者面对的是稳定的代码图语义，gotreesitter AST 与 GoGraph 内部对象留在适配层。
 
 查询使用参数化 Cypher，不自造查询语言。提供节点、关系和路径的结果投影，而不是只提供若干固定
@@ -109,7 +130,7 @@ goraphdb 更偏持久化数据库，其当前普通 MATCH 执行与变长路径�
 例如，查询两跳以内、每条边均符合条件的调用路径：
 
 ```cypher
-MATCH p = (a:Symbol {id: $symbolID})-[:calls*1..2]->(target:Symbol)
+MATCH p = (a {id: $nodeID})-[:calls*1..2]->(target)
 WHERE all(r IN relationships(p) WHERE r.confidence = 'exact')
 RETURN target, p, [r IN relationships(p) | r.line] AS lines
 ```
@@ -140,14 +161,17 @@ LIMIT 不是遍历工作量的完整边界。预算或取消造成的失败必�
 ## 能力与验证边界
 
 图引擎锁定为 GoGraph v0.15.0，源码解析依赖 gotreesitter v0.52.0。
-当前 Go 适配器提取函数、方法、类型及声明注释，解析同包函数及模块内 import 函数调用。
+当前 Go 适配器提取函数、方法、结构体、接口、字段、其他命名类型、类型别名及声明注释，解析同包函数
+及模块内 import 函数调用。只提取命名 struct/interface 字面量的直接成员，不展开匿名嵌套类型、接口
+嵌入产生的继承方法或提升成员。Capabilities 的 Declarations 使用公共 NodeKind 声明实际提取种类。
 接收者、回调和闭包体中的调用保留未解析诊断；第三方模块、build tags 和类型检查不在当前能力范围。
 其他语言与 references / extends / implements 自动提取尚未实现，枚举声明不表示具备提取能力。
 
 契约测试覆盖：
 
 - 多段关系、反向调用、平行边独立属性、自递归与有界循环路径。
-- Symbol marker 列表查询、测试入口可达性、整条路径的 confidence 过滤及调用位置返回。
+- 声明 marker 列表查询、测试入口可达性、整条路径的 confidence 过滤及调用位置返回。
+- 具体标签与 kind 一致、字段/接口方法独立身份、跨文件接收者归属及其歧义和预算约束。
 - Go API 建图接 Cypher 查询、只读拒绝写入、预取消请求及结果行数上限。
 - 跨文件真实语法提取、重复构建幂等、补充文件后重解析、源码快照冲突和预算回滚。
 - marker 内容及位置往返、普通查询结果可独立修改、并发查询与批次发布。

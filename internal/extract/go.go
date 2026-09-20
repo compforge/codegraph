@@ -16,34 +16,7 @@ func enrichGo(f *Facts) error {
 	}
 	f.Package = file.Name.Name
 	offset := func(p token.Pos) int { return fset.Position(p).Offset }
-	decls := map[int]int{}
-	for i, d := range f.Declarations {
-		decls[d.Start] = i
-	}
-	ast.Inspect(file, func(n ast.Node) bool {
-		switch n := n.(type) {
-		case *ast.FuncDecl:
-			if i, ok := decls[offset(n.Pos())]; ok {
-				if n.Recv != nil && len(n.Recv.List) > 0 {
-					f.Declarations[i].QualifiedName = receiverName(n.Recv.List[0].Type) + "." + n.Name.Name
-				}
-				f.Declarations[i].Comments = comments(n.Doc, fset)
-			}
-		case *ast.GenDecl:
-			for _, s := range n.Specs {
-				if ts, ok := s.(*ast.TypeSpec); ok {
-					if i, ok := decls[offset(ts.Pos())]; ok {
-						doc := ts.Doc
-						if doc == nil && len(n.Specs) == 1 {
-							doc = n.Doc
-						}
-						f.Declarations[i].Comments = comments(doc, fset)
-					}
-				}
-			}
-		}
-		return true
-	})
+	enrichGoDeclarations(f, file, fset)
 	// File scope variables shadow package functions in Go. Keep them blocked,
 	// rather than connecting a callback invocation to a same-named function.
 	byStart := map[int]*ast.CallExpr{}

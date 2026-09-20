@@ -13,6 +13,10 @@ import (
 type Span struct{ Start, End int }
 type Declaration struct {
 	Name, QualifiedName, Kind string
+	// Parent is the enclosing declaration index, or -1 for a file-level declaration.
+	Parent int
+	// Receiver is the explicit Go receiver base name, resolved across loaded files.
+	Receiver string
 	Span
 	Comments []Comment
 }
@@ -40,8 +44,9 @@ type Facts struct {
 	Calls                   []Call
 }
 
-// Go uses FactProgram for definitions/calls and go/ast only for lexical binding
-// and documentation ownership. Other grammars are not advertised as resolved.
+// Go uses FactProgram for definitions/calls and go/ast for declaration categories,
+// members, lexical binding and documentation ownership. Other grammars are not
+// advertised as resolved.
 func Analyze(ctx context.Context, name string, source []byte, timeout time.Duration) (Facts, error) {
 	f := Facts{Path: name, Language: "go", Source: source}
 	f.LineStarts = []int{0}

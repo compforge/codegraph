@@ -21,7 +21,9 @@ type Ref struct {
 type Edge struct {
 	Source, Target          Ref
 	Kind, Confidence, Basis string
-	Span                    extract.Span
+	// Path owns the evidence span; a cross-file contains edge is located at its method.
+	Path string
+	Span extract.Span
 }
 type Issue struct {
 	Path, Code, Reference string
@@ -48,6 +50,7 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 		names = append(names, n)
 	}
 	sort.Strings(names)
+	owners := receiverIndex(files, names)
 	var edges []Edge
 	var issues []Issue
 	add := func(e Edge) error {
@@ -62,6 +65,30 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 			return nil, nil, err
 		}
 		f := files[name]
+		for i, d := range f.Declarations {
+			if d.Receiver == "" {
+				continue
+			}
+			var targets []Ref
+			for _, target := range owners[receiverKey{path.Dir(name), f.Package, d.Receiver}] {
+				if strings.HasSuffix(target.Path, "_test.go") && !strings.HasSuffix(name, "_test.go") {
+					continue
+				}
+				targets = append(targets, target)
+			}
+			confidence := "exact"
+			if len(targets) == 0 {
+				issues = append(issues, Issue{name, "unresolved_receiver", d.Receiver, d.Span})
+			} else if len(targets) > 1 {
+				confidence = "candidate"
+				issues = append(issues, Issue{name, "ambiguous_receiver", d.Receiver, d.Span})
+			}
+			for _, owner := range targets {
+				if err := add(Edge{owner, Ref{name, i}, "contains", confidence, "receiver_declaration", name, d.Span}); err != nil {
+					return nil, nil, err
+				}
+			}
+		}
 		imports := map[string][]string{}
 		for _, imp := range f.Imports {
 			dir, local := ImportDir(module, imp.Path)
@@ -77,7 +104,7 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 				issues = append(issues, Issue{name, "unresolved_import", imp.Path, imp.Span})
 			}
 			for _, target := range targets {
-				if err := add(Edge{Ref{name, -1}, Ref{target, -1}, "imports", "exact", "module_import", imp.Span}); err != nil {
+				if err := add(Edge{Ref{name, -1}, Ref{target, -1}, "imports", "exact", "module_import", name, imp.Span}); err != nil {
 					return nil, nil, err
 				}
 				alias := imp.Alias
@@ -151,7 +178,7 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 				issues = append(issues, Issue{name, "ambiguous_call", refname, call.Span})
 			}
 			for _, target := range candidates {
-				if err := add(Edge{source, target, "calls", confidence, basis, call.Span}); err != nil {
+				if err := add(Edge{source, target, "calls", confidence, basis, name, call.Span}); err != nil {
 					return nil, nil, err
 				}
 			}
