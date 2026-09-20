@@ -1,0 +1,17 @@
+module github.com/compforge/codegraph
+
+go 1.26.0
+
+require (
+	github.com/FlavioCFOliveira/GoGraph v0.15.0
+	github.com/odvcencio/gotreesitter v0.52.0
+)
+
+require (
+	github.com/RoaringBitmap/roaring/v2 v2.26.0 // indirect
+	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
+	github.com/bits-and-blooms/bitset v1.25.0 // indirect
+	github.com/mschoch/smat v0.2.0 // indirect
+	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect
+	golang.org/x/sys v0.47.0 // indirect
+)

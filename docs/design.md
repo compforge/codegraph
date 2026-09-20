@@ -1,0 +1,158 @@
+# CodeGraph 设计方案
+
+状态：已实现进程内图内核与 Go 源码适配，尚未首次发布或接入消费者。
+
+## 定位与概念
+
+CodeGraph 是代码特化的属性图 Go 库：从指定源码范围提取 File、Symbol 及其关系，
+提供可追溯、带置信依据的关联查询，供代码评审、影响分析等消费者使用。
+
+CodeGraph 在进程内直接依赖 gotreesitter 与 GoGraph。gotreesitter 提供语法解析与可用的
+事实提取能力，GoGraph 提供内存属性图及 Cypher 执行能力；代码语义由 CodeGraph 拥有。
+
+### Graph、Node 与 Relation
+
+- Graph 对应一个源码快照下已构建的局部图。范围外的文件不等于不存在关系。
+- Node.Kind 为 File 或 Symbol。函数、方法、类等属于 Symbol 的属性，不增加顶层节点种类。
+- Relation 即有向 Edge，Kind 包括 contains、imports、calls、references、extends、implements。
+- Relation 有独立身份，允许递归自环，以及相同端点之间不同关系或不同调用位置的多条边。
+- Path 与 Subgraph 沿用图的概念，保留参与查询的节点、关系及其证据，不只返回文件名集合。
+
+节点使用源码侧身份，GoGraph 内部 ID 不作为消费者持久化的符号身份。身份在同一快照和相同输入下
+应可复现；跨版本重命名匹配是另一个问题，不能由内部数字 ID 推断。
+
+### Marker 与关系置信依据
+
+spec、case、rule、link、doc 是 CodeGraph 的核心 MarkerKind，作为 Symbol 的结构化属性存在。
+Marker 保留内容与源码位置；不会因使用通用图引擎而变成某个消费者私有的约定。
+
+Relation 的 confidence、判定依据和来源位置是关系属性。能够提出候选目标时，可以形成带依据的
+候选关系；无法提出目标的引用保留为构建诊断，不虚构目标节点，也不当成已解析关系。
+Resolution 表示确定引用目标的过程，不作为与 Graph、Node、Relation 并列的核心对象。
+
+confidence 使用 exact / candidate：前者是已加载范围内的唯一语法绑定或显式结构关系，后者表示
+多个可能声明。它不是概率，也不等同于通过编译器类型检查。不确定、未解析和动态调用均进入构建报告。
+
+## 代码结构
+
+公共类型位于根包，底层依赖限制在内部适配层。
+
+```text
+codegraph/
+├── go.mod
+├── README.md
+├── AGENTS.md
+├── graph.go                   # 公共 Graph 入口与生命周期
+├── node.go                    # Node、NodeKind；File / Symbol 属性
+├── relation.go                # Relation、RelationKind、置信依据
+├── marker.go                  # Marker、MarkerKind 及源码绑定信息
+├── build.go                   # 构图输入、范围、预算与构建报告
+├── build_graph.go             # 从事实构建节点/关系并物化发布批次
+├── query.go                   # 只读 Cypher 查询、参数及图结果
+├── internal/
+│   ├── extract/               # gotreesitter 适配与语言事实提取
+│   │   ├── extract.go
+│   │   └── go.go              # Go 词法绑定与 marker 文档归属
+│   ├── resolve/               # 作用域、import 与引用目标解析
+│   │   └── resolve.go
+│   └── graphstore/            # GoGraph 适配、属性编码、边身份与结果转换
+│       ├── store.go
+│       └── policy.go          # 使用上游 AST 检查路径边界
+├── graph_test.go              # 真实解析/查询的内存源码夹具与契约测试
+├── example_test.go            # 可执行使用示例
+├── Makefile                   # 格式、静态检查、race 测试和编译入口
+└── docs/
+    └── design.md              # 模型、主流程与关键设计依据
+```
+
+根包就是公共 codegraph API，不再嵌套同名包。测试与被测代码放在一起。
+internal 按实际职责组织，不预建多后端框架，也不引入 cmd、server 或独立数据库进程。
+内部包交换语法事实或通用图值，不反向导入根包；由根包完成代码领域实体的组装。
+
+## 构图与查询流程
+
+1. 消费者提供源码快照标识、fs.FS、入口文件、允许扩展的范围及预算。diff 是入口来源之一，
+   不是图必须认识的业务对象，也不是唯一构图方式。
+2. CodeGraph 在范围内按需加载文件，通过 gotreesitter 提取声明、引用、import 和注释事实。
+   适配层在释放语法树之前保留独立的事实与位置。
+3. 构建 File / Symbol 节点及 contains 等已知关系，将 marker 绑定到所属 Symbol。
+4. 结合语言作用域与依赖规则解析引用目标，构建带置信依据的关系，记录未解析和范围受限诊断。
+5. 通过 Go API 将节点与关系写入内嵌 GoGraph，完成当前构建批次，再提供一致的只读查询。
+6. 消费者使用 Cypher 查询关联节点、关系、路径或子图，结合构建覆盖情况形成业务结果。
+
+图可以从空图开始按范围补充文件；重复加入同一快照的同一事实应幂等，不因重复加载制造多重边。
+真实的不同调用位置则必须保留。before / after 使用各自快照的图，避免混合版本事实。
+构建批次串行执行，成功物化后原子发布；查询可继续使用上一批次。新增文件会复用已提取事实并重建
+当前局部图，不承诺底层增量更新性能。调用者负责 fs.FS 的版本一致性及路径访问边界。
+
+## 关键设计
+
+### 复用内嵌图引擎
+
+GoGraph 可直接 import，在同一进程内构造有向多重属性图并执行 Cypher，无须服务器或强制落盘。
+图配置使用 Directed、Multigraph；Weightless 表示不使用算法边权重，不影响 confidence 等属性。
+
+Go API 创建关系使用独立 edge handle，并按 handle 设置类型与属性。按端点对设置属性不能区分
+平行调用边。建图不需要将提取结果拼成 Cypher 写入语句。
+
+选择 GoGraph 的关键依据是内存生命周期及实际验证过的多段、变长路径与逐边属性查询。
+goraphdb 更偏持久化数据库，其当前普通 MATCH 执行与变长路径语义存在限制，不作为本方案底座。
+
+### 保留代码语义，复用 Cypher
+
+公开模型保持 Graph / Node / Relation 的图概念；File / Symbol 映射到节点标签，RelationKind
+映射到关系类型。调用者面对的是稳定的代码图语义，gotreesitter AST 与 GoGraph 内部对象留在适配层。
+
+查询使用参数化 Cypher，不自造查询语言。提供节点、关系和路径的结果投影，而不是只提供若干固定
+的 FindCallers 类封闭查询。公开查询只读，通过图引擎只读执行入口限制写语句。
+
+例如，查询两跳以内、每条边均符合条件的调用路径：
+
+```cypher
+MATCH p = (a:Symbol {id: $symbolID})-[:calls*1..2]->(target:Symbol)
+WHERE all(r IN relationships(p) WHERE r.confidence = 'exact')
+RETURN target, p, [r IN relationships(p) | r.line] AS lines
+```
+
+实体返回值为公共 Node / Relation / Path；路径中的关系保留存储方向，节点顺序表达遍历方向。
+
+GoGraph 属性支持标量、时间、字节和列表，不支持原生嵌套 Map。Marker 的领域结构与可查询属性投影
+分别定义：markers 是种类列表，各种类属性为内容列表，markerData 是携带完整位置的 JSON。
+这些投影由同一写入入口维护，并以内容与位置往返测试约束一致性。
+
+### 构建范围与结果完整性
+
+代码解析能力按语言和关系种类声明，不把语法解析成功等同于引用解析完整。构建报告明确已处理范围、
+未解析引用及预算中断；消费者不能把局部图中的“没有结果”解释为仓库中不存在关联。
+
+构图预算限制扩展范围与规模；查询预算限制执行时间、路径深度、结果规模及内存使用。
+LIMIT 不是遍历工作量的完整边界。预算或取消造成的失败必须可辨识，不能伪装成完整的空结果。
+
+### 消费者各自拥有策略
+
+- CCR 根据 diff 定位入口，再查询声明、调用关系、marker 等证据，决定 review unit 的拆分、
+  context 选择与 token 预算。CodeGraph 不内置 review unit 或评审策略。
+- repocli 决定候选测试范围，补充候选及其相关文件，再通过图查询选择关联测试。
+  测试范围、选择保守性和不确定时的回退由 repocli 决定。
+
+两者共用代码事实与图查询，不要求采用相同构图范围、遍历方向或消费流程。
+
+## 能力与验证边界
+
+图引擎锁定为 GoGraph v0.15.0，源码解析依赖 gotreesitter v0.52.0。
+当前 Go 适配器提取函数、方法、类型及声明注释，解析同包函数及模块内 import 函数调用。
+接收者、回调和闭包体中的调用保留未解析诊断；第三方模块、build tags 和类型检查不在当前能力范围。
+其他语言与 references / extends / implements 自动提取尚未实现，枚举声明不表示具备提取能力。
+
+契约测试覆盖：
+
+- 多段关系、反向调用、平行边独立属性、自递归与有界循环路径。
+- Symbol marker 列表查询、测试入口可达性、整条路径的 confidence 过滤及调用位置返回。
+- Go API 建图接 Cypher 查询、只读拒绝写入、预取消请求及结果行数上限。
+- 跨文件真实语法提取、重复构建幂等、补充文件后重解析、源码快照冲突和预算回滚。
+- marker 内容及位置往返、普通查询结果可独立修改、并发查询与批次发布。
+
+测试不构成 CCR/repocli 迁移已完成的证明。大仓性能、增量重建成本与消费者接入回归仍需验证。
+
+GoGraph 当前模块要求 Go 1.26；消费者接入前需统一工具链并锁定验证过的依赖版本。
+Cypher 支持范围以所锁定版本及契约测试为准，不承诺完整 Neo4j 兼容。
