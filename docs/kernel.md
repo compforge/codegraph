@@ -1,4 +1,4 @@
-# CodeGraph 设计方案
+# CodeGraph 内核设计
 
 状态：已实现进程内图内核与 Go 源码适配，尚未首次发布或接入消费者。
 
@@ -83,7 +83,7 @@ codegraph/
 ├── example_test.go            # 可执行使用示例
 ├── Makefile                   # 格式、静态检查、race 测试和编译入口
 └── docs/
-    └── design.md              # 模型、主流程与关键设计依据
+    └── kernel.md              # 模型、主流程与关键设计依据
 ```
 
 根包就是公共 codegraph API，不再嵌套同名包。测试与被测代码放在一起。
