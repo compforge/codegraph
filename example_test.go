@@ -15,7 +15,7 @@ func ExampleBuild() {
 		fmt.Println(err)
 		return
 	}
-	rows, err := g.Query(context.Background(), `MATCH (a:Symbol)-[:calls]->(b:Symbol {name:$name}) RETURN a.name AS caller`, map[string]any{"name": "Work"})
+	rows, err := g.Query(context.Background(), `MATCH (a:Function)-[:calls]->(b:Function {name:$name}) RETURN a.name AS caller`, map[string]any{"name": "Work"})
 	if err != nil {
 		fmt.Println(err)
 		return

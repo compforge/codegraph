@@ -45,7 +45,7 @@ func query(t *testing.T, g *Graph, q string, params map[string]any) []map[string
 
 func TestSourceGraph(t *testing.T) {
 	g := built(t, Options{})
-	rows := query(t, g, `MATCH (f:File)-[:contains]->(a:Symbol {name:'Entry'})-[r:calls]->(b:Symbol {name:'Work'}) RETURN f,r,b`, nil)
+	rows := query(t, g, `MATCH (f:File)-[:contains]->(a:Function {name:'Entry'})-[r:calls]->(b:Function {name:'Work'}) RETURN f,r,b`, nil)
 	if len(rows) != 2 {
 		t.Fatalf("calls=%v", rows)
 	}
@@ -59,7 +59,7 @@ func TestSourceGraph(t *testing.T) {
 	if rows[0]["f"].(Node).Kind != File || rows[0]["b"].(Node).Name != "Work" {
 		t.Fatal(rows)
 	}
-	properties := query(t, g, `MATCH (:File)-[:contains]->(a:Symbol {name:'Entry'})-[r:calls]->(b:Symbol {name:'Work'}) RETURN r.id AS id, r.confidence AS confidence, properties(r) AS props`, nil)
+	properties := query(t, g, `MATCH (:File)-[:contains]->(a:Function {name:'Entry'})-[r:calls]->(b:Function {name:'Work'}) RETURN r.id AS id, r.confidence AS confidence, properties(r) AS props`, nil)
 	for _, row := range properties {
 		if row["confidence"] != "exact" || row["id"] == nil {
 			t.Fatal(row)
@@ -68,7 +68,7 @@ func TestSourceGraph(t *testing.T) {
 			t.Fatal("relationship property projection lost identity", row)
 		}
 	}
-	paths := query(t, g, `MATCH p=(a:Symbol {name:'Entry'})-[:calls*1..2]->(b:Symbol {name:'End'}) WHERE all(r IN relationships(p) WHERE r.confidence = $confidence) RETURN p, length(p) AS hops`, map[string]any{"confidence": "exact"})
+	paths := query(t, g, `MATCH p=(a:Function {name:'Entry'})-[:calls*1..2]->(b:Function {name:'End'}) WHERE all(r IN relationships(p) WHERE r.confidence = $confidence) RETURN p, length(p) AS hops`, map[string]any{"confidence": "exact"})
 	if len(paths) != 2 {
 		t.Fatal(paths)
 	}
@@ -78,7 +78,7 @@ func TestSourceGraph(t *testing.T) {
 			t.Fatal(row)
 		}
 	}
-	cycles := query(t, g, `MATCH p=(a:Symbol {name:'helper'})-[:calls*1..3]->(a) RETURN p`, nil)
+	cycles := query(t, g, `MATCH p=(a:Function {name:'helper'})-[:calls*1..3]->(a) RETURN p`, nil)
 	if len(cycles) != 1 {
 		t.Fatal(cycles)
 	}
@@ -86,7 +86,7 @@ func TestSourceGraph(t *testing.T) {
 	if len(imports) != 1 || imports[0]["path"] != "lib/work.go" {
 		t.Fatal(imports)
 	}
-	tests := query(t, g, `MATCH (t:Symbol)-[:calls*1..3]->(b:Symbol {name:'End'}) WHERE 'case' IN t.markers RETURN DISTINCT t.name AS name`, nil)
+	tests := query(t, g, `MATCH (t:Function)-[:calls*1..3]->(b:Function {name:'End'}) WHERE 'case' IN t.markers RETURN DISTINCT t.name AS name`, nil)
 	if len(tests) != 2 {
 		t.Fatal(tests)
 	} // Entry itself and TestEntry both have case markers.
@@ -94,7 +94,7 @@ func TestSourceGraph(t *testing.T) {
 
 func TestMarkerRoundTrip(t *testing.T) {
 	g := built(t, Options{})
-	rows := query(t, g, `MATCH (n:Symbol {name:'Entry'}) RETURN n, n.spec AS specs, n.markerData AS data`, nil)
+	rows := query(t, g, `MATCH (n:Function {name:'Entry'}) RETURN n, n.spec AS specs, n.markerData AS data`, nil)
 	n := rows[0]["n"].(Node)
 	if len(n.Markers) != 5 {
 		t.Fatal(n)
@@ -152,7 +152,7 @@ func TestExtendAndSnapshotIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(query(t, fresh, `MATCH (n:Symbol {name:'Changed'}) RETURN n`, nil)) != 1 {
+	if len(query(t, fresh, `MATCH (n:Function {name:'Changed'}) RETURN n`, nil)) != 1 {
 		t.Fatal("new snapshot not built")
 	}
 }
@@ -221,10 +221,10 @@ func TestShadowingAndAmbiguity(t *testing.T) {
 	if r.Complete {
 		t.Fatal(r)
 	}
-	if len(query(t, g, `MATCH (:Symbol {name:'Entry'})-[:calls]->(n) RETURN n`, nil)) != 0 {
+	if len(query(t, g, `MATCH (:Function {name:'Entry'})-[:calls]->(n) RETURN n`, nil)) != 0 {
 		t.Fatal("callback bound to package function")
 	}
-	rows := query(t, g, `MATCH (:Symbol {name:'Invoke'})-[r:calls]->(n) RETURN r.confidence AS confidence`, nil)
+	rows := query(t, g, `MATCH (:Function {name:'Invoke'})-[r:calls]->(n) RETURN r.confidence AS confidence`, nil)
 	if len(rows) != 2 {
 		t.Fatal(rows)
 	}
@@ -237,7 +237,7 @@ func TestShadowingAndAmbiguity(t *testing.T) {
 
 func TestQueryBoundary(t *testing.T) {
 	g := built(t, Options{})
-	for _, q := range []string{`CREATE (:Symbol)`, `MATCH (n) DELETE n`, `MATCH (n) SET n.name='oops'`, `CALL db.labels()`} {
+	for _, q := range []string{`CREATE (:Function)`, `MATCH (n) DELETE n`, `MATCH (n) SET n.name='oops'`, `CALL db.labels()`} {
 		if _, err := g.Query(context.Background(), q, nil); !errors.Is(err, ErrReadOnly) {
 			t.Errorf("%s: %v", q, err)
 		}
@@ -274,7 +274,7 @@ func TestConcurrentReadersAndExtension(t *testing.T) {
 	for range 4 {
 		wg.Go(func() {
 			for range 5 {
-				if _, err := g.Query(context.Background(), `MATCH (n:Symbol) RETURN n`, nil); err != nil {
+				if _, err := g.Query(context.Background(), `MATCH (n:Function) RETURN n`, nil); err != nil {
 					t.Error(err)
 				}
 			}
@@ -347,14 +347,14 @@ func Entry(){ callback:=func(){ Work[int]() }; callback() }
 	if r.Complete {
 		t.Fatal("closure gap hidden")
 	}
-	rows := query(t, g, `MATCH (n:Symbol {qualifiedName:'Box.Run'}) RETURN n`, nil)
+	rows := query(t, g, `MATCH (n:Method {qualifiedName:'Box.Run'}) RETURN n`, nil)
 	if len(rows) != 1 || len(rows[0]["n"].(Node).Markers) != 1 {
 		t.Fatal(rows)
 	}
-	if len(query(t, g, `MATCH (:Symbol {name:'Run'})-[:calls]->(:Symbol {name:'Work'}) RETURN 1`, nil)) != 1 {
+	if len(query(t, g, `MATCH (:Method {name:'Run'})-[:calls]->(:Function {name:'Work'}) RETURN 1`, nil)) != 1 {
 		t.Fatal("generic call unresolved")
 	}
-	if len(query(t, g, `MATCH (:Symbol {name:'Entry'})-[:calls]->(n) RETURN n`, nil)) != 0 {
+	if len(query(t, g, `MATCH (:Function {name:'Entry'})-[:calls]->(n) RETURN n`, nil)) != 0 {
 		t.Fatal("closure body attributed to outer function")
 	}
 }

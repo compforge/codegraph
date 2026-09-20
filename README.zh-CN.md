@@ -4,15 +4,16 @@
 
 面向 Go 程序内嵌使用的代码属性图库，供代码评审、影响分析等工具查询关联文件、符号及关系证据。
 
-CodeGraph 使用 gotreesitter 解析源码，以 GoGraph 承载内存属性图与 Cypher 查询。节点为 File 或
-Symbol，关系包括调用、导入和包含等；Symbol 保存 spec、case、rule、link、doc 等结构化意图标记。
+CodeGraph 使用 gotreesitter 解析源码，以 GoGraph 承载内存属性图与 Cypher 查询。节点使用 File、
+Struct、Interface、Field、Method、Function 等具体类别，关系包括调用、导入和包含等；
+声明节点保存 spec、case、rule、link、doc 等结构化意图标记。
 
 直接依赖 gotreesitter `v0.52.0`、GoGraph `v0.15.0`，要求 Go 1.26 或更高版本。
 无需独立数据库服务，无强制落盘。本仓库尚未首次发布。
 
 ## 能力与边界
 
-- 当前解析 **Go** 的函数、方法、类型声明，构建 contains、imports 和静态包函数 calls。
+- 当前解析 **Go** 的函数、方法、结构体、接口、字段、其他命名类型及类型别名，构建 contains、imports 和静态包函数 calls。
 - 支持跨文件、本模块 import、递归、多调用点、按需扩展和重复添加幂等。
 - 支持参数化只读 Cypher，返回 Node、Relation、Path 或普通 Go 值。
 - spec、case、rule、link、doc 从声明注释中提取，保留内容与源码位置。
@@ -20,6 +21,24 @@ Symbol，关系包括调用、导入和包含等；Symbol 保存 spec、case、r
 
 这不是编译器类型检查器：不评估 build tags，不解析第三方模块，不承诺动态分派完整。
 其他语言以及 references、extends、implements 的自动提取尚未实现；可通过 `Capabilities()` 查看能力。
+
+## 节点类别
+
+`Node.Kind` 同时是节点的 Cypher 标签：`File`、`Struct`、`Interface`、`Field`、`Method`、
+`Function`、`Type` 或 `TypeAlias`。`Type` 表达 `type ID int` 等其他命名类型；`TypeAlias`
+表达 `type Alias = ID` 等显式别名。分类描述声明本身，不推断底层类型。symbol（符号）只是代码声明的
+统称，不是图中的类别或标签。
+
+字段和接口中显式声明的方法均为独立节点，有自己的位置和 marker。可以直接查询成员：
+
+```cypher
+MATCH (s:Struct)-[:contains]->(f:Field)
+RETURN s, f
+```
+
+`contains` 记录词法归属。接收者方法还会从已加载包内的接收者类型建立 `contains` 边，支持跨文件；
+关系的 `basis` 用 `declaration` 与 `receiver_declaration` 区分两种依据。接收者未解析或存在歧义时
+输出诊断。不展开匿名嵌套类型或提升成员。
 
 ## 快速使用
 
@@ -46,7 +65,7 @@ if !report.Complete {
 }
 
 rows, err := g.Query(ctx, `
-    MATCH p=(caller:Symbol)-[:calls*1..3]->(target:Symbol {name:$name})
+    MATCH p=(caller:Function)-[:calls*1..3]->(target:Function {name:$name})
     WHERE all(r IN relationships(p) WHERE r.confidence = 'exact')
     RETURN caller, p`, map[string]any{"name": "Work"})
 if err != nil {
@@ -80,8 +99,8 @@ Marker 绑定到声明的文档注释；结构化 payload 原样保留，不执�
 
 | 对象 | 常用属性 |
 |---|---|
-| Node | id、kind、name、qualifiedName、symbolKind、language、path、line、column、startByte、endByte、snapshot |
-| Symbol marker | markers（种类列表）、spec/case/rule/link/doc（各自内容列表）、markerData（完整结构 JSON） |
+| Node | id、kind、name、qualifiedName、language、path、line、column、startByte、endByte、snapshot |
+| 声明 marker | markers（种类列表）、spec/case/rule/link/doc（各自内容列表）、markerData（完整结构 JSON） |
 | Relation | id、kind、source、target、confidence、basis、path、line、column、startByte、endByte |
 
 confidence 为 `exact` 或 `candidate`，不是概率。`exact` 指已加载范围内的唯一语法绑定，

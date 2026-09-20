@@ -141,12 +141,12 @@ func (g *Graph) Report() BuildReport {
 
 // Capabilities describes implemented extraction/resolution, not grammar availability.
 func Capabilities() []Capability {
-	return []Capability{{Language: "go", Declarations: []string{"function", "method", "type"}, Relations: []RelationKind{Contains, Imports, Calls}, Markers: []MarkerKind{Spec, Case, Rule, Link, Doc}, Limitations: []string{"static package functions only; receiver and callback dispatch remain unresolved", "build tags and compiler type checking are not evaluated", "marker syntax: declaration comments using +kind=payload or +kind:payload"}}}
+	return []Capability{{Language: "go", Declarations: []NodeKind{Function, Method, Struct, Interface, Field, Type, TypeAlias}, Relations: []RelationKind{Contains, Imports, Calls}, Markers: []MarkerKind{Spec, Case, Rule, Link, Doc}, Limitations: []string{"static package functions only; receiver and callback dispatch remain unresolved", "members are extracted only from named struct/interface literals; anonymous nested types and promoted members are not expanded", "build tags and compiler type checking are not evaluated", "marker syntax: declaration comments using +kind=payload or +kind:payload"}}}
 }
 
 type Capability struct {
 	Language     string
-	Declarations []string
+	Declarations []NodeKind
 	Relations    []RelationKind
 	Markers      []MarkerKind
 	Limitations  []string
