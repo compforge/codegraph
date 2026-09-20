@@ -15,6 +15,9 @@ func receiverIndex(files map[string]extract.Facts, names []string) map[receiverK
 	index := map[receiverKey][]Ref{}
 	for _, name := range names {
 		f := files[name]
+		if f.Language != "go" {
+			continue
+		}
 		for i, d := range f.Declarations {
 			if d.Parent != -1 {
 				continue

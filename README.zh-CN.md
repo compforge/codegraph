@@ -2,7 +2,7 @@
 
 [English](README.md) | 简体中文
 
-面向 Go 程序内嵌使用的代码属性图库，供代码评审、影响分析等工具查询关联文件、符号及关系证据。
+用 Go 编写、可内嵌的多语言代码属性图库，供代码评审、影响分析等工具查询关联文件、符号及关系证据。
 
 CodeGraph 使用 gotreesitter 解析源码，以 GoGraph 承载内存属性图与 Cypher 查询。节点使用 File、
 Struct、Interface、Field、Method、Function 等具体类别，关系包括调用、导入和包含等；
@@ -14,18 +14,30 @@ Struct、Interface、Field、Method、Function 等具体类别，关系包括调
 ## 能力与边界
 
 - 当前解析 **Go** 的函数、方法、结构体、接口、字段、其他命名类型及类型别名，构建 contains、imports 和静态包函数 calls。
+- 提取 **Python、JavaScript、TypeScript、TSX** 声明、词法包含、本地源码 import、同文件中未被遮蔽的模块函数调用及声明注释 marker。
+- 其他 gotreesitter 已注册语言使用通用语法/声明适配器；缺少 outline、未知声明类别和未实现的关系解析均输出明确诊断。
 - 支持跨文件、本模块 import、递归、多调用点、按需扩展和重复添加幂等。
 - 支持参数化只读 Cypher，返回 Node、Relation、Path 或普通 Go 值。
 - spec、case、rule、link、doc 从声明注释中提取，保留内容与源码位置。
 - 多个可能目标输出 candidate 关系；无法确定目标、回调、闭包体及接收者调用输出诊断。
 
 这不是编译器类型检查器：不评估 build tags，不解析第三方模块，不承诺动态分派完整。
-其他语言以及 references、extends、implements 的自动提取尚未实现；可通过 `Capabilities()` 查看能力。
+references、extends、implements 的自动提取尚未实现。识别到 grammar 不等于具备完整的语言语义。
+
+`Language(path)` 识别文件语言，`Languages()` 列出注册的 grammar，`Capabilities()` 返回 Go、Python、
+JS、TS、TSX 的适配能力。`Capabilities("rust", "java")` 按需查看其他语言的声明提取能力，
+不会预加载所有 parser；未知语言名不返回能力声明。
+
+Python import 使用仓库相对的模块候选，绝对 import 因运行时搜索路径未知而保留为 `candidate`。
+JS/TS 解析相对源码路径及 index 文件；多个匹配文件保留为候选。不评估包元数据、tsconfig alias、
+Python 包初始化、re-export 的符号绑定、跨文件函数调用和运行时分派。`Complete` 只覆盖这些声明边界内
+的已提取事实，不代表与编译器或运行时等价。
 
 ## 节点类别
 
 `Node.Kind` 同时是节点的 Cypher 标签：`File`、`Struct`、`Interface`、`Field`、`Method`、
-`Function`、`Type` 或 `TypeAlias`。`Type` 表达 `type ID int` 等其他命名类型；`TypeAlias`
+`Function`、`Type`、`TypeAlias`、`Class`、`Variable`、`Enum` 等具体声明类别。各语言实际覆盖见
+`Capabilities(language)`。`Type` 表达 `type ID int` 等其他命名类型；`TypeAlias`
 表达 `type Alias = ID` 等显式别名。分类描述声明本身，不推断底层类型。symbol（符号）只是代码声明的
 统称，不是图中的类别或标签。
 
@@ -84,6 +96,16 @@ for _, row := range rows {
 查询可以继续读取上一批次。before/after 应创建不同的 Graph；同一路径重新加入不同字节会返回
 `ErrSnapshotChanged`。调用者负责保证 `fs.FS` 的不可变性和文件访问边界。
 
+同一 `Build` / `AddFiles` 可接收 `[]string{"server.go", "worker.py", "web/app.ts"}` 等混合语言路径。
+不同语言的同名声明不会互相绑定。`ModulePath` 只控制 Go 模块 import；所有语言共用范围、预算及原子发布规则。
+
+## 语言扩展
+
+语言识别不使用 CodeGraph 固定白名单。构图前可以通过 gotreesitter 的 `grammars.Register` /
+`RegisterExtension` 注册 grammar，通用适配器依据其 tags 和归属规则构建具体类别节点及 contains 关系。
+AST 不穿透图 API；未知声明类别输出诊断，不降为笼统的 `Symbol` 节点。关系解析需要语言专有绑定规则；
+仅支持声明提取的语言始终报告局部覆盖。可运行的[扩展测试](language_extension_test.go)展示了这一边界。
+
 ## Marker 与查询属性
 
 ```go
@@ -95,7 +117,8 @@ for _, row := range rows {
 func Entry() { Work(); Work() }
 ```
 
-Marker 绑定到声明的文档注释；结构化 payload 原样保留，不执行表达式。
+Marker 绑定到 Go 声明文档注释，或 Python、JS/TS 声明前的 `#`、`//`、`/* */` 注释（支持 export 包装）；
+结构化 payload 原样保留，不执行表达式。
 
 | 对象 | 常用属性 |
 |---|---|
@@ -119,5 +142,5 @@ make fmt
 make lint test build
 ```
 
-测试覆盖跨文件调用、别名 import、多重边、marker 往返、路径置信过滤、查询只读/预算、
+测试覆盖多语言声明与绑定、grammar 扩展、跨文件调用和 import、多重边、marker 往返、路径置信过滤、查询只读/预算、
 批次回滚及并发查询。源码结构与设计依据见 [内核设计](docs/kernel.md)。

@@ -65,6 +65,15 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 			return nil, nil, err
 		}
 		f := files[name]
+		if f.Language != "go" {
+			found, gaps, err := resolveModule(ctx, f, files, limit-len(edges))
+			if err != nil {
+				return nil, nil, err
+			}
+			edges = append(edges, found...)
+			issues = append(issues, gaps...)
+			continue
+		}
 		for i, d := range f.Declarations {
 			if d.Receiver == "" {
 				continue
@@ -95,7 +104,7 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 			var targets []string
 			if local {
 				for _, n := range names {
-					if path.Dir(n) == dir && !strings.HasSuffix(n, "_test.go") {
+					if files[n].Language == "go" && path.Dir(n) == dir && !strings.HasSuffix(n, "_test.go") {
 						targets = append(targets, n)
 					}
 				}
@@ -141,7 +150,7 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 				basis = "package_function"
 				candidateFiles = nil
 				for _, n := range names {
-					if path.Dir(n) == path.Dir(name) && files[n].Package == f.Package {
+					if files[n].Language == "go" && path.Dir(n) == path.Dir(name) && files[n].Package == f.Package {
 						if strings.HasSuffix(n, "_test.go") && !strings.HasSuffix(name, "_test.go") {
 							continue
 						}

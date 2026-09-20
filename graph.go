@@ -1,4 +1,4 @@
-// Package codegraph provides an embedded, source-aware property graph for Go programs.
+// Package codegraph provides an embedded, language-neutral code property graph.
 package codegraph
 
 import (
@@ -11,6 +11,7 @@ import (
 
 	"github.com/compforge/codegraph/internal/extract"
 	"github.com/compforge/codegraph/internal/graphstore"
+	"github.com/odvcencio/gotreesitter/grammars"
 )
 
 var (
@@ -140,8 +141,58 @@ func (g *Graph) Report() BuildReport {
 }
 
 // Capabilities describes implemented extraction/resolution, not grammar availability.
-func Capabilities() []Capability {
-	return []Capability{{Language: "go", Declarations: []NodeKind{Function, Method, Struct, Interface, Field, Type, TypeAlias}, Relations: []RelationKind{Contains, Imports, Calls}, Markers: []MarkerKind{Spec, Case, Rule, Link, Doc}, Limitations: []string{"static package functions only; receiver and callback dispatch remain unresolved", "members are extracted only from named struct/interface literals; anonymous nested types and promoted members are not expanded", "build tags and compiler type checking are not evaluated", "marker syntax: declaration comments using +kind=payload or +kind:payload"}}}
+// With no names it returns the language-specific adapters. Pass grammar names
+// from Languages to inspect additional outline support without eagerly loading
+// every registered grammar.
+func Capabilities(languages ...string) []Capability {
+	if len(languages) == 0 {
+		languages = []string{"go", "python", "javascript", "typescript", "tsx"}
+	}
+	var out []Capability
+	for _, name := range languages {
+		entry := grammars.DetectLanguageByName(name)
+		if entry == nil {
+			continue
+		}
+		if entry.Name == "go" {
+			out = append(out, Capability{Language: "go", Declarations: []NodeKind{Function, Method, Struct, Interface, Field, Type, TypeAlias}, Relations: []RelationKind{Contains, Imports, Calls}, Markers: []MarkerKind{Spec, Case, Rule, Link, Doc}, Limitations: []string{"static package functions only; receiver and callback dispatch remain unresolved", "members are extracted only from named struct/interface literals; anonymous nested types and promoted members are not expanded", "build tags and compiler type checking are not evaluated", "marker syntax: declaration comments using +kind=payload or +kind:payload"}})
+			continue
+		}
+		cap := Capability{Language: entry.Name, Relations: []RelationKind{Contains}, Limitations: []string{"outline is limited to grammar tags; runtime omissions are diagnostics"}}
+		for _, kind := range extract.DeclarationKinds(*entry) {
+			cap.Declarations = append(cap.Declarations, NodeKind(kind))
+		}
+		if extract.ModuleLanguage(entry.Name) {
+			cap.Relations = append(cap.Relations, Imports, Calls)
+			cap.Markers = []MarkerKind{Spec, Case, Rule, Link, Doc}
+			cap.Limitations = append(cap.Limitations, "calls resolve only to unshadowed module-level functions in the same file; imported calls and dynamic dispatch remain unresolved", "imports use local source paths only; dependency configuration, exports, runtime paths and third-party modules are not evaluated; Python absolute imports are candidates")
+		} else {
+			cap.Limitations = append(cap.Limitations, "syntax/outline fallback only; reference resolution and markers are not implemented; builds report partial coverage")
+		}
+		out = append(out, cap)
+	}
+	return out
+}
+
+// Languages lists registered grammar names without loading their parsers.
+// Availability is not a guarantee of extraction or semantic completeness.
+func Languages() []string {
+	entries := grammars.AllLanguages()
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		names = append(names, entry.Name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// Language returns the registered grammar name selected for a source path, or
+// an empty string. Recognition does not imply complete semantic coverage.
+func Language(name string) string {
+	if entry := extract.Detect(name); entry != nil {
+		return entry.Name
+	}
+	return ""
 }
 
 type Capability struct {

@@ -2,7 +2,7 @@
 
 English | [简体中文](README.zh-CN.md)
 
-An embeddable code property graph library for Go. Code review and impact analysis tools can use it
+An embeddable, multilingual code property graph library written in Go. Code review and impact analysis tools can use it
 to query related files, symbols, and the evidence behind their relationships.
 
 CodeGraph parses source code with gotreesitter and uses GoGraph for an in-memory property graph
@@ -16,19 +16,32 @@ No separate database service or mandatory disk persistence. The project has not 
 ## Capabilities and limits
 
 - Extracts **Go** functions, methods, structs, interfaces, fields, other named types, and type aliases, with contains, imports, and static package-function calls.
+- Extracts **Python, JavaScript, TypeScript, and TSX** declarations, lexical containment, local source imports, unshadowed same-file module-function calls, and declaration-comment markers.
+- Accepts other gotreesitter-registered languages through a shared syntax/outline adapter. Missing outlines, unsupported declaration categories, and unavailable reference resolution produce explicit diagnostics.
 - Supports cross-file relations, imports within the module, recursion, multiple call sites, on-demand expansion, and idempotent additions.
 - Accepts parameterized, read-only Cypher and returns Node, Relation, Path, or ordinary Go values.
 - Extracts spec, case, rule, link, and doc markers from declaration comments, preserving their contents and source locations.
 - Emits candidate relations for ambiguous targets and diagnostics for unresolved targets, callbacks, calls inside closures, and receiver calls.
 
 This is not a compiler type checker: it does not evaluate build tags, resolve third-party modules,
-or guarantee complete dynamic dispatch analysis. Other languages and automatic extraction of
-references, extends, and implements are not yet supported. Inspect `Capabilities()` for supported features.
+or guarantee complete dynamic dispatch analysis. Automatic extraction of references, extends, and
+implements is not yet supported. A recognized grammar is not a promise of complete language semantics.
+
+Use `Language(path)` for file detection, `Languages()` to list registered grammars, and
+`Capabilities()` for the Go/Python/JS/TS/TSX adapters. `Capabilities("rust", "java")` inspects additional
+outline capabilities on demand; it does not eagerly load every parser. Unknown names return no capability.
+
+Python imports use repository-relative module candidates; absolute imports remain `candidate` because
+runtime search paths are unknown. JS/TS imports resolve relative source paths, including index files;
+multiple matching files remain candidates. Package metadata, tsconfig aliases, Python package initialization,
+re-exports as symbol bindings, imported calls, and runtime dispatch are not evaluated. A `Complete` report
+covers extracted facts within these declared limits, not compiler or runtime equivalence.
 
 ## Node kinds
 
 `Node.Kind` is also the node's Cypher label: `File`, `Struct`, `Interface`, `Field`, `Method`,
-`Function`, `Type`, or `TypeAlias`. `Type` covers other named types such as `type ID int`;
+`Function`, `Type`, `TypeAlias`, `Class`, `Variable`, `Enum`, and other concrete declaration categories.
+Available categories vary by language; consult `Capabilities(language)`. `Type` covers other named types such as `type ID int`;
 `TypeAlias` represents explicit aliases such as `type Alias = ID`. Categories describe declarations,
 not inferred underlying types. “Symbol” is a term for code declarations, not a graph kind or label.
 
@@ -93,6 +106,19 @@ This is a correctness-first batch update, not an incremental graph-engine optimi
 Use separate Graph instances for before/after snapshots. Adding the same path with different bytes
 returns `ErrSnapshotChanged`. The caller is responsible for `fs.FS` immutability and file-access boundaries.
 
+The same `Build`/`AddFiles` entrypoints accept mixed-language paths, such as
+`[]string{"server.go", "worker.py", "web/app.ts"}`. Names in different languages do not bind to one another.
+`ModulePath` controls Go module imports only; all languages share scope, budget, and atomic-publication rules.
+
+## Language extension
+
+Language recognition is not a fixed CodeGraph allowlist. Register additional grammars through
+gotreesitter's `grammars.Register` / `RegisterExtension` before building graphs. The shared adapter uses
+the grammar's tags and ownership rules to create concrete declaration nodes and `contains` relations.
+Syntax trees stay internal. Unknown declaration categories are reported instead of becoming a generic
+`Symbol` node. Reference resolution requires language-specific binding rules; outline-only languages always
+report partial coverage. The executable [extension test](language_extension_test.go) demonstrates this boundary.
+
 ## Markers and query properties
 
 ```go
@@ -104,7 +130,8 @@ returns `ErrSnapshotChanged`. The caller is responsible for `fs.FS` immutability
 func Entry() { Work(); Work() }
 ```
 
-Markers are attached through declaration doc comments. Structured payloads are preserved verbatim;
+Markers are attached through declaration doc comments (Go), or preceding `#` / `//` / `/* */` comments
+(Python and JS/TS, including export wrappers). Structured payloads are preserved verbatim;
 expressions are not evaluated.
 
 | Object | Common properties |
@@ -132,6 +159,6 @@ make fmt
 make lint test build
 ```
 
-Tests cover cross-file calls, aliased imports, parallel edges, marker round trips, path confidence
+Tests cover multilingual outlines and bindings, grammar extensions, cross-file imports/calls, parallel edges, marker round trips, path confidence
 filters, read-only queries and budgets, batch rollback, and concurrent queries.
 See the [kernel design](docs/kernel.md) (in Chinese) for source structure and design rationale.

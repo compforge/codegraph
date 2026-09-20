@@ -184,8 +184,8 @@ func TestExpansionAndScope(t *testing.T) {
 func TestBuildFailuresAndBudget(t *testing.T) {
 	ctx := context.Background()
 	g := built(t, Options{})
-	bad := fstest.MapFS{"bad.go": {Data: []byte("package broken\nfunc (")}, "script.py": {Data: []byte("def hello(): pass")}}
-	r, err := g.AddFiles(ctx, bad, "bad.go", "script.py", "missing.go")
+	bad := fstest.MapFS{"bad.go": {Data: []byte("package broken\nfunc (")}, "script.unknown-codegraph": {Data: []byte("def hello(): pass")}}
+	r, err := g.AddFiles(ctx, bad, "bad.go", "script.unknown-codegraph", "missing.go")
 	if err != nil {
 		t.Fatal(err)
 	}
