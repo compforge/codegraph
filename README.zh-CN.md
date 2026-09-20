@@ -99,6 +99,20 @@ for _, row := range rows {
 同一 `Build` / `AddFiles` 可接收 `[]string{"server.go", "worker.py", "web/app.ts"}` 等混合语言路径。
 不同语言的同名声明不会互相绑定。`ModulePath` 只控制 Go 模块 import；所有语言共用范围、预算及原子发布规则。
 
+消费者可以直接按源码路径和限定名定位声明，不需要重新设计节点 ID：
+
+```go
+entries := graph.Find("src/service.py", codegraph.Function, "Service.run")
+for _, entry := range entries {
+    callers := graph.RelationsTo(entry.ID, codegraph.Calls)
+    _ = callers
+}
+```
+
+`Find` 按源码位置排序；`Node`、`RelationsFrom`、`RelationsTo` 返回脱离内部存储的值。
+节点位置同时提供起止行/列，diff 消费者无需再次解析源码即可把变更范围映射到声明。
+kind 或限定名为空时表示通配。
+
 ## 语言扩展
 
 语言识别不使用 CodeGraph 固定白名单。构图前可以通过 gotreesitter 的 `grammars.Register` /
@@ -122,7 +136,7 @@ Marker 绑定到 Go 声明文档注释，或 Python、JS/TS 声明前的 `#`、`
 
 | 对象 | 常用属性 |
 |---|---|
-| Node | id、kind、name、qualifiedName、language、path、line、column、startByte、endByte、snapshot |
+| Node | id、kind、name、qualifiedName、language、path、line、column、endLine、endColumn、startByte、endByte、snapshot |
 | 声明 marker | markers（种类列表）、spec/case/rule/link/doc（各自内容列表）、markerData（完整结构 JSON） |
 | Relation | id、kind、source、target、confidence、basis、path、line、column、startByte、endByte |
 

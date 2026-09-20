@@ -24,7 +24,11 @@ func identity(parts ...any) string {
 
 func location(f extract.Facts, span extract.Span) Location {
 	line := sort.Search(len(f.LineStarts), func(i int) bool { return f.LineStarts[i] > span.Start })
-	return Location{Path: f.Path, StartByte: span.Start, EndByte: span.End, Line: line, Column: span.Start - f.LineStarts[line-1] + 1}
+	endLine := sort.Search(len(f.LineStarts), func(i int) bool { return f.LineStarts[i] > span.End })
+	if endLine == 0 {
+		endLine = 1
+	}
+	return Location{Path: f.Path, StartByte: span.Start, EndByte: span.End, Line: line, Column: span.Start - f.LineStarts[line-1] + 1, EndLine: endLine, EndColumn: span.End - f.LineStarts[endLine-1] + 1}
 }
 
 func (g *Graph) assemble(ctx context.Context, files map[string]extract.Facts, failures map[string]Diagnostic) (map[string]Node, map[string]Relation, BuildReport, error) {

@@ -43,6 +43,8 @@ type Location struct {
 	EndByte   int    `json:"endByte"`
 	Line      int    `json:"line"`
 	Column    int    `json:"column"`
+	EndLine   int    `json:"endLine"`
+	EndColumn int    `json:"endColumn"`
 }
 
 // Node is a file or declaration in a single source snapshot.
