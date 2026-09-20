@@ -155,7 +155,7 @@ func Capabilities(languages ...string) []Capability {
 			continue
 		}
 		if entry.Name == "go" {
-			out = append(out, Capability{Language: "go", Declarations: []NodeKind{Function, Method, Struct, Interface, Field, Type, TypeAlias}, Relations: []RelationKind{Contains, Imports, Calls}, Markers: []MarkerKind{Spec, Case, Rule, Link, Doc}, Limitations: []string{"static package functions only; receiver and callback dispatch remain unresolved", "members are extracted only from named struct/interface literals; anonymous nested types and promoted members are not expanded", "build tags and compiler type checking are not evaluated", "marker syntax: declaration comments using +kind=payload or +kind:payload"}})
+			out = append(out, Capability{Language: "go", Declarations: []NodeKind{Function, Method, Struct, Interface, Field, Type, TypeAlias, Variable, Constant}, Relations: []RelationKind{Contains, Imports, Calls}, Markers: []MarkerKind{Spec, Case, Rule, Link, Doc}, Limitations: []string{"static package functions only; receiver and callback dispatch remain unresolved", "variables and constants require a single declared name", "members are extracted only from named struct/interface literals; anonymous nested types and promoted members are not expanded", "build tags and compiler type checking are not evaluated", "marker syntax: declaration comments using +kind=payload or +kind:payload"}})
 			continue
 		}
 		cap := Capability{Language: entry.Name, Relations: []RelationKind{Contains}, Limitations: []string{"outline is limited to grammar tags; runtime omissions are diagnostics"}}

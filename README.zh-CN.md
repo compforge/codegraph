@@ -13,7 +13,7 @@ Struct、Interface、Field、Method、Function 等具体类别，关系包括调
 
 ## 能力与边界
 
-- 当前解析 **Go** 的函数、方法、结构体、接口、字段、其他命名类型及类型别名，构建 contains、imports 和静态包函数 calls。
+- 当前解析 **Go** 的函数、方法、结构体、接口、字段、其他命名类型、类型别名及单名称变量和常量，构建 contains、imports 和静态包函数 calls。
 - 提取 **Python、JavaScript、TypeScript、TSX** 声明、词法包含、本地源码 import、同文件中未被遮蔽的模块函数调用及声明注释 marker。
 - 其他 gotreesitter 已注册语言使用通用语法/声明适配器；缺少 outline、未知声明类别和未实现的关系解析均输出明确诊断。
 - 支持跨文件、本模块 import、递归、多调用点、按需扩展和重复添加幂等。

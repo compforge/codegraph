@@ -15,7 +15,7 @@ No separate database service or mandatory disk persistence. The project has not 
 
 ## Capabilities and limits
 
-- Extracts **Go** functions, methods, structs, interfaces, fields, other named types, and type aliases, with contains, imports, and static package-function calls.
+- Extracts **Go** functions, methods, structs, interfaces, fields, other named types, type aliases, and single-name variables and constants, with contains, imports, and static package-function calls.
 - Extracts **Python, JavaScript, TypeScript, and TSX** declarations, lexical containment, local source imports, unshadowed same-file module-function calls, and declaration-comment markers.
 - Accepts other gotreesitter-registered languages through a shared syntax/outline adapter. Missing outlines, unsupported declaration categories, and unavailable reference resolution produce explicit diagnostics.
 - Supports cross-file relations, imports within the module, recursion, multiple call sites, on-demand expansion, and idempotent additions.

@@ -31,6 +31,9 @@ type OtherReader interface { Close() error }
 type ID int
 type Alias = User
 type Literal = struct { Value int }
+// +doc=Default limit
+const Limit = 10
+var Current = Limit
 func Work(){}
 func (u *User) Save(){ Work() }
 `)}}
@@ -43,7 +46,7 @@ func (u *User) Save(){ Work() }
 		"Other": Struct, "Other.X": Field, "Base": Struct,
 		"Reader": Interface, "Reader.Read": Method, "OtherReader": Interface, "OtherReader.Close": Method,
 		"ID": Type, "Alias": TypeAlias, "Literal": TypeAlias, "Literal.Value": Field,
-		"Work": Function, "User.Save": Method,
+		"Limit": Constant, "Current": Variable, "Work": Function, "User.Save": Method,
 	}
 	got := map[string]NodeKind{}
 	for _, n := range g.Nodes() {
@@ -99,9 +102,13 @@ func (u *User) Save(){ Work() }
 	if len(query(t, g, `MATCH (:Struct {name:'User'})-[:contains]->(:Method {name:'Save'})-[:calls]->(:Function {name:'Work'}) RETURN 1`, nil)) != 1 {
 		t.Fatal("method ownership/call path missing")
 	}
-	wantKinds := []NodeKind{Function, Method, Struct, Interface, Field, Type, TypeAlias}
+	wantKinds := []NodeKind{Function, Method, Struct, Interface, Field, Type, TypeAlias, Variable, Constant}
 	if !reflect.DeepEqual(Capabilities()[0].Declarations, wantKinds) {
 		t.Fatal(Capabilities())
+	}
+	constants := query(t, g, `MATCH (n:Constant {name:'Limit'}) RETURN n`, nil)
+	if len(constants) != 1 || len(constants[0]["n"].(Node).Markers) != 1 || constants[0]["n"].(Node).Markers[0].Kind != Doc {
+		t.Fatal("constant marker lost", constants)
 	}
 }
 
