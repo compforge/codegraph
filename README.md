@@ -69,7 +69,7 @@ for _, row := range rows {
 // +spec=`调用必须保留源位置`
 // +case:id=parallel,expect=`保留两个调用点`
 // +rule=`不能按端点合并关系`
-// +link=docs/design.md
+// +link=docs/kernel.md
 // +doc=`入口函数`
 func Entry() { Work(); Work() }
 ```
@@ -99,4 +99,4 @@ make lint test build
 ```
 
 测试覆盖跨文件调用、别名 import、多重边、marker 往返、路径置信过滤、查询只读/预算、
-批次回滚及并发查询。源码结构与设计依据见 [设计方案](docs/design.md)。
+批次回滚及并发查询。源码结构与设计依据见 [内核设计](docs/kernel.md)。
