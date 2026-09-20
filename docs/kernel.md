@@ -1,6 +1,6 @@
 # CodeGraph 内核设计
 
-状态：已实现进程内图内核与 Go 源码适配，尚未首次发布或接入消费者。
+状态：已实现进程内图内核、多语言源码适配与通用声明提取，尚未首次发布或接入消费者。
 
 ## 定位与概念
 
@@ -49,7 +49,8 @@ Relation 的 confidence、判定依据和来源位置是关系属性。能够提
 Resolution 表示确定引用目标的过程，不作为与 Graph、Node、Relation 并列的核心对象。
 
 confidence 使用 exact / candidate：前者是已加载范围内的唯一语法绑定或显式结构关系，后者表示
-多个可能声明。它不是概率，也不等同于通过编译器类型检查。不确定、未解析和动态调用均进入构建报告。
+可能目标（目标可能只有一个，但仍缺少运行时路径等证据）。它不是概率，也不等同于通过编译器类型检查。
+不确定、未解析和动态调用均进入构建报告。
 
 ## 代码结构
 
@@ -70,10 +71,14 @@ codegraph/
 ├── internal/
 │   ├── extract/               # gotreesitter 适配与语言事实提取
 │   │   ├── extract.go
+│   │   ├── languages.go       # grammar 识别与声明类别映射
+│   │   ├── outline.go         # 通用 outline、Python/JS/TS 事实与 marker
+│   │   ├── bindings.go        # 局部调用的遮蔽检查
 │   │   ├── go.go              # Go 词法绑定与 marker 文档归属
 │   │   └── go_declarations.go # Go 声明分类、成员与词法归属
 │   ├── resolve/               # 作用域、import 与引用目标解析
 │   │   ├── resolve.go
+│   │   ├── modules.go         # 源码模块路径候选及本地调用
 │   │   └── receiver.go        # 包级接收者类型索引
 │   └── graphstore/            # GoGraph 适配、属性编码、边身份与结果转换
 │       ├── store.go
@@ -149,6 +154,21 @@ GoGraph 属性支持标量、时间、字节和列表，不支持原生嵌套 Ma
 构图预算限制扩展范围与规模；查询预算限制执行时间、路径深度、结果规模及内存使用。
 LIMIT 不是遍历工作量的完整边界。预算或取消造成的失败必须可辨识，不能伪装成完整的空结果。
 
+### 语言能力与共同内核
+
+Graph、Node、Relation、快照、预算和 Cypher 不依赖具体语言。文件识别复用 gotreesitter registry，
+通用适配器将 outline 转为具体类别和词法 contains；没有固定的语言白名单。新 grammar 可使用上游
+注册机制接入，AST 在事实提取后释放，不进入公开模型。未知声明类别保持诊断，不引入 Symbol 兜底分类。
+
+语法可用性、声明提取和引用解析是不同层次。Languages 只枚举注册项；Capabilities 按语言声明类别、
+关系及限制。只具备 outline 的语言报告 unsupported_resolution，保留有用声明但不伪装完整图。
+Go 使用包和接收者规则；Python 与 JS/TS 使用模块路径候选及局部绑定规则。规则不能凭同名跨语言绑定。
+
+模块 import 扩展与关系解析共享路径候选函数，受同一范围及预算限制，不扫描全仓或安装依赖。
+相对路径有多个匹配时保留候选；Python 绝对 import 缺少运行时搜索路径证据，即使只有一个本地目标，
+仍不提升为 exact。函数调用只解析未遮蔽的同文件模块级函数；导入调用和动态分派保持未解析。
+语言专有路径配置、包初始化及导出绑定不由通用同名搜索替代。
+
 ### 消费者各自拥有策略
 
 - CCR 根据 diff 定位入口，再查询声明、调用关系、marker 等证据，决定 review unit 的拆分、
@@ -165,7 +185,9 @@ LIMIT 不是遍历工作量的完整边界。预算或取消造成的失败必�
 及模块内 import 函数调用。只提取命名 struct/interface 字面量的直接成员，不展开匿名嵌套类型、接口
 嵌入产生的继承方法或提升成员。Capabilities 的 Declarations 使用公共 NodeKind 声明实际提取种类。
 接收者、回调和闭包体中的调用保留未解析诊断；第三方模块、build tags 和类型检查不在当前能力范围。
-其他语言与 references / extends / implements 自动提取尚未实现，枚举声明不表示具备提取能力。
+Python、JavaScript、TypeScript、TSX 提取 outline 声明、局部函数调用、源码 import 和前置注释 marker。
+其他注册语言使用通用 outline 并报告引用解析未覆盖；Java、Rust、C/C++、Ruby 有真实源码声明契约测试。
+references / extends / implements 自动提取尚未实现，枚举声明不表示具备提取能力。
 
 契约测试覆盖：
 
@@ -175,6 +197,7 @@ LIMIT 不是遍历工作量的完整边界。预算或取消造成的失败必�
 - Go API 建图接 Cypher 查询、只读拒绝写入、预取消请求及结果行数上限。
 - 跨文件真实语法提取、重复构建幂等、补充文件后重解析、源码快照冲突和预算回滚。
 - marker 内容及位置往返、普通查询结果可独立修改、并发查询与批次发布。
+- 混合语言隔离、第三方 grammar 注册、模块候选、局部遮蔽、缺失能力诊断与多语言预算回滚。
 
 测试不构成 CCR/repocli 迁移已完成的证明。大仓性能、增量重建成本与消费者接入回归仍需验证。
 

@@ -101,27 +101,34 @@ func comments(group *ast.CommentGroup, fset *token.FileSet) []Comment {
 	var out []Comment
 	for _, c := range group.List {
 		base := fset.Position(c.Pos()).Offset
-		for _, line := range strings.SplitAfter(c.Text, "\n") {
-			text := strings.TrimSpace(line)
-			text = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(text, "//"), "/*"), "*/"))
-			text = strings.TrimSpace(strings.TrimPrefix(text, "*"))
-			if strings.HasPrefix(text, "+") {
-				kind, payload, ok := strings.Cut(text[1:], "=")
-				if head, tail, found := strings.Cut(text[1:], ":"); found && (!ok || len(head) < len(kind)) {
-					kind, payload, ok = head, tail, true
+		out = append(out, parseMarkers(c.Text, base)...)
+	}
+	return out
+}
+
+func parseMarkers(raw string, base int) []Comment {
+	var out []Comment
+	for _, line := range strings.SplitAfter(raw, "\n") {
+		text := strings.TrimSpace(line)
+		text = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(text, "//"), "/*"), "*/"))
+		text = strings.TrimSpace(strings.TrimPrefix(text, "#"))
+		text = strings.TrimSpace(strings.TrimPrefix(text, "*"))
+		if strings.HasPrefix(text, "+") {
+			kind, payload, ok := strings.Cut(text[1:], "=")
+			if head, tail, found := strings.Cut(text[1:], ":"); found && (!ok || len(head) < len(kind)) {
+				kind, payload, ok = head, tail, true
+			}
+			if ok && validMarker(kind) {
+				payload = strings.TrimSpace(payload)
+				if len(payload) >= 2 && payload[0] == '`' && payload[len(payload)-1] == '`' {
+					payload = payload[1 : len(payload)-1]
 				}
-				if ok && validMarker(kind) {
-					payload = strings.TrimSpace(payload)
-					if len(payload) >= 2 && payload[0] == '`' && payload[len(payload)-1] == '`' {
-						payload = payload[1 : len(payload)-1]
-					}
-					if payload != "" {
-						out = append(out, Comment{Kind: kind, Text: payload, Span: Span{base, base + len(strings.TrimSuffix(line, "\n"))}})
-					}
+				if payload != "" {
+					out = append(out, Comment{Kind: kind, Text: payload, Span: Span{base, base + len(strings.TrimSuffix(line, "\n"))}})
 				}
 			}
-			base += len(line)
 		}
+		base += len(line)
 	}
 	return out
 }

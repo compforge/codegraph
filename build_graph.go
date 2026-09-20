@@ -44,6 +44,9 @@ func (g *Graph) assemble(ctx context.Context, files map[string]extract.Facts, fa
 			return nil, nil, report, err
 		}
 		f := files[p]
+		for _, issue := range f.Issues {
+			report.Diagnostics = append(report.Diagnostics, Diagnostic{Code: issue.Code, Message: issue.Message, Location: location(f, issue.Span)})
+		}
 		if len(nodes)+1+len(f.Declarations) > g.opts.MaxNodes || len(relations)+len(f.Declarations) > g.opts.MaxRelations {
 			return nil, nil, report, fmt.Errorf("%w: declaration graph size", ErrBuildBudget)
 		}

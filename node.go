@@ -1,6 +1,10 @@
 package codegraph
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/compforge/codegraph/internal/extract"
+)
 
 // NodeKind is the concrete code category used both by Node.Kind and Cypher labels.
 // +spec=`Each node has exactly its concrete kind as a graph label; symbol is terminology, not a graph category`
@@ -15,8 +19,20 @@ const (
 	Function  NodeKind = "Function"
 	// Type represents a named type whose declaration is not a struct or interface
 	// literal (for example, type ID int); it does not infer an underlying type.
-	Type      NodeKind = "Type"
-	TypeAlias NodeKind = "TypeAlias"
+	Type        NodeKind = "Type"
+	TypeAlias   NodeKind = "TypeAlias"
+	Class       NodeKind = "Class"
+	Constructor NodeKind = "Constructor"
+	Variable    NodeKind = "Variable"
+	Constant    NodeKind = "Constant"
+	Module      NodeKind = "Module"
+	Enum        NodeKind = "Enum"
+	Record      NodeKind = "Record"
+	Namespace   NodeKind = "Namespace"
+	Property    NodeKind = "Property"
+	Trait       NodeKind = "Trait"
+	Macro       NodeKind = "Macro"
+	Union       NodeKind = "Union"
 )
 
 // Location uses zero-based byte offsets (end exclusive) and one-based lines/columns.
@@ -46,22 +62,8 @@ func cloneNode(n Node) Node {
 }
 
 func declarationKind(kind string) (NodeKind, error) {
-	switch kind {
-	case "struct":
-		return Struct, nil
-	case "interface":
-		return Interface, nil
-	case "field":
-		return Field, nil
-	case "method":
-		return Method, nil
-	case "function":
-		return Function, nil
-	case "type":
-		return Type, nil
-	case "type_alias":
-		return TypeAlias, nil
-	default:
-		return "", fmt.Errorf("unsupported declaration kind %q", kind)
+	if concrete := extract.ConcreteKind(kind); concrete != "" {
+		return NodeKind(concrete), nil
 	}
+	return "", fmt.Errorf("unsupported declaration kind %q", kind)
 }

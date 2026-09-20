@@ -7,7 +7,6 @@ import (
 	"time"
 
 	gts "github.com/odvcencio/gotreesitter"
-	"github.com/odvcencio/gotreesitter/grammars"
 )
 
 type Span struct{ Start, End int }
@@ -26,6 +25,8 @@ type Comment struct {
 }
 type Import struct {
 	Alias, Path string
+	From        string
+	Relative    int
 	Span
 }
 type Call struct {
@@ -42,13 +43,19 @@ type Facts struct {
 	Declarations            []Declaration
 	Imports                 []Import
 	Calls                   []Call
+	Issues                  []Issue
 }
 
-// Go uses FactProgram for definitions/calls and go/ast for declaration categories,
-// members, lexical binding and documentation ownership. Other grammars are not
-// advertised as resolved.
+type Issue struct {
+	Code, Message string
+	Span
+}
+
+// Analyze releases the syntax tree before returning detached facts. Language
+// detection is registry-driven; language-specific binding rules never leak into
+// the graph model or the batch publication path.
 func Analyze(ctx context.Context, name string, source []byte, timeout time.Duration) (Facts, error) {
-	f := Facts{Path: name, Language: "go", Source: source}
+	f := Facts{Path: name, Source: source}
 	f.LineStarts = []int{0}
 	for i, b := range source {
 		if b == '\n' {
@@ -58,8 +65,18 @@ func Analyze(ctx context.Context, name string, source []byte, timeout time.Durat
 	if err := ctx.Err(); err != nil {
 		return f, err
 	}
-	entry := grammars.DetectLanguageByName("go")
+	entry := Detect(name)
+	if entry == nil {
+		return f, fmt.Errorf("no grammar for %s", name)
+	}
+	f.Language = entry.Name
+	if entry.Language == nil {
+		return f, fmt.Errorf("grammar %s has no loader", entry.Name)
+	}
 	lang := entry.Language()
+	if lang == nil {
+		return f, fmt.Errorf("grammar %s is unavailable", entry.Name)
+	}
 	p := gts.NewParser(lang)
 	if deadline, ok := ctx.Deadline(); ok {
 		timeout = min(timeout, time.Until(deadline))
@@ -83,6 +100,9 @@ func Analyze(ctx context.Context, name string, source []byte, timeout time.Durat
 	}
 	if tree == nil || tree.RootNode() == nil || tree.RootNode().HasErrorOrMissing() {
 		return f, fmt.Errorf("parse %s: incomplete syntax tree", name)
+	}
+	if f.Language != "go" {
+		return analyzeOutline(ctx, f, tree, *entry)
 	}
 	program, err := gts.NewFactProgram(lang, gts.FactDefinitions|gts.FactCalls|gts.FactImports)
 	if err != nil {

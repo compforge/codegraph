@@ -106,8 +106,8 @@ func (g *Graph) AddFiles(ctx context.Context, source fs.FS, files ...string) (Bu
 		if item.depth > g.opts.MaxDepth {
 			return g.Report(), fmt.Errorf("%w: import expansion depth reached at %s", ErrBuildBudget, item.file)
 		}
-		if path.Ext(item.file) != ".go" {
-			issue("unsupported_language", "only Go extraction is implemented")
+		if extract.Detect(item.file) == nil {
+			issue("unsupported_language", "no registered grammar for file")
 			continue
 		}
 		old, exists := staged[item.file]
@@ -155,6 +155,20 @@ func (g *Graph) AddFiles(ctx context.Context, source fs.FS, files ...string) (Bu
 			continue
 		}
 		f := staged[item.file]
+		if f.Language != "go" {
+			for _, imp := range f.Imports {
+				for _, candidate := range resolve.ImportPaths(f, imp) {
+					if !g.allowed(candidate) {
+						continue
+					}
+					info, err := fs.Stat(source, candidate)
+					if err == nil && !info.IsDir() {
+						queue = append(queue, entry{candidate, item.depth + 1})
+					}
+				}
+			}
+			continue
+		}
 		dirs := []entry{{path.Dir(item.file), item.depth}}
 		for _, i := range f.Imports {
 			if dir, ok := resolve.ImportDir(g.opts.ModulePath, i.Path); ok && fs.ValidPath(dir) {
