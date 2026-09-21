@@ -27,6 +27,8 @@ type Document struct {
 // produce partial coverage; budget, identity, and cancellation errors roll back.
 // References resolve against this batch and previously loaded documents.
 // Dependencies are never fetched implicitly; callers supply them explicitly.
+// Extraction within a batch is bounded by Options.BuildConcurrency. Separate
+// batches on the same Graph remain serialized; readers see only published state.
 func (g *Graph) AddDocuments(ctx context.Context, documents ...Document) (BuildReport, error) {
 	if err := ctx.Err(); err != nil {
 		return g.Report(), err

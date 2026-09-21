@@ -14,6 +14,7 @@ graph.go、node.go、relation.go、marker.go  # 公共图模型与能力声明
 access.go                                # 按源码路径、限定名和关系方向消费图事实
 document.go                              # Document 源码材料与显式批次输入
 build.go、build_graph.go                 # 范围构建、诊断及原子发布
+build_extract.go                         # 有界并行提取、容量预留及确定性汇总
 query.go                                # 只读查询及领域结果还原
 internal/
   extract/                              # grammar 识别、通用声明与各语言词法/marker 事实

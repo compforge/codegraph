@@ -199,6 +199,7 @@ Source byte ranges are half-open; line numbers and byte columns are 1-based.
 Other Cypher-specific value types return an error.
 
 - Queries cannot write or invoke procedures; variable-length paths require an explicit upper bound.
+- `Options.BuildConcurrency` bounds parallel document extraction per graph: `0` uses `min(GOMAXPROCS, 4)`, `1` is serial, and positive values set the worker limit. Negative values are rejected. Separate batches remain serialized; nodes and relations are assembled and published atomically after extraction. When building multiple graphs concurrently, callers should budget their combined worker count.
 - Options provide finite default budgets for file count, source size, node/edge count, parsing/query timeouts, path depth, and result size.
 - Query errors return no partial rows. File-read or parse failures publish a partial graph with diagnostics; budget failures, snapshot conflicts, and cancellation roll back the entire batch.
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"runtime"
 	"sort"
 	"sync"
 	"time"
@@ -25,6 +26,9 @@ var (
 // Scope contains snapshot-relative, slash-separated document paths or directory prefixes.
 // Empty Scope allows any relative path; documents are only analyzed when supplied.
 type Options struct {
+	// BuildConcurrency bounds parallel document extraction within a batch.
+	// Zero selects min(GOMAXPROCS, 4); one extracts serially.
+	BuildConcurrency                 int
 	ModulePath                       string
 	Scope                            []string
 	MaxFiles, MaxNodes, MaxRelations int
@@ -67,7 +71,7 @@ func defaults(o *Options) error {
 	for _, pair := range []struct {
 		v   *int
 		def int
-	}{{&o.MaxFiles, 256}, {&o.MaxNodes, 50000}, {&o.MaxRelations, 100000}, {&o.MaxQueryHops, 8}, {&o.MaxResultRows, 1000}} {
+	}{{&o.BuildConcurrency, min(runtime.GOMAXPROCS(0), 4)}, {&o.MaxFiles, 256}, {&o.MaxNodes, 50000}, {&o.MaxRelations, 100000}, {&o.MaxQueryHops, 8}, {&o.MaxResultRows, 1000}} {
 		if *pair.v < 0 {
 			return errors.New("limits must not be negative")
 		}

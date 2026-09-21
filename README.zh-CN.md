@@ -179,6 +179,10 @@ confidence 为 `exact` 或 `candidate`，不是概率。`exact` 指已加载范�
 
 `Query` 支持实体、路径、字符串、int64、float64、bool、null、列表和 map 的结果转换。
 其他 Cypher 专有值类型会返回错误。查询禁写、禁 procedure，变长路径必须有明确上界；
+`Options.BuildConcurrency` 控制每张图批内的 Document 提取并发度：`0` 为 `min(GOMAXPROCS, 4)`，
+`1` 串行，正整数指定 worker 上限，负数无效。同一图的多个批次仍串行，提取完成后统一组装节点、
+解析关系并原子发布。调用方同时构建多张图时，应控制合计 worker 数量。
+
 Options 为文件数、源码体积、节点/边数量、解析/查询超时、路径深度和结果体积提供有限默认预算。
 错误时不返回部分查询行。读文件/解析失败会发布带诊断的局部图；预算、快照冲突和取消则回滚整个批次。
 
