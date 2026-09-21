@@ -1,0 +1,115 @@
+package codegraph
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"sync"
+
+	"github.com/compforge/codegraph/internal/extract"
+)
+
+// stageDocuments reserves capacity for each extraction window before starting
+// workers. Failed parses release their reservations before the next window, so
+// parallelism does not change which documents fit the existing source budget.
+// +spec=`Workers own independent extraction results and never mutate graph maps`
+func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged map[string]extract.Facts, failures map[string]Diagnostic, total int64) error {
+	for next := 0; next < len(documents); {
+		batch := make([]Document, 0, min(g.opts.BuildConcurrency, len(documents)-next))
+		var reserved int64
+		for next < len(documents) && len(batch) < g.opts.BuildConcurrency {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			document := documents[next]
+			name, data := document.Path, document.Content
+			issue := func(code, message string) {
+				failures[name] = Diagnostic{Code: code, Message: message, Location: Location{Path: name}}
+			}
+			if !g.allowed(name) {
+				issue("out_of_scope", "file is outside allowed scope")
+				next++
+				continue
+			}
+			if extract.Detect(name) == nil {
+				issue("unsupported_language", "no registered grammar for file")
+				next++
+				continue
+			}
+			if int64(len(data)) > g.opts.MaxFileBytes {
+				return fmt.Errorf("%w: file %s exceeds byte limit", ErrBuildBudget, name)
+			}
+			if old, exists := staged[name]; exists {
+				if !bytes.Equal(data, old.Source) {
+					return fmt.Errorf("%w: %s", ErrSnapshotChanged, name)
+				}
+				delete(failures, name)
+				next++
+				continue
+			}
+			var budgetErr error
+			if len(staged)+len(batch) >= g.opts.MaxFiles {
+				budgetErr = fmt.Errorf("%w: file limit %d", ErrBuildBudget, g.opts.MaxFiles)
+			} else if int64(len(data)) > g.opts.MaxSourceBytes-total-reserved {
+				budgetErr = fmt.Errorf("%w: source byte limit", ErrBuildBudget)
+			}
+			if budgetErr != nil {
+				if len(batch) == 0 {
+					return budgetErr
+				}
+				// Pending parses may fail and free capacity. Finish them before
+				// deciding whether this document exceeds the batch's budget.
+				break
+			}
+			batch = append(batch, document)
+			reserved += int64(len(data))
+			next++
+		}
+		results := g.extractBatch(ctx, batch)
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		// Merge in input order, independent of worker completion order. Assembly
+		// and cross-document resolution only begin after all windows finish.
+		for i, result := range results {
+			name := batch[i].Path
+			if result.err != nil {
+				failures[name] = Diagnostic{Code: "parse_error", Message: result.err.Error(), Location: Location{Path: name}}
+				continue
+			}
+			staged[name] = result.facts
+			total += int64(len(result.facts.Source))
+			delete(failures, name)
+		}
+	}
+	return ctx.Err()
+}
+
+type extractionResult struct {
+	facts extract.Facts
+	err   error
+}
+
+func (g *Graph) extractBatch(ctx context.Context, documents []Document) []extractionResult {
+	results := make([]extractionResult, len(documents))
+	run := func(i int) {
+		if err := ctx.Err(); err != nil {
+			results[i].err = err
+			return
+		}
+		document := documents[i]
+		results[i].facts, results[i].err = extract.Analyze(ctx, document.Path, bytes.Clone(document.Content), g.opts.ParseTimeout)
+	}
+	if len(documents) == 1 {
+		run(0)
+		return results
+	}
+	var workers sync.WaitGroup
+	for i := range documents {
+		workers.Go(func() { run(i) })
+	}
+	// Parsers have individual timeouts. Join workers even on cancellation so no
+	// parser, AST or source copy outlives the AddDocuments call.
+	workers.Wait()
+	return results
+}
