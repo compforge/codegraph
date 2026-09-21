@@ -12,6 +12,9 @@ import (
 // stageDocuments reserves capacity for each extraction window before starting
 // workers. Failed parses release their reservations before the next window, so
 // parallelism does not change which documents fit the existing source budget.
+// Documents without a registered grammar are staged as file-level facts without
+// parsing; the file still enters the graph and the coverage gap stays visible
+// as an unsupported_language issue on that file.
 // +spec=`Workers own independent extraction results and never mutate graph maps`
 func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged map[string]extract.Facts, failures map[string]Diagnostic, total int64) error {
 	for next := 0; next < len(documents); {
@@ -28,11 +31,6 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 			}
 			if !g.allowed(name) {
 				issue("out_of_scope", "file is outside allowed scope")
-				next++
-				continue
-			}
-			if extract.Detect(name) == nil {
-				issue("unsupported_language", "no registered grammar for file")
 				next++
 				continue
 			}
@@ -60,6 +58,14 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 				// Pending parses may fail and free capacity. Finish them before
 				// deciding whether this document exceeds the batch's budget.
 				break
+			}
+			if extract.Detect(name) == nil {
+				facts := extract.FileOnly(name, bytes.Clone(data))
+				facts.Issues = append(facts.Issues, extract.Issue{Code: "unsupported_language", Message: "no registered grammar for file"})
+				staged[name] = facts
+				total += int64(len(data))
+				next++
+				continue
 			}
 			batch = append(batch, document)
 			reserved += int64(len(data))

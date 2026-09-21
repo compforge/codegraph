@@ -23,8 +23,10 @@ type Document struct {
 // Scope and all size/parse budgets apply to every explicit batch. Re-adding a
 // loaded path with different content returns ErrSnapshotChanged.
 // Identical paths and content within a batch are deduplicated; conflicting
-// content returns ErrSnapshotChanged. Unsupported or unparseable documents
-// produce partial coverage; budget, identity, and cancellation errors roll back.
+// content returns ErrSnapshotChanged. Documents without a registered grammar
+// still enter the graph as file-level nodes without parsing; unparseable
+// documents produce partial coverage; budget, identity, and cancellation
+// errors roll back.
 // References resolve against this batch and previously loaded documents.
 // Dependencies are never fetched implicitly; callers supply them explicitly.
 // Extraction within a batch is bounded by Options.BuildConcurrency. Separate
