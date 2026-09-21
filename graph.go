@@ -42,16 +42,18 @@ type Options struct {
 // Queries observe either the old or the new batch; they cannot mutate the graph.
 // +spec=`A failed or cancelled build must not publish a partially written graph`
 type Graph struct {
-	mu        sync.RWMutex
-	buildMu   sync.Mutex
-	snapshot  string
-	opts      Options
-	files     map[string]extract.Facts
-	failures  map[string]Diagnostic
-	nodes     map[string]Node
-	relations map[string]Relation
-	store     *graphstore.Store
-	report    BuildReport
+	mu          sync.RWMutex
+	buildMu     sync.Mutex
+	snapshot    string
+	opts        Options
+	files       map[string]extract.Facts
+	failures    map[string]Diagnostic
+	nodes       map[string]Node
+	relations   map[string]Relation
+	store       *graphstore.Store
+	report      BuildReport
+	factCacheMu sync.Mutex
+	factCache   map[string]factCacheEntry
 }
 
 func New(snapshot string, opts Options) (*Graph, error) {
@@ -61,7 +63,7 @@ func New(snapshot string, opts Options) (*Graph, error) {
 	if err := defaults(&opts); err != nil {
 		return nil, err
 	}
-	g := &Graph{snapshot: snapshot, opts: opts, files: map[string]extract.Facts{}, failures: map[string]Diagnostic{}, nodes: map[string]Node{}, relations: map[string]Relation{}}
+	g := &Graph{snapshot: snapshot, opts: opts, files: map[string]extract.Facts{}, failures: map[string]Diagnostic{}, nodes: map[string]Node{}, relations: map[string]Relation{}, factCache: map[string]factCacheEntry{}}
 	g.store = graphstore.New(g.limits())
 	g.report = BuildReport{Snapshot: snapshot, Complete: true, Files: []string{}}
 	return g, nil
