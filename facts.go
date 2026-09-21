@@ -23,6 +23,27 @@ type Facts struct {
 	// Exports maps a public alias to its local name for explicit export
 	// aliases. Consumers own any module-resolution use of it.
 	Exports map[string]string
+	// Statements preserve execution order and scope with a bounded expression
+	// vocabulary, for consumer-side interpretation; the graph model never
+	// depends on statement-level facts. Captured for Python sources today,
+	// empty for languages where statement capture is not implemented.
+	Statements []Statement
+}
+
+// Statement preserves execution order and scope without evaluating code.
+// Kind values are grammar node types of the capturing language.
+type Statement struct {
+	Kind, Name    string
+	Line          int // One-based source line.
+	Imports       []FactImport
+	Target, Value Expression
+	Prelude       []Expression
+	Body, Else    []Statement
+}
+
+type Expression struct {
+	Kind, Text string
+	Children   []Expression
 }
 
 type FactDeclaration struct {
@@ -35,6 +56,8 @@ type FactDeclaration struct {
 type FactImport struct {
 	Alias, Path, From string
 	Relative          int
+	// Binding is the name the import introduces in this lexical scope.
+	Binding string
 	// Names are the imported names before caller aliases; empty means the
 	// whole module is imported.
 	Names    []string
@@ -126,8 +149,15 @@ func projectFacts(f extract.Facts) (Facts, error) {
 		}
 		out.Declarations = append(out.Declarations, decl)
 	}
-	for _, i := range f.Imports {
-		out.Imports = append(out.Imports, FactImport{Alias: i.Alias, Path: i.Path, From: i.From, Relative: i.Relative, Names: append([]string(nil), i.Names...), Location: location(f, i.Span)})
+	imports := make([]FactImport, 0, len(f.Imports))
+	byStart := map[int][]int{}
+	for j, i := range f.Imports {
+		byStart[i.Span.Start] = append(byStart[i.Span.Start], j)
+		imports = append(imports, FactImport{Alias: i.Alias, Path: i.Path, From: i.From, Relative: i.Relative, Binding: i.Binding, Names: append([]string(nil), i.Names...), Location: location(f, i.Span)})
+	}
+	out.Imports = imports
+	for _, s := range f.Python {
+		out.Statements = append(out.Statements, projectStatement(s, imports, byStart))
 	}
 	for public, local := range f.Exports {
 		if out.Exports == nil {
@@ -142,4 +172,37 @@ func projectFacts(f extract.Facts) (Facts, error) {
 		out.Issues = append(out.Issues, Diagnostic{Code: issue.Code, Message: issue.Message, Location: location(f, issue.Span)})
 	}
 	return out, nil
+}
+
+func projectExpression(e extract.PythonExpression) Expression {
+	out := Expression{Kind: e.Kind, Text: e.Text}
+	for _, child := range e.Children {
+		out.Children = append(out.Children, projectExpression(child))
+	}
+	return out
+}
+
+func projectStatement(s extract.PythonStatement, imports []FactImport, byStart map[int][]int) Statement {
+	out := Statement{Kind: s.Kind, Name: s.Name, Line: s.Line, Target: projectExpression(s.Target), Value: projectExpression(s.Value)}
+	// One statement can hold several imports sharing its start offset; attach
+	// each projected import once.
+	seen := map[int]bool{}
+	for _, i := range s.Imports {
+		for _, j := range byStart[i.Span.Start] {
+			if !seen[j] {
+				seen[j] = true
+				out.Imports = append(out.Imports, imports[j])
+			}
+		}
+	}
+	for _, p := range s.Prelude {
+		out.Prelude = append(out.Prelude, projectExpression(p))
+	}
+	for _, b := range s.Body {
+		out.Body = append(out.Body, projectStatement(b, imports, byStart))
+	}
+	for _, e := range s.Else {
+		out.Else = append(out.Else, projectStatement(e, imports, byStart))
+	}
+	return out
 }

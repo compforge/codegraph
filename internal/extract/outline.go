@@ -66,7 +66,7 @@ func analyzeOutline(ctx context.Context, f Facts, tree *gts.Tree, entry grammars
 	}
 	facts := program.Extract(tree)
 	for _, imp := range facts.Imports {
-		recorded := Import{Alias: imp.Alias, Path: imp.Path, From: imp.From, Relative: imp.Relative, Span: Span{int(imp.StartByte), int(imp.EndByte)}}
+		recorded := Import{Alias: imp.Alias, Path: imp.Path, From: imp.From, Relative: imp.Relative, Binding: imp.Name, Span: Span{int(imp.StartByte), int(imp.EndByte)}}
 		// A from-import names the imported symbol; everything else pulls the
 		// whole module. Wildcard and bare imports keep Names empty.
 		if imp.Kind == "from_import" && !imp.Wildcard && imp.Name != "" {
@@ -118,6 +118,9 @@ func analyzeOutline(ctx context.Context, f Facts, tree *gts.Tree, entry grammars
 		f.Calls = append(f.Calls, call)
 	}
 	enrichModuleSyntax(&f, tree)
+	if f.Language == "python" {
+		f.Python = pythonProgram(&f, tree)
+	}
 	return f, ctx.Err()
 }
 

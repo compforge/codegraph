@@ -2,6 +2,7 @@
 package extract
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"time"
@@ -27,6 +28,8 @@ type Import struct {
 	Alias, Path string
 	From        string
 	Relative    int
+	// Binding is the name the import introduces in this lexical scope.
+	Binding string
 	// Names are the imported names before caller aliases; empty means the whole
 	// module is imported. Extraction records them; resolution stays unchanged.
 	Names []string
@@ -50,6 +53,9 @@ type Facts struct {
 	// Exports maps a public alias to its local name for explicit export
 	// aliases; extraction records them for consumer-side module resolution.
 	Exports map[string]string
+	// Python preserves statement order and scope for Python sources; its
+	// bounded expression vocabulary is interpreted by consumers.
+	Python []PythonStatement
 }
 
 type Issue struct {
@@ -139,7 +145,10 @@ func Analyze(ctx context.Context, name string, source []byte, timeout time.Durat
 			f.Package = i.Name
 			continue
 		}
-		f.Imports = append(f.Imports, Import{Alias: i.Alias, Path: i.Path, Span: Span{int(i.StartByte), int(i.EndByte)}})
+		f.Imports = append(f.Imports, Import{Alias: i.Alias, Path: i.Path, Binding: i.Name, Span: Span{int(i.StartByte), int(i.EndByte)}})
+	}
+	if bytes.Contains(source, []byte("//go:embed")) {
+		f.Issues = append(f.Issues, Issue{Code: "unsupported_resource", Message: "go:embed dependencies are not resolved"})
 	}
 	if err := enrichGo(&f); err != nil {
 		return f, err
