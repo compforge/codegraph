@@ -19,6 +19,7 @@ No separate database service or mandatory disk persistence. The project has not 
 - Extracts **Python, JavaScript, TypeScript, and TSX** declarations, lexical containment, local source imports, unshadowed same-file module-function calls, and declaration-comment markers.
 - Accepts other gotreesitter-registered languages through a shared syntax/outline adapter. Missing outlines, unsupported declaration categories, and unavailable reference resolution produce explicit diagnostics.
 - Records documents without a registered grammar as file-level nodes without parsing; the coverage gap stays visible as an `unsupported_language` diagnostic.
+- Exposes detached per-document facts (declarations, imports with imported names, calls, export aliases, markers) through `Extract` without publishing graph state; results are cached by content identity so a later `AddDocuments` of the same source never parses twice.
 - Supports cross-file relations, imports within the supplied scope, recursion, multiple call sites, incremental batches, and idempotent additions.
 - Accepts source documents directly from memory, Git snapshots, or any other consumer-owned source.
 - Accepts parameterized, read-only Cypher and returns Node, Relation, Path, or ordinary Go values.

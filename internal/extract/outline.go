@@ -66,7 +66,13 @@ func analyzeOutline(ctx context.Context, f Facts, tree *gts.Tree, entry grammars
 	}
 	facts := program.Extract(tree)
 	for _, imp := range facts.Imports {
-		f.Imports = append(f.Imports, Import{Alias: imp.Alias, Path: imp.Path, From: imp.From, Relative: imp.Relative, Span: Span{int(imp.StartByte), int(imp.EndByte)}})
+		recorded := Import{Alias: imp.Alias, Path: imp.Path, From: imp.From, Relative: imp.Relative, Span: Span{int(imp.StartByte), int(imp.EndByte)}}
+		// A from-import names the imported symbol; everything else pulls the
+		// whole module. Wildcard and bare imports keep Names empty.
+		if imp.Kind == "from_import" && !imp.Wildcard && imp.Name != "" {
+			recorded.Names = []string{imp.Name}
+		}
+		f.Imports = append(f.Imports, recorded)
 	}
 	// Retain ancestry from downward traversal. Some grammars materialize hidden
 	// nodes whose Parent chain ends before the visible lexical scope.
@@ -136,7 +142,25 @@ func enrichModuleSyntax(f *Facts, tree *gts.Tree) {
 		}
 		if typ == "import_statement" || typ == "export_statement" {
 			if src := n.ChildByFieldName("source", lang); src != nil {
+				start := len(f.Imports)
 				addModuleImport(f, src, lang)
+				if len(f.Imports) > start {
+					f.Imports[start].Names = importedNames(n, lang, f.Source)
+				}
+			} else if typ == "export_statement" {
+				walk(n, func(child *gts.Node) {
+					if child.Type(lang) != "export_specifier" {
+						return
+					}
+					local := child.ChildByFieldName("name", lang)
+					alias := child.ChildByFieldName("alias", lang)
+					if local != nil && alias != nil {
+						if f.Exports == nil {
+							f.Exports = map[string]string{}
+						}
+						f.Exports[alias.Text(f.Source)] = local.Text(f.Source)
+					}
+				})
 			}
 		}
 		if typ == "call_expression" {
@@ -188,6 +212,34 @@ func addModuleImport(f *Facts, n *gts.Node, lang *gts.Language) {
 		return
 	}
 	f.Imports = append(f.Imports, Import{Path: raw[1 : len(raw)-1], Span: span})
+}
+
+// importedNames lists the names an import or re-export statement binds from
+// its source module, before caller aliases. Namespace and default imports bind
+// the whole module, reported as nil.
+func importedNames(n *gts.Node, lang *gts.Language, source []byte) []string {
+	var names []string
+	whole := false
+	walk(n, func(child *gts.Node) {
+		switch child.Type(lang) {
+		case "import_specifier", "export_specifier":
+			if name := child.ChildByFieldName("name", lang); name != nil {
+				names = append(names, name.Text(source))
+			}
+		case "namespace_import":
+			whole = true
+		case "import_clause":
+			for i := 0; i < child.NamedChildCount(); i++ {
+				if child.NamedChild(i).Type(lang) == "identifier" {
+					whole = true
+				}
+			}
+		}
+	})
+	if whole {
+		return nil
+	}
+	return names
 }
 
 func walk(root *gts.Node, visit func(*gts.Node)) {

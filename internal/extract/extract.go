@@ -27,6 +27,9 @@ type Import struct {
 	Alias, Path string
 	From        string
 	Relative    int
+	// Names are the imported names before caller aliases; empty means the whole
+	// module is imported. Extraction records them; resolution stays unchanged.
+	Names []string
 	Span
 }
 type Call struct {
@@ -44,6 +47,9 @@ type Facts struct {
 	Imports                 []Import
 	Calls                   []Call
 	Issues                  []Issue
+	// Exports maps a public alias to its local name for explicit export
+	// aliases; extraction records them for consumer-side module resolution.
+	Exports map[string]string
 }
 
 type Issue struct {

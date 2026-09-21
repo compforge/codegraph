@@ -59,6 +59,13 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 				// deciding whether this document exceeds the batch's budget.
 				break
 			}
+			// A previous Extract of identical content already owns the facts.
+			if facts, ok := g.cachedFacts(name, data); ok {
+				staged[name] = facts
+				total += int64(len(data))
+				next++
+				continue
+			}
 			if extract.Detect(name) == nil {
 				facts := extract.FileOnly(name, bytes.Clone(data))
 				facts.Issues = append(facts.Issues, extract.Issue{Code: "unsupported_language", Message: "no registered grammar for file"})
@@ -96,6 +103,10 @@ type extractionResult struct {
 	err   error
 }
 
+// parseObserver, when set, receives the path of every document actually
+// parsed in a batch. Test instrumentation for the Extract cache contract.
+var parseObserver func(string)
+
 func (g *Graph) extractBatch(ctx context.Context, documents []Document) []extractionResult {
 	results := make([]extractionResult, len(documents))
 	run := func(i int) {
@@ -104,6 +115,9 @@ func (g *Graph) extractBatch(ctx context.Context, documents []Document) []extrac
 			return
 		}
 		document := documents[i]
+		if parseObserver != nil {
+			parseObserver(document.Path)
+		}
 		results[i].facts, results[i].err = extract.Analyze(ctx, document.Path, bytes.Clone(document.Content), g.opts.ParseTimeout)
 	}
 	if len(documents) == 1 {
