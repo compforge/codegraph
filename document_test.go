@@ -160,7 +160,7 @@ func TestDocumentsPartialCoverage(t *testing.T) {
 		Document{Path: "src/unknown.codegraph-unknown", Content: []byte("unknown")},
 		Document{Path: "outside.go", Content: []byte("package app")},
 	)
-	if err != nil || r.Complete || !reflect.DeepEqual(r.Files, []string{"src/good.go"}) {
+	if err != nil || r.Complete || !reflect.DeepEqual(r.Files, []string{"src/good.go", "src/unknown.codegraph-unknown"}) {
 		t.Fatal(r, err)
 	}
 	codes := map[string]string{}

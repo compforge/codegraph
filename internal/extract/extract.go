@@ -51,17 +51,30 @@ type Issue struct {
 	Span
 }
 
+func lineStarts(source []byte) []int {
+	starts := []int{0}
+	for i, b := range source {
+		if b == '\n' {
+			starts = append(starts, i+1)
+		}
+	}
+	return starts
+}
+
+// FileOnly records a document that has no registered grammar. The file still
+// enters the graph as a file-level fact — without parsing, so no declarations,
+// imports, or calls — mirroring how reference code-graph indexers track
+// file-level-only languages (stored file record, zero symbol nodes).
+func FileOnly(name string, source []byte) Facts {
+	return Facts{Path: name, Source: source, LineStarts: lineStarts(source)}
+}
+
 // Analyze releases the syntax tree before returning detached facts. Language
 // detection is registry-driven; language-specific binding rules never leak into
 // the graph model or the batch publication path.
 func Analyze(ctx context.Context, name string, source []byte, timeout time.Duration) (Facts, error) {
 	f := Facts{Path: name, Source: source}
-	f.LineStarts = []int{0}
-	for i, b := range source {
-		if b == '\n' {
-			f.LineStarts = append(f.LineStarts, i+1)
-		}
-	}
+	f.LineStarts = lineStarts(source)
 	if err := ctx.Err(); err != nil {
 		return f, err
 	}
