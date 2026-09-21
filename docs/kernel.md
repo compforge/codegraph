@@ -43,6 +43,8 @@ File、Function、Struct 等节点及其关系；输入材料本身不增加一�
 `Extract` 提供不入图的事实提取：返回与 `AddDocuments` 消费的同一份声明、import、调用与诊断事实，
 供消费者在决定构图范围前探索依赖。结果按路径与内容身份缓存，后续同内容 `AddDocuments` 直接复用，
 同一份源码在探索与构图之间不会解析两次；已加载 Document 的事实由图保留，投影不再需要解析。
+import 事实记录被导入的名称（from-import、JS/TS 具名导入与 re-export，空表示整模块），export 别名
+以公开名到本地名的映射记录；两者是供消费者做模块解析的事实，图内关系解析规则不变。
 
 ### 具体类别与声明归属
 
@@ -243,7 +245,7 @@ references / extends / implements 自动提取尚未实现，枚举声明不表�
 - 无 grammar Document 的 File 节点入库、零声明、unsupported_language 诊断，及与解析文件一致的
   幂等、内容冲突、所有权与预算契约。
 - Extract 事实投影的内容与位置、不发布图状态、缓存单次解析、内容身份失配重解析、
-  已加载 Document 免解析投影及并发安全。
+  已加载 Document 免解析投影及并发安全；import 名称（具名/整模块/通配）与 export 别名映射。
 - marker 内容及位置往返、普通查询结果可独立修改、并发查询与批次发布。
 - 混合语言隔离、第三方 grammar 注册、模块候选、局部遮蔽、缺失能力诊断与多语言预算回滚。
 

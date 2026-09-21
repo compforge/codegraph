@@ -160,6 +160,61 @@ func TestExtractFileOnlyDocument(t *testing.T) {
 	}
 }
 
+func TestExtractImportNamesAndExports(t *testing.T) {
+	g, err := New("rev", Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts, err := g.Extract(context.Background(), Document{Path: "app.ts", Content: []byte(`
+import { alpha, beta as b } from './lib';
+import * as ns from './whole';
+import dflt from './defaulted';
+export { alpha as publicAlpha };
+const local = 1;
+export { local as renamed };
+export { rerouted } from './other';
+`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	byPath := map[string]FactImport{}
+	for _, imp := range ts.Imports {
+		if _, exists := byPath[imp.Path]; !exists {
+			byPath[imp.Path] = imp
+		}
+	}
+	if got := byPath["./lib"].Names; !reflect.DeepEqual(got, []string{"alpha", "beta"}) {
+		t.Fatalf("named import names = %v", got)
+	}
+	if got := byPath["./whole"].Names; len(got) != 0 {
+		t.Fatalf("namespace import must bind the whole module: %v", got)
+	}
+	if got := byPath["./defaulted"].Names; len(got) != 0 {
+		t.Fatalf("default import must bind the whole module: %v", got)
+	}
+	if got := byPath["./other"].Names; !reflect.DeepEqual(got, []string{"rerouted"}) {
+		t.Fatalf("re-export names = %v", got)
+	}
+	want := map[string]string{"publicAlpha": "alpha", "renamed": "local"}
+	if !reflect.DeepEqual(ts.Exports, want) {
+		t.Fatalf("exports = %v, want %v", ts.Exports, want)
+	}
+
+	py, err := g.Extract(context.Background(), Document{Path: "worker.py", Content: []byte("from lib import work\nimport whole\nfrom lib2 import *\n")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(py.Imports) != 3 {
+		t.Fatalf("python imports = %+v", py.Imports)
+	}
+	if got := py.Imports[0].Names; !reflect.DeepEqual(got, []string{"work"}) {
+		t.Fatalf("from-import names = %v", got)
+	}
+	if len(py.Imports[1].Names) != 0 || len(py.Imports[2].Names) != 0 {
+		t.Fatalf("bare and wildcard imports must bind the whole module: %+v", py.Imports)
+	}
+}
+
 func TestExtractConcurrentWithBuild(t *testing.T) {
 	ctx := context.Background()
 	source := fixture()

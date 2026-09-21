@@ -20,6 +20,9 @@ type Facts struct {
 	Imports                 []FactImport
 	Calls                   []FactCall
 	Issues                  []Diagnostic
+	// Exports maps a public alias to its local name for explicit export
+	// aliases. Consumers own any module-resolution use of it.
+	Exports map[string]string
 }
 
 type FactDeclaration struct {
@@ -32,7 +35,10 @@ type FactDeclaration struct {
 type FactImport struct {
 	Alias, Path, From string
 	Relative          int
-	Location          Location
+	// Names are the imported names before caller aliases; empty means the
+	// whole module is imported.
+	Names    []string
+	Location Location
 }
 
 type FactCall struct {
@@ -121,7 +127,13 @@ func projectFacts(f extract.Facts) (Facts, error) {
 		out.Declarations = append(out.Declarations, decl)
 	}
 	for _, i := range f.Imports {
-		out.Imports = append(out.Imports, FactImport{Alias: i.Alias, Path: i.Path, From: i.From, Relative: i.Relative, Location: location(f, i.Span)})
+		out.Imports = append(out.Imports, FactImport{Alias: i.Alias, Path: i.Path, From: i.From, Relative: i.Relative, Names: append([]string(nil), i.Names...), Location: location(f, i.Span)})
+	}
+	for public, local := range f.Exports {
+		if out.Exports == nil {
+			out.Exports = map[string]string{}
+		}
+		out.Exports[public] = local
 	}
 	for _, c := range f.Calls {
 		out.Calls = append(out.Calls, FactCall{Name: c.Name, Receiver: c.Receiver, Location: location(f, c.Span), Blocked: c.Blocked, Builtin: c.Builtin})
