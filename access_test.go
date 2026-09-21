@@ -13,7 +13,7 @@ type Box struct{}
 func (b Box) Run() { Work(); Work() }
 func Work() {}
 `)}}
-	g, report, err := Build(context.Background(), "rev", source, []string{"main.go"}, Options{})
+	g, report, err := Build(context.Background(), "rev", documents(source, "main.go"), Options{})
 	if err != nil || !report.Complete {
 		t.Fatal(report, err)
 	}

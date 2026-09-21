@@ -12,6 +12,7 @@ CodeGraph 是可内嵌的代码属性图 Go 库，直接依赖 gotreesitter 与 
 VERSION                                # 项目版本
 graph.go、node.go、relation.go、marker.go  # 公共图模型与能力声明
 access.go                                # 按源码路径、限定名和关系方向消费图事实
+document.go                              # Document 源码材料与显式批次输入
 build.go、build_graph.go                 # 范围构建、诊断及原子发布
 query.go                                # 只读查询及领域结果还原
 internal/
@@ -27,7 +28,7 @@ docs/kernel.md                          # 稳定模型、主流程与设计依�
 
 1. 核心模型沿用 Graph、Node、Relation；Node.Kind 表达 File、Struct、Interface、Field、Method、Function 等具体类别，直接映射为唯一节点标签。symbol 只是文档与代码中的统称，不进入图分类。
 2. spec、case、rule、link、doc 属于核心 marker 类型；置信依据属于关系属性。
-3. CCR 的评审策略与 repocli 的测试选择策略留在消费方；本库负责代码事实和通用图查询。
+3. Document 是本库拥有的源码输入概念，不是节点类别；材料获取、CCR 的评审策略与 repocli 的测试选择策略留在消费方，本库负责代码事实和通用图查询。
 4. AST 与图引擎内部类型不穿透公共 API；消费者通过 `Find`、`Node`、`RelationsFrom`、`RelationsTo` 或 Cypher 消费图事实；局部分析与未解析引用必须保留可辨识的覆盖信息。
 5. 同一 Graph 只容纳同一源码快照；修改批次必须完成构建后原子发布。新增语言解析先声明能力并补契约测试；仅识别 grammar 不表示引用已解析，不得跨语言按同名猜测关系。
 6. 验证入口为 `make lint test build`，测试启用 race detector。

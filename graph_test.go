@@ -21,10 +21,18 @@ func fixture() fstest.MapFS {
 	}
 }
 
+func documents(source fstest.MapFS, paths ...string) []Document {
+	out := make([]Document, 0, len(paths))
+	for _, path := range paths {
+		out = append(out, Document{Path: path, Content: source[path].Data})
+	}
+	return out
+}
+
 func built(t *testing.T, opts Options) *Graph {
 	t.Helper()
 	opts.ModulePath = "example.org/demo"
-	g, r, err := Build(context.Background(), "rev-A", fixture(), []string{"main.go", "helper.go", "lib/work.go", "entry_test.go"}, opts)
+	g, r, err := Build(context.Background(), "rev-A", documents(fixture(), "main.go", "helper.go", "lib/work.go", "entry_test.go"), opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,19 +130,19 @@ func TestMarkerRoundTrip(t *testing.T) {
 func TestExtendAndSnapshotIdentity(t *testing.T) {
 	ctx := context.Background()
 	source := fixture()
-	g, r, err := Build(ctx, "rev-A", source, []string{"main.go"}, Options{ModulePath: "example.org/demo"})
+	g, r, err := Build(ctx, "rev-A", documents(source, "main.go"), Options{ModulePath: "example.org/demo"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if r.Complete {
 		t.Fatal("unloaded imports/calls reported complete")
 	}
-	r, err = g.AddFiles(ctx, source, "helper.go", "lib/work.go")
+	r, err = g.AddDocuments(ctx, documents(source, "helper.go", "lib/work.go")...)
 	if err != nil || !r.Complete {
 		t.Fatal(r, err)
 	}
 	nodes, edges := g.Nodes(), g.Relations()
-	r, err = g.AddFiles(ctx, source, "main.go", "helper.go", "lib/work.go")
+	r, err = g.AddDocuments(ctx, documents(source, "main.go", "helper.go", "lib/work.go")...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,13 +150,13 @@ func TestExtendAndSnapshotIdentity(t *testing.T) {
 		t.Fatal("re-add changed identities")
 	}
 	source["main.go"] = &fstest.MapFile{Data: []byte("package app\nfunc Changed(){}")}
-	if _, err = g.AddFiles(ctx, source, "main.go"); !errors.Is(err, ErrSnapshotChanged) {
+	if _, err = g.AddDocuments(ctx, documents(source, "main.go")...); !errors.Is(err, ErrSnapshotChanged) {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(nodes, g.Nodes()) {
 		t.Fatal("failed batch changed graph")
 	}
-	fresh, _, err := Build(ctx, "rev-B", source, []string{"main.go"}, Options{})
+	fresh, _, err := Build(ctx, "rev-B", documents(source, "main.go"), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,10 +172,10 @@ func TestExpansionAndScope(t *testing.T) {
 		files    int
 		complete bool
 	}{
-		{"local", nil, 3, true}, {"restricted", []string{"main.go", "helper.go"}, 1, false},
+		{"local", nil, 3, true}, {"restricted", []string{"main.go", "helper.go"}, 2, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			g, r, err := Build(context.Background(), "rev", fixture(), []string{"main.go"}, Options{ModulePath: "example.org/demo", ExpandImports: true, Scope: tc.scope})
+			g, r, err := Build(context.Background(), "rev", documents(fixture(), "main.go", "helper.go", "lib/work.go"), Options{ModulePath: "example.org/demo", Scope: tc.scope})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -185,21 +193,21 @@ func TestBuildFailuresAndBudget(t *testing.T) {
 	ctx := context.Background()
 	g := built(t, Options{})
 	bad := fstest.MapFS{"bad.go": {Data: []byte("package broken\nfunc (")}, "script.unknown-codegraph": {Data: []byte("def hello(): pass")}}
-	r, err := g.AddFiles(ctx, bad, "bad.go", "script.unknown-codegraph", "missing.go")
+	r, err := g.AddDocuments(ctx, documents(bad, "bad.go", "script.unknown-codegraph")...)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.Complete || len(r.Diagnostics) != 3 {
+	if r.Complete || len(r.Diagnostics) != 2 {
 		t.Fatal(r)
 	}
-	if _, err := g.AddFiles(ctx, bad, "../outside.go"); err == nil {
+	if _, err := g.AddDocuments(ctx, Document{Path: "../outside.go", Content: []byte("package p")}); err == nil {
 		t.Fatal("path traversal accepted")
 	}
 	g2, err := New("rev", Options{MaxFiles: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = g2.AddFiles(ctx, fixture(), "main.go", "helper.go"); !errors.Is(err, ErrBuildBudget) {
+	if _, err = g2.AddDocuments(ctx, documents(fixture(), "main.go", "helper.go")...); !errors.Is(err, ErrBuildBudget) {
 		t.Fatal(err)
 	}
 	if len(g2.Nodes()) != 0 {
@@ -207,14 +215,14 @@ func TestBuildFailuresAndBudget(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	cancel()
-	if _, err = g2.AddFiles(ctx, fixture(), "main.go"); !errors.Is(err, context.Canceled) {
+	if _, err = g2.AddDocuments(ctx, documents(fixture(), "main.go")...); !errors.Is(err, context.Canceled) {
 		t.Fatal(err)
 	}
 }
 
 func TestShadowingAndAmbiguity(t *testing.T) {
 	source := fstest.MapFS{"a.go": {Data: []byte("package p\nfunc Target(){}\nfunc Entry(Target func()){Target()}\nfunc Invoke(){Dup()}\nfunc Dup(){}")}, "b.go": {Data: []byte("package p\nfunc Dup(){}")}}
-	g, r, err := Build(context.Background(), "rev", source, []string{"a.go", "b.go"}, Options{})
+	g, r, err := Build(context.Background(), "rev", documents(source, "a.go", "b.go"), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -281,7 +289,7 @@ func TestConcurrentReadersAndExtension(t *testing.T) {
 		})
 	}
 	wg.Go(func() {
-		_, err := g.AddFiles(context.Background(), fixture(), "main.go")
+		_, err := g.AddDocuments(context.Background(), documents(fixture(), "main.go")...)
 		if err != nil {
 			t.Error(err)
 		}
@@ -312,17 +320,12 @@ func TestAllBuildBudgetsRollback(t *testing.T) {
 	}
 	for _, opts := range []Options{
 		{MaxFileBytes: 10}, {MaxSourceBytes: 10}, {MaxNodes: 1}, {MaxRelations: 1},
-		{ExpandImports: true, ModulePath: "demo", MaxDepth: 1},
 	} {
 		g, err := New("rev", opts)
 		if err != nil {
 			t.Fatal(err)
 		}
-		files := []string{"main.go", "a/a.go"}
-		if opts.MaxDepth == 1 {
-			files = []string{"main.go"}
-		}
-		if _, err = g.AddFiles(context.Background(), source, files...); !errors.Is(err, ErrBuildBudget) {
+		if _, err = g.AddDocuments(context.Background(), documents(source, "main.go", "a/a.go", "b/b.go")...); !errors.Is(err, ErrBuildBudget) {
 			t.Fatalf("opts=%+v err=%v", opts, err)
 		}
 		if len(g.Nodes()) != 0 {
@@ -340,7 +343,7 @@ func (b *Box[T]) Run(){ Work[int]() }
 func Work[T any](){}
 func Entry(){ callback:=func(){ Work[int]() }; callback() }
 `)}}
-	g, r, err := Build(context.Background(), "rev", source, []string{"source.go"}, Options{})
+	g, r, err := Build(context.Background(), "rev", documents(source, "source.go"), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

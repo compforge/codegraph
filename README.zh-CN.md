@@ -60,11 +60,12 @@ RETURN s, f
 g, report, err := codegraph.Build(
     ctx,
     "revision-1", // 调用方标识不可变源码快照
-    os.DirFS("./repo"),
-    []string{"main.go"},
+    []codegraph.Document{
+        {Path: "main.go", Content: []byte("package demo\nfunc Entry(){ Work() }")},
+        {Path: "work.go", Content: []byte("package demo\nfunc Work(){}")},
+    },
     codegraph.Options{
-        ModulePath:    "example.org/demo",
-        ExpandImports: true,
+        ModulePath: "example.org/demo",
     },
 )
 if err != nil {
@@ -91,13 +92,45 @@ for _, row := range rows {
 }
 ```
 
-也可以 `New(snapshot, options)` 创建空图，再通过 `AddFiles(ctx, source, paths...)` 补充文件。
+也可以 `New(snapshot, options)` 创建空图，再通过 `AddDocuments(ctx, documents...)` 补充源码材料。
 每次补充会在后台重建当前局部图并原子替换；这是正确性优先的批次更新，不是增量图引擎优化。
 查询可以继续读取上一批次。before/after 应创建不同的 Graph；同一路径重新加入不同字节会返回
-`ErrSnapshotChanged`。调用者负责保证 `fs.FS` 的不可变性和文件访问边界。
+`ErrSnapshotChanged`。调用方负责选择 Document 以及源码访问边界。
 
-同一 `Build` / `AddFiles` 可接收 `[]string{"server.go", "worker.py", "web/app.ts"}` 等混合语言路径。
+同一 `Build` / `AddDocuments` 可接收 `[]codegraph.Document{{Path: "server.go"}, {Path: "worker.py"}, {Path: "web/app.ts"}}` 等混合语言材料。
 不同语言的同名声明不会互相绑定。`ModulePath` 只控制 Go 模块 import；所有语言共用范围、预算及原子发布规则。
+
+### 源码 Document
+
+`Document` 是一份构图源码输入：逻辑路径 `Path` 及其完整内容 `Content`。路径不必实际存在于磁盘，
+用于快照内的源码身份、语言识别、相对 import 上下文与源码位置。Document 是输入材料，不是 `Node.Kind`。
+
+源码来自内存或 Git revision 时，可以直接传入：
+
+```go
+g, err := codegraph.New("revision-1", codegraph.Options{})
+if err != nil {
+    return err
+}
+report, err := g.AddDocuments(ctx,
+    codegraph.Document{Path: "main.go", Content: []byte("package demo\nfunc Entry(){ Work() }")},
+    codegraph.Document{Path: "work.go", Content: []byte("package demo\nfunc Work(){}")},
+)
+if err != nil {
+    return err
+}
+if !report.Complete {
+    return fmt.Errorf("partial code graph: %v", report.Diagnostics)
+}
+```
+
+- 路径使用符合 `fs.ValidPath` 的快照相对路径，以 `/` 分隔，不是绝对路径或 URL。
+- `AddDocuments` 在当前批次和已加载源码之间解析关系，不会隐式获取依赖；调用方显式提供所需材料。
+- Document 批次共用范围、预算、诊断和快照身份。相同输入重复加入保持幂等；已加载路径的内容
+  冲突返回 `ErrSnapshotChanged` 并回滚整个批次。
+- 调用期间不要修改内容；返回后，图持有独立的源码字节。
+
+### 定位声明
 
 消费者可以直接按源码路径和限定名定位声明，不需要重新设计节点 ID：
 

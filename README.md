@@ -18,7 +18,8 @@ No separate database service or mandatory disk persistence. The project has not 
 - Extracts **Go** functions, methods, structs, interfaces, fields, other named types, type aliases, and single-name variables and constants, with contains, imports, and static package-function calls.
 - Extracts **Python, JavaScript, TypeScript, and TSX** declarations, lexical containment, local source imports, unshadowed same-file module-function calls, and declaration-comment markers.
 - Accepts other gotreesitter-registered languages through a shared syntax/outline adapter. Missing outlines, unsupported declaration categories, and unavailable reference resolution produce explicit diagnostics.
-- Supports cross-file relations, imports within the module, recursion, multiple call sites, on-demand expansion, and idempotent additions.
+- Supports cross-file relations, imports within the supplied scope, recursion, multiple call sites, incremental batches, and idempotent additions.
+- Accepts source documents directly from memory, Git snapshots, or any other consumer-owned source.
 - Accepts parameterized, read-only Cypher and returns Node, Relation, Path, or ordinary Go values.
 - Extracts spec, case, rule, link, and doc markers from declaration comments, preserving their contents and source locations.
 - Emits candidate relations for ambiguous targets and diagnostics for unresolved targets, callbacks, calls inside closures, and receiver calls.
@@ -67,17 +68,18 @@ for a complete, runnable example.
 g, report, err := codegraph.Build(
     ctx,
     "revision-1", // Caller-provided identity for an immutable source snapshot.
-    os.DirFS("./repo"),
-    []string{"main.go"},
+    []codegraph.Document{
+        {Path: "main.go", Content: []byte("package demo\nfunc Entry(){ Work() }")},
+        {Path: "work.go", Content: []byte("package demo\nfunc Work(){}")},
+    },
     codegraph.Options{
-        ModulePath:    "example.org/demo",
-        ExpandImports: true,
+        ModulePath: "example.org/demo",
     },
 )
 if err != nil {
     return err
 }
-// report.Complete covers only the requested/expanded scope, not the whole repository.
+// report.Complete covers only the supplied scope, not the whole repository.
 // Inspect report.Diagnostics before deciding whether to fall back to another analysis method.
 if !report.Complete {
     return fmt.Errorf("partial code graph: %v", report.Diagnostics)
@@ -98,17 +100,51 @@ for _, row := range rows {
 }
 ```
 
-You can also create an empty graph with `New(snapshot, options)` and add files using
-`AddFiles(ctx, source, paths...)`. Each addition rebuilds the current local graph before publishing
+You can also create an empty graph with `New(snapshot, options)` and add documents using
+`AddDocuments(ctx, documents...)`. Each addition rebuilds the current local graph before publishing
 it atomically. Queries can continue reading the previous batch while the replacement is being built.
 This is a correctness-first batch update, not an incremental graph-engine optimization.
 
 Use separate Graph instances for before/after snapshots. Adding the same path with different bytes
-returns `ErrSnapshotChanged`. The caller is responsible for `fs.FS` immutability and file-access boundaries.
+returns `ErrSnapshotChanged`. The caller owns document selection and source access boundaries.
 
-The same `Build`/`AddFiles` entrypoints accept mixed-language paths, such as
-`[]string{"server.go", "worker.py", "web/app.ts"}`. Names in different languages do not bind to one another.
+The same `Build`/`AddDocuments` entrypoints accept mixed-language documents, such as
+`[]codegraph.Document{{Path: "server.go"}, {Path: "worker.py"}, {Path: "web/app.ts"}}`. Names in different languages do not bind to one another.
 `ModulePath` controls Go module imports only; all languages share scope, budget, and atomic-publication rules.
+
+### Source documents
+
+A `Document` is one source input: a logical `Path` and its complete `Content`. The path need not
+exist on disk; it identifies the source within the graph snapshot and determines language detection,
+relative-import context, and source locations. Documents are inputs, not a `Node.Kind`.
+
+Use documents when source bytes already come from memory or a Git revision:
+
+```go
+g, err := codegraph.New("revision-1", codegraph.Options{})
+if err != nil {
+    return err
+}
+report, err := g.AddDocuments(ctx,
+    codegraph.Document{Path: "main.go", Content: []byte("package demo\nfunc Entry(){ Work() }")},
+    codegraph.Document{Path: "work.go", Content: []byte("package demo\nfunc Work(){}")},
+)
+if err != nil {
+    return err
+}
+if !report.Complete {
+    return fmt.Errorf("partial code graph: %v", report.Diagnostics)
+}
+```
+
+- Paths use slash-separated, snapshot-relative names valid under `fs.ValidPath`, not absolute paths or URLs.
+- `AddDocuments` resolves references against the supplied batch and previously loaded sources. It does not
+  fetch dependencies; provide every source unit needed for the intended graph explicitly.
+- Document batches share scope, budgets, diagnostics, and snapshot identity. Repeated identical input is
+  idempotent; conflicting content at a loaded path returns `ErrSnapshotChanged` and rolls back the batch.
+- Keep content unchanged during the call. After it returns, the graph owns its retained bytes.
+
+### Locating declarations
 
 Consumers can locate declarations without rebuilding an ID scheme:
 
