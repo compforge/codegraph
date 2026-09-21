@@ -33,44 +33,44 @@ except ImportError:
 		t.Fatal(err)
 	}
 	kinds := []string{}
-	for _, s := range facts.Python {
+	for _, s := range facts.Statements {
 		kinds = append(kinds, s.Kind)
 	}
 	want := []string{"import_statement", "import_from_statement", "assignment", "call", "if", "for_statement", "expression", "function_definition", "opaque"}
 	if !reflect.DeepEqual(kinds, want) {
 		t.Fatalf("statement kinds = %v, want %v", kinds, want)
 	}
-	imports := facts.Python[0].Imports
+	imports := facts.Statements[0].Imports
 	if len(imports) != 1 || imports[0].Path != "sys" {
 		t.Fatalf("import attachment = %+v", imports)
 	}
-	from := facts.Python[1].Imports
+	from := facts.Statements[1].Imports
 	if len(from) != 1 || from[0].Path != "lib.work" || from[0].From != "lib" || from[0].Alias != "alias" || !reflect.DeepEqual(from[0].Names, []string{"work"}) {
 		t.Fatalf("from-import attachment = %+v", from)
 	}
-	assignment := facts.Python[2]
+	assignment := facts.Statements[2]
 	if assignment.Target.Kind != "identifier" || assignment.Target.Text != "path" || assignment.Value.Kind != "attribute" || assignment.Value.Text != "path" {
 		t.Fatalf("assignment = %+v", assignment)
 	}
-	conditional := facts.Python[4]
+	conditional := facts.Statements[4]
 	if len(conditional.Body) != 1 || conditional.Body[0].Kind != "import_statement" || conditional.Body[0].Imports[0].Path != "conditional" {
 		t.Fatalf("if body = %+v", conditional.Body)
 	}
 	if len(conditional.Else) != 1 || conditional.Else[0].Imports[0].Path != "never" {
 		t.Fatalf("if else = %+v", conditional.Else)
 	}
-	loop := facts.Python[5]
+	loop := facts.Statements[5]
 	if loop.Target.Kind != "identifier" || loop.Target.Text != "item" || loop.Value.Kind != "list" {
 		t.Fatalf("for = %+v", loop)
 	}
-	fn := facts.Python[7]
+	fn := facts.Statements[7]
 	if fn.Name != "entry" || len(fn.Prelude) != 1 || fn.Prelude[0].Kind != "call" {
 		t.Fatalf("function prelude = %+v", fn)
 	}
 	if len(fn.Body) != 1 || fn.Body[0].Kind != "assignment" {
 		t.Fatalf("function body = %+v", fn.Body)
 	}
-	opaque := facts.Python[8]
+	opaque := facts.Statements[8]
 	if len(opaque.Body) == 0 {
 		t.Fatalf("opaque body = %+v", opaque)
 	}

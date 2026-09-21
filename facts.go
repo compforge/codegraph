@@ -23,25 +23,27 @@ type Facts struct {
 	// Exports maps a public alias to its local name for explicit export
 	// aliases. Consumers own any module-resolution use of it.
 	Exports map[string]string
-	// Python preserves statement order and scope for Python sources; its
-	// bounded expression vocabulary is interpreted by consumers. The graph
-	// model never depends on statement-level facts.
-	Python []PythonStatement
+	// Statements preserve execution order and scope with a bounded expression
+	// vocabulary, for consumer-side interpretation; the graph model never
+	// depends on statement-level facts. Captured for Python sources today,
+	// empty for languages where statement capture is not implemented.
+	Statements []Statement
 }
 
-// PythonStatement preserves execution order and scope without evaluating code.
-type PythonStatement struct {
+// Statement preserves execution order and scope without evaluating code.
+// Kind values are grammar node types of the capturing language.
+type Statement struct {
 	Kind, Name    string
 	Line          int // One-based source line.
 	Imports       []FactImport
-	Target, Value PythonExpression
-	Prelude       []PythonExpression
-	Body, Else    []PythonStatement
+	Target, Value Expression
+	Prelude       []Expression
+	Body, Else    []Statement
 }
 
-type PythonExpression struct {
+type Expression struct {
 	Kind, Text string
-	Children   []PythonExpression
+	Children   []Expression
 }
 
 type FactDeclaration struct {
@@ -155,7 +157,7 @@ func projectFacts(f extract.Facts) (Facts, error) {
 	}
 	out.Imports = imports
 	for _, s := range f.Python {
-		out.Python = append(out.Python, projectStatement(s, imports, byStart))
+		out.Statements = append(out.Statements, projectStatement(s, imports, byStart))
 	}
 	for public, local := range f.Exports {
 		if out.Exports == nil {
@@ -172,16 +174,16 @@ func projectFacts(f extract.Facts) (Facts, error) {
 	return out, nil
 }
 
-func projectExpression(e extract.PythonExpression) PythonExpression {
-	out := PythonExpression{Kind: e.Kind, Text: e.Text}
+func projectExpression(e extract.PythonExpression) Expression {
+	out := Expression{Kind: e.Kind, Text: e.Text}
 	for _, child := range e.Children {
 		out.Children = append(out.Children, projectExpression(child))
 	}
 	return out
 }
 
-func projectStatement(s extract.PythonStatement, imports []FactImport, byStart map[int][]int) PythonStatement {
-	out := PythonStatement{Kind: s.Kind, Name: s.Name, Line: s.Line, Target: projectExpression(s.Target), Value: projectExpression(s.Value)}
+func projectStatement(s extract.PythonStatement, imports []FactImport, byStart map[int][]int) Statement {
+	out := Statement{Kind: s.Kind, Name: s.Name, Line: s.Line, Target: projectExpression(s.Target), Value: projectExpression(s.Value)}
 	// One statement can hold several imports sharing its start offset; attach
 	// each projected import once.
 	seen := map[int]bool{}
