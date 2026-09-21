@@ -16,7 +16,7 @@ func TestMultilanguageGraph(t *testing.T) {
 		{"app.tsx", "// +spec=Entry contract\nfunction entry(){ work() }\nfunction work(){}", "tsx"},
 	} {
 		t.Run(tc.language, func(t *testing.T) {
-			g, r, err := Build(context.Background(), "rev", fstest.MapFS{tc.path: {Data: []byte(tc.source)}}, []string{tc.path}, Options{})
+			g, r, err := Build(context.Background(), "rev", []Document{{Path: tc.path, Content: []byte(tc.source)}}, Options{})
 			if err != nil || !r.Complete {
 				t.Fatal(r, err)
 			}
@@ -48,7 +48,7 @@ func TestRegisteredLanguageOutline(t *testing.T) {
 		{"main.rb", "def run\nend\n", "run", Method},
 	} {
 		t.Run(tc.path, func(t *testing.T) {
-			g, r, err := Build(context.Background(), "rev", fstest.MapFS{tc.path: {Data: []byte(tc.source)}}, []string{tc.path}, Options{})
+			g, r, err := Build(context.Background(), "rev", []Document{{Path: tc.path, Content: []byte(tc.source)}}, Options{})
 			if err != nil || !hasDiagnostic(r, "unsupported_resolution") || r.Complete {
 				t.Fatal(r, err)
 			}
@@ -72,11 +72,11 @@ func TestModuleImportExpansion(t *testing.T) {
 	} {
 		t.Run(tc.entry, func(t *testing.T) {
 			fs := fstest.MapFS{tc.entry: {Data: []byte(tc.source)}, tc.target: {Data: []byte(tc.dependency)}}
-			g, r, err := Build(context.Background(), "rev", fs, []string{tc.entry}, Options{})
+			g, r, err := Build(context.Background(), "rev", documents(fs, tc.entry), Options{})
 			if err != nil || !hasDiagnostic(r, "unresolved_import") {
 				t.Fatal(r, err)
 			}
-			r, err = g.AddFiles(context.Background(), fs, tc.target)
+			r, err = g.AddDocuments(context.Background(), documents(fs, tc.target)...)
 			if err != nil || !r.Complete {
 				t.Fatal(r, err)
 			}
@@ -84,7 +84,7 @@ func TestModuleImportExpansion(t *testing.T) {
 			if len(rows) != 1 || rows[0]["b"].(Node).Location.Path != tc.target || rows[0]["r"].(Relation).Confidence != Exact {
 				t.Fatal(rows)
 			}
-			g2, r, err := Build(context.Background(), "rev", fs, []string{tc.entry}, Options{ExpandImports: true})
+			g2, r, err := Build(context.Background(), "rev", documents(fs, tc.entry, tc.target), Options{})
 			if err != nil || !r.Complete || !reflect.DeepEqual(g.Nodes(), g2.Nodes()) || !reflect.DeepEqual(g.Relations(), g2.Relations()) {
 				t.Fatal(r, err)
 			}
@@ -102,7 +102,7 @@ func TestModuleUncertainty(t *testing.T) {
 		{"app.js", "function work(){} function entry(){return () => work()}"},
 		{"app.ts", "function work(){} function entry(){return function(){work()}}"},
 	} {
-		g, r, err := Build(context.Background(), "rev", fstest.MapFS{tc.path: {Data: []byte(tc.source)}}, []string{tc.path}, Options{})
+		g, r, err := Build(context.Background(), "rev", []Document{{Path: tc.path, Content: []byte(tc.source)}}, Options{})
 		if err != nil || r.Complete || !hasDiagnostic(r, "dynamic_call") {
 			t.Fatal(r, err)
 		}
@@ -114,7 +114,7 @@ func TestModuleUncertainty(t *testing.T) {
 
 func TestMixedLanguageIsolationAndRollback(t *testing.T) {
 	fs := fstest.MapFS{"a.go": {Data: []byte("package p; func Work(){}; func Entry(){Work()}")}, "a.py": {Data: []byte("def Work():\n    pass\ndef Entry():\n    Work()\n")}}
-	g, r, err := Build(context.Background(), "rev", fs, []string{"a.go", "a.py"}, Options{})
+	g, r, err := Build(context.Background(), "rev", documents(fs, "a.go", "a.py"), Options{})
 	if err != nil || !r.Complete {
 		t.Fatal(r, err)
 	}
@@ -125,14 +125,14 @@ func TestMixedLanguageIsolationAndRollback(t *testing.T) {
 	}
 	before := g.Nodes()
 	fs["a.py"].Data = []byte("def Changed():\n    pass\n")
-	if _, err = g.AddFiles(context.Background(), fs, "a.py"); !errors.Is(err, ErrSnapshotChanged) || !reflect.DeepEqual(before, g.Nodes()) {
+	if _, err = g.AddDocuments(context.Background(), documents(fs, "a.py")...); !errors.Is(err, ErrSnapshotChanged) || !reflect.DeepEqual(before, g.Nodes()) {
 		t.Fatal(err)
 	}
 	g, err = New("rev", Options{MaxNodes: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = g.AddFiles(context.Background(), fs, "a.go", "a.py"); !errors.Is(err, ErrBuildBudget) || len(g.Nodes()) != 0 {
+	if _, err = g.AddDocuments(context.Background(), documents(fs, "a.go", "a.py")...); !errors.Is(err, ErrBuildBudget) || len(g.Nodes()) != 0 {
 		t.Fatal("non-Go bypassed atomic budget", err)
 	}
 }
@@ -148,7 +148,7 @@ func TestModuleDeclarationsAndMarkers(t *testing.T) {
 		{"app.js", "// +rule=Export contract\nexport function entry() {}", map[string]NodeKind{"entry": Function}, "entry"},
 	} {
 		t.Run(tc.path, func(t *testing.T) {
-			g, r, err := Build(context.Background(), "rev", fstest.MapFS{tc.path: {Data: []byte(tc.source)}}, []string{tc.path}, Options{})
+			g, r, err := Build(context.Background(), "rev", []Document{{Path: tc.path, Content: []byte(tc.source)}}, Options{})
 			if err != nil || !r.Complete {
 				t.Fatal(r, err)
 			}
@@ -177,7 +177,7 @@ func TestImportCandidatesAndScope(t *testing.T) {
 		"src/lib.ts": {Data: []byte("export function run(){}")},
 		"src/lib.js": {Data: []byte("export function run(){}")},
 	}
-	g, r, err := Build(context.Background(), "rev", fs, []string{"src/app.ts"}, Options{ExpandImports: true})
+	g, r, err := Build(context.Background(), "rev", documents(fs, "src/app.ts", "src/lib.ts", "src/lib.js"), Options{})
 	if err != nil || r.Complete || !hasDiagnostic(r, "ambiguous_import") {
 		t.Fatal(r, err)
 	}
@@ -190,8 +190,8 @@ func TestImportCandidatesAndScope(t *testing.T) {
 			t.Fatal(row)
 		}
 	}
-	g, r, err = Build(context.Background(), "rev", fs, []string{"src/app.ts"}, Options{ExpandImports: true, Scope: []string{"src/app.ts"}})
-	if err != nil || r.Complete || len(g.Nodes()) != 1 || !hasDiagnostic(r, "unresolved_import") {
+	g, r, err = Build(context.Background(), "rev", documents(fs, "src/app.ts", "src/lib.ts", "src/lib.js"), Options{Scope: []string{"src/app.ts"}})
+	if err != nil || r.Complete || len(g.Nodes()) != 1 || !hasDiagnostic(r, "out_of_scope") {
 		t.Fatal(r, err)
 	}
 }
@@ -204,7 +204,7 @@ func TestUnsupportedAndMalformedLanguages(t *testing.T) {
 		{"unknown.cg-unrecognized", "text", "unsupported_language"},
 		{"app.js", "import(target)", "dynamic_import"},
 	} {
-		_, r, err := Build(context.Background(), "rev", fstest.MapFS{tc.path: {Data: []byte(tc.source)}}, []string{tc.path}, Options{})
+		_, r, err := Build(context.Background(), "rev", []Document{{Path: tc.path, Content: []byte(tc.source)}}, Options{})
 		if err != nil || r.Complete || !hasDiagnostic(r, tc.code) {
 			t.Fatal(tc.path, r, err)
 		}
@@ -233,12 +233,12 @@ func TestLanguageDiscoveryAndCapabilities(t *testing.T) {
 
 func TestMultilanguageExpansionBudget(t *testing.T) {
 	fs := fstest.MapFS{"a.js": {Data: []byte("import './b.js';")}, "b.js": {Data: []byte("import './c.js';")}, "c.js": {Data: []byte("function work(){}")}}
-	for _, opts := range []Options{{ExpandImports: true, MaxDepth: 1}, {ExpandImports: true, MaxFiles: 2}, {ExpandImports: true, MaxRelations: 1}} {
+	for _, opts := range []Options{{MaxFiles: 2}, {MaxRelations: 1}} {
 		g, err := New("rev", opts)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err = g.AddFiles(context.Background(), fs, "a.js"); !errors.Is(err, ErrBuildBudget) || len(g.Nodes()) != 0 {
+		if _, err = g.AddDocuments(context.Background(), documents(fs, "a.js", "b.js", "c.js")...); !errors.Is(err, ErrBuildBudget) || len(g.Nodes()) != 0 {
 			t.Fatal("import budget did not roll back", err)
 		}
 	}

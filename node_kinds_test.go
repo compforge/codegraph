@@ -37,7 +37,7 @@ var Current = Limit
 func Work(){}
 func (u *User) Save(){ Work() }
 `)}}
-	g, report, err := Build(context.Background(), "rev", source, []string{"types.go"}, Options{})
+	g, report, err := Build(context.Background(), "rev", documents(source, "types.go"), Options{})
 	if err != nil || !report.Complete {
 		t.Fatal(report, err)
 	}
@@ -124,12 +124,12 @@ func Work(){}
 func Local(){ type Box struct{} }
 `)},
 	}
-	g, r, err := Build(ctx, "rev", source, []string{"methods.go"}, Options{})
+	g, r, err := Build(ctx, "rev", documents(source, "methods.go"), Options{})
 	if err != nil || r.Complete || !hasDiagnostic(r, "unresolved_receiver") {
 		t.Fatal(r, err)
 	}
 	before := query(t, g, `MATCH (m:Method) RETURN m`, nil)[0]["m"].(Node)
-	r, err = g.AddFiles(ctx, source, "types.go")
+	r, err = g.AddDocuments(ctx, documents(source, "types.go")...)
 	if err != nil || !r.Complete {
 		t.Fatal(r, err)
 	}
@@ -153,7 +153,7 @@ func Local(){ type Box struct{} }
 		t.Fatal("method's lexical file owner missing")
 	}
 	nodes, edges := g.Nodes(), g.Relations()
-	if _, err = g.AddFiles(ctx, source, "methods.go", "types.go"); err != nil || !reflect.DeepEqual(nodes, g.Nodes()) || !reflect.DeepEqual(edges, g.Relations()) {
+	if _, err = g.AddDocuments(ctx, documents(source, "methods.go", "types.go")...); err != nil || !reflect.DeepEqual(nodes, g.Nodes()) || !reflect.DeepEqual(edges, g.Relations()) {
 		t.Fatal("repeated build changed concrete identities", err)
 	}
 }
@@ -177,7 +177,7 @@ func TestReceiverOwnershipUncertainty(t *testing.T) {
 				"a.go":        {Data: []byte("package p; type Box struct{}; func (b *" + receiver + ") Run(){}")},
 				tc.targetPath: {Data: []byte(tc.targetSource)},
 			}
-			g, r, err := Build(context.Background(), "rev", source, []string{"a.go", tc.targetPath}, Options{})
+			g, r, err := Build(context.Background(), "rev", documents(source, "a.go", tc.targetPath), Options{})
 			if err != nil || r.Complete || !hasDiagnostic(r, tc.code) {
 				t.Fatal(r, err)
 			}
@@ -201,7 +201,7 @@ func TestConcreteKindsBudgetRollback(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err = g.AddFiles(context.Background(), source, "types.go"); !errors.Is(err, ErrBuildBudget) {
+		if _, err = g.AddDocuments(context.Background(), documents(source, "types.go")...); !errors.Is(err, ErrBuildBudget) {
 			t.Fatal("member/receiver growth bypassed budget", err)
 		}
 		if len(g.Nodes()) != 0 || len(g.Relations()) != 0 {
@@ -216,7 +216,7 @@ func hasDiagnostic(r BuildReport, code string) bool {
 
 func TestGroupedBlankFieldsHaveDistinctIdentities(t *testing.T) {
 	source := fstest.MapFS{"types.go": {Data: []byte("package p; type Padding struct { _, _ int }")}}
-	g, r, err := Build(context.Background(), "rev", source, []string{"types.go"}, Options{})
+	g, r, err := Build(context.Background(), "rev", documents(source, "types.go"), Options{})
 	if err != nil || !r.Complete {
 		t.Fatal(r, err)
 	}

@@ -22,17 +22,16 @@ var (
 )
 
 // Options bounds a graph's build and query work. Zero values select finite defaults.
-// Scope contains slash-separated file paths or directory prefixes relative to fs.FS.
-// Empty Scope allows any relative path; files are only loaded when requested or expanded.
+// Scope contains snapshot-relative, slash-separated document paths or directory prefixes.
+// Empty Scope allows any relative path; documents are only analyzed when supplied.
 type Options struct {
-	ModulePath                                 string
-	Scope                                      []string
-	ExpandImports                              bool
-	MaxDepth, MaxFiles, MaxNodes, MaxRelations int
-	MaxFileBytes, MaxSourceBytes               int64
-	ParseTimeout, QueryTimeout                 time.Duration
-	MaxQueryHops, MaxResultRows                int
-	MaxResultBytes                             int64
+	ModulePath                       string
+	Scope                            []string
+	MaxFiles, MaxNodes, MaxRelations int
+	MaxFileBytes, MaxSourceBytes     int64
+	ParseTimeout, QueryTimeout       time.Duration
+	MaxQueryHops, MaxResultRows      int
+	MaxResultBytes                   int64
 }
 
 // Graph owns one immutable source snapshot, extended through atomic build batches.
@@ -68,7 +67,7 @@ func defaults(o *Options) error {
 	for _, pair := range []struct {
 		v   *int
 		def int
-	}{{&o.MaxDepth, 4}, {&o.MaxFiles, 256}, {&o.MaxNodes, 50000}, {&o.MaxRelations, 100000}, {&o.MaxQueryHops, 8}, {&o.MaxResultRows, 1000}} {
+	}{{&o.MaxFiles, 256}, {&o.MaxNodes, 50000}, {&o.MaxRelations, 100000}, {&o.MaxQueryHops, 8}, {&o.MaxResultRows, 1000}} {
 		if *pair.v < 0 {
 			return errors.New("limits must not be negative")
 		}

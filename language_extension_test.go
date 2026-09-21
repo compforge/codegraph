@@ -4,7 +4,6 @@ import (
 	"context"
 	"slices"
 	"testing"
-	"testing/fstest"
 
 	"github.com/compforge/codegraph"
 	"github.com/odvcencio/gotreesitter/grammars"
@@ -25,7 +24,7 @@ func TestRegisteredExtension(t *testing.T) {
 	if len(cap) != 1 || !slices.Contains(cap[0].Declarations, codegraph.Function) || slices.Contains(cap[0].Relations, codegraph.Calls) {
 		t.Fatal(cap)
 	}
-	g, r, err := codegraph.Build(context.Background(), "rev", fstest.MapFS{"app.cgtest": {Data: []byte("def work():\n    pass\n")}}, []string{"app.cgtest"}, codegraph.Options{})
+	g, r, err := codegraph.Build(context.Background(), "rev", []codegraph.Document{{Path: "app.cgtest", Content: []byte("def work():\n    pass\n")}}, codegraph.Options{})
 	if err != nil || r.Complete {
 		t.Fatal(r, err)
 	}
@@ -38,7 +37,7 @@ func TestRegisteredExtension(t *testing.T) {
 	entry.Extensions = []string{".cgunavailable"}
 	entry.Language = nil
 	grammars.Register(entry)
-	_, r, err = codegraph.Build(context.Background(), "rev", fstest.MapFS{"app.cgunavailable": {Data: []byte("code")}}, []string{"app.cgunavailable"}, codegraph.Options{})
+	_, r, err = codegraph.Build(context.Background(), "rev", []codegraph.Document{{Path: "app.cgunavailable", Content: []byte("code")}}, codegraph.Options{})
 	if err != nil || r.Complete || len(r.Diagnostics) != 1 || r.Diagnostics[0].Code != "parse_error" {
 		t.Fatal(r, err)
 	}
