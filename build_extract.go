@@ -16,7 +16,7 @@ import (
 // parsing; the file still enters the graph and the coverage gap stays visible
 // as an unsupported_language issue on that file.
 // +spec=`Workers own independent extraction results and never mutate graph maps`
-func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged map[string]extract.Facts, failures map[string]Diagnostic, total int64) error {
+func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged map[string]extract.Facts, failures map[string]Diagnostic, total int64, parseFailures map[string]error) error {
 	for next := 0; next < len(documents); {
 		batch := make([]Document, 0, min(g.opts.BuildConcurrency, len(documents)-next))
 		var reserved int64
@@ -42,6 +42,11 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 					return fmt.Errorf("%w: %s", ErrSnapshotChanged, name)
 				}
 				delete(failures, name)
+				next++
+				continue
+			}
+			if parseErr, failed := parseFailures[name]; failed {
+				issue("parse_error", parseErr.Error())
 				next++
 				continue
 			}

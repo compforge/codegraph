@@ -137,12 +137,12 @@ func TestExtendAndSnapshotIdentity(t *testing.T) {
 	if r.Complete {
 		t.Fatal("unloaded imports/calls reported complete")
 	}
-	r, err = g.AddDocuments(ctx, documents(source, "helper.go", "lib/work.go")...)
+	r, err = g.addDocumentsSync(ctx, documents(source, "helper.go", "lib/work.go")...)
 	if err != nil || !r.Complete {
 		t.Fatal(r, err)
 	}
 	nodes, edges := g.Nodes(), g.Relations()
-	r, err = g.AddDocuments(ctx, documents(source, "main.go", "helper.go", "lib/work.go")...)
+	r, err = g.addDocumentsSync(ctx, documents(source, "main.go", "helper.go", "lib/work.go")...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestExtendAndSnapshotIdentity(t *testing.T) {
 		t.Fatal("re-add changed identities")
 	}
 	source["main.go"] = &fstest.MapFile{Data: []byte("package app\nfunc Changed(){}")}
-	if _, err = g.AddDocuments(ctx, documents(source, "main.go")...); !errors.Is(err, ErrSnapshotChanged) {
+	if _, err = g.addDocumentsSync(ctx, documents(source, "main.go")...); !errors.Is(err, ErrSnapshotChanged) {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(nodes, g.Nodes()) {
@@ -193,21 +193,21 @@ func TestBuildFailuresAndBudget(t *testing.T) {
 	ctx := context.Background()
 	g := built(t, Options{})
 	bad := fstest.MapFS{"bad.go": {Data: []byte("package broken\nfunc (")}, "script.unknown-codegraph": {Data: []byte("def hello(): pass")}}
-	r, err := g.AddDocuments(ctx, documents(bad, "bad.go", "script.unknown-codegraph")...)
+	r, err := g.addDocumentsSync(ctx, documents(bad, "bad.go", "script.unknown-codegraph")...)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if r.Complete || len(r.Diagnostics) != 2 {
 		t.Fatal(r)
 	}
-	if _, err := g.AddDocuments(ctx, Document{Path: "../outside.go", Content: []byte("package p")}); err == nil {
+	if _, err := g.addDocumentsSync(ctx, Document{Path: "../outside.go", Content: []byte("package p")}); err == nil {
 		t.Fatal("path traversal accepted")
 	}
 	g2, err := New("rev", Options{MaxFiles: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = g2.AddDocuments(ctx, documents(fixture(), "main.go", "helper.go")...); !errors.Is(err, ErrBuildBudget) {
+	if _, err = g2.addDocumentsSync(ctx, documents(fixture(), "main.go", "helper.go")...); !errors.Is(err, ErrBuildBudget) {
 		t.Fatal(err)
 	}
 	if len(g2.Nodes()) != 0 {
@@ -215,7 +215,7 @@ func TestBuildFailuresAndBudget(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	cancel()
-	if _, err = g2.AddDocuments(ctx, documents(fixture(), "main.go")...); !errors.Is(err, context.Canceled) {
+	if _, err = g2.addDocumentsSync(ctx, documents(fixture(), "main.go")...); !errors.Is(err, context.Canceled) {
 		t.Fatal(err)
 	}
 }
@@ -289,7 +289,7 @@ func TestConcurrentReadersAndExtension(t *testing.T) {
 		})
 	}
 	wg.Go(func() {
-		_, err := g.AddDocuments(context.Background(), documents(fixture(), "main.go")...)
+		_, err := g.addDocumentsSync(context.Background(), documents(fixture(), "main.go")...)
 		if err != nil {
 			t.Error(err)
 		}
@@ -325,7 +325,7 @@ func TestAllBuildBudgetsRollback(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err = g.AddDocuments(context.Background(), documents(source, "main.go", "a/a.go", "b/b.go")...); !errors.Is(err, ErrBuildBudget) {
+		if _, err = g.addDocumentsSync(context.Background(), documents(source, "main.go", "a/a.go", "b/b.go")...); !errors.Is(err, ErrBuildBudget) {
 			t.Fatalf("opts=%+v err=%v", opts, err)
 		}
 		if len(g.Nodes()) != 0 {

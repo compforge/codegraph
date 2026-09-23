@@ -95,7 +95,7 @@ func TestGoEmbedIssue(t *testing.T) {
 		t.Fatalf("go:embed not diagnosed: %+v", facts.Issues)
 	}
 	// The graph build path records the same issue as a build diagnostic.
-	if _, err := g.AddDocuments(context.Background(), Document{Path: "embed.go", Content: []byte("package app\nimport _ \"embed\"\n//go:embed static\nvar data []byte\n")}); err != nil {
+	if _, err := g.addDocumentsSync(context.Background(), Document{Path: "embed.go", Content: []byte("package app\nimport _ \"embed\"\n//go:embed static\nvar data []byte\n")}); err != nil {
 		t.Fatal(err)
 	}
 	if !hasDiagnostic(g.Report(), "unsupported_resource") {

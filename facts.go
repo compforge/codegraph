@@ -107,6 +107,9 @@ func (g *Graph) Extract(ctx context.Context, document Document) (Facts, error) {
 		facts = extract.FileOnly(document.Path, bytes.Clone(document.Content))
 		facts.Issues = append(facts.Issues, extract.Issue{Code: "unsupported_language", Message: "no registered grammar for file"})
 	} else {
+		if parseObserver != nil {
+			parseObserver(document.Path)
+		}
 		var err error
 		facts, err = extract.Analyze(ctx, document.Path, bytes.Clone(document.Content), g.opts.ParseTimeout)
 		if err != nil {

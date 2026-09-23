@@ -92,9 +92,10 @@ for _, row := range rows {
 }
 ```
 
-也可以 `New(snapshot, options)` 创建空图，再通过 `AddDocuments(ctx, documents...)` 补充源码材料。
-每次补充会在后台重建当前局部图并原子替换；这是正确性优先的批次更新，不是增量图引擎优化。
-查询可以继续读取上一批次。before/after 应创建不同的 Graph；同一路径重新加入不同字节会返回
+也可以 `New(snapshot, options)` 创建空图。`AddDocuments` 将批量材料入队；`AddDocument` 入队单份材料并
+返回 `ResultTask[Facts]`。`GetDocument(document.ID())` 与 `FindAsync(path, kind, qualifiedName)` 可在
+`Flush` 前读取已解析的文件事实和声明。`Flush` 等待当前批次、解析跨文件关系并原子发布可查询的图；
+期间查询继续读取上一批次。before/after 应创建不同的 Graph；同一路径重新加入不同字节会返回
 `ErrSnapshotChanged`。调用方负责选择 Document 以及源码访问边界。
 
 同一 `Build` / `AddDocuments` 可接收 `[]codegraph.Document{{Path: "server.go"}, {Path: "worker.py"}, {Path: "web/app.ts"}}` 等混合语言材料。
@@ -112,10 +113,16 @@ g, err := codegraph.New("revision-1", codegraph.Options{})
 if err != nil {
     return err
 }
-report, err := g.AddDocuments(ctx,
-    codegraph.Document{Path: "main.go", Content: []byte("package demo\nfunc Entry(){ Work() }")},
+main := codegraph.Document{Path: "main.go", Content: []byte("package demo\nfunc Entry(){ Work() }")}
+if err := g.AddDocuments(ctx, main,
     codegraph.Document{Path: "work.go", Content: []byte("package demo\nfunc Work(){}")},
-)
+); err != nil {
+    return err
+}
+if task, ok := g.GetDocument(main.ID()); ok {
+    if _, err := task.Wait(); err != nil { return err } // Flush 前即可取得 Facts。
+}
+report, err := g.Flush(ctx)
 if err != nil {
     return err
 }
@@ -125,10 +132,12 @@ if !report.Complete {
 ```
 
 - 路径使用符合 `fs.ValidPath` 的快照相对路径，以 `/` 分隔，不是绝对路径或 URL。
-- `AddDocuments` 在当前批次和已加载源码之间解析关系，不会隐式获取依赖；调用方显式提供所需材料。
-- Document 批次共用范围、预算、诊断和快照身份。相同输入重复加入保持幂等；已加载路径的内容
-  冲突返回 `ErrSnapshotChanged` 并回滚整个批次。
-- 调用期间不要修改内容；返回后，图持有独立的源码字节。
+- `Document.ID()` 是当前 Graph 快照中对应的 File 节点 ID，即 `FileID(Path)`。
+- `AddDocuments` 批量入队但不返回逐文件任务；需提前读取时按 ID 调用 `GetDocument`，或用 `FindAsync`
+  取得声明。`AddDocument` 则直接返回任务。
+- `Flush` 在已提交材料和已加载源码之间解析关系，不会隐式获取依赖；构建预算、解析诊断与原子发布
+  在此完成。相同输入保持幂等；内容冲突返回 `ErrSnapshotChanged`。
+- 入队时复制源码内容，调用返回后即可复用原始字节缓冲区。
 
 ### 定位声明
 
