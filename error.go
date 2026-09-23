@@ -9,7 +9,6 @@ import (
 // Public error sentinels keep errors.Is stable across build and query paths.
 var (
 	ErrSnapshotChanged  = errors.New("source changed within graph snapshot")
-	ErrBuildInProgress  = errors.New("graph flush in progress")
 	ErrDocumentNotFound = errors.New("document not found in graph")
 	ErrBuildBudget      = errors.New("build budget exceeded")
 	ErrQueryBudget      = graphstore.ErrBudget

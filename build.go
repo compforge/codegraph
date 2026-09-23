@@ -43,7 +43,7 @@ func Build(ctx context.Context, snapshot string, documents []Document, opts Opti
 	if err := g.AddDocuments(ctx, documents...); err != nil {
 		return nil, g.Report(), err
 	}
-	r, err := g.Flush(ctx)
+	r, err := g.Wait(ctx)
 	if err != nil {
 		return nil, r, err
 	}
@@ -52,7 +52,7 @@ func Build(ctx context.Context, snapshot string, documents []Document, opts Opti
 
 // addPrepared publishes one explicit document batch atomically. Successful
 // asynchronous extractions enter through the content cache; parse failures are
-// supplied separately so Flush does not retry them.
+// supplied separately so the background builder does not retry them.
 func (g *Graph) addPrepared(ctx context.Context, parseFailures map[string]error, documents ...Document) (BuildReport, error) {
 	g.buildMu.Lock()
 	defer g.buildMu.Unlock()

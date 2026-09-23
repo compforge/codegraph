@@ -134,7 +134,7 @@ func (g *Graph) extractBatch(ctx context.Context, documents []Document) []extrac
 		workers.Go(func() { run(i) })
 	}
 	// Parsers have individual timeouts. Join workers even on cancellation so no
-	// parser, AST or source copy outlives the AddDocuments call.
+	// parser, AST or source copy outlives this extraction window.
 	workers.Wait()
 	return results
 }

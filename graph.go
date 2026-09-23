@@ -36,24 +36,26 @@ type Options struct {
 // Queries observe either the old or the new batch; they cannot mutate the graph.
 // +spec=`A failed or cancelled build must not publish a partially written graph`
 type Graph struct {
-	mu            sync.RWMutex
-	buildMu       sync.Mutex
-	flushMu       sync.Mutex
-	asyncMu       sync.Mutex
-	asyncPool     pond.ResultPool[Facts]
-	flushing      bool
-	pending       []Document
-	documentTasks map[string]documentTask
-	snapshot      string
-	opts          Options
-	files         map[string]extract.Facts
-	failures      map[string]Diagnostic
-	nodes         map[string]Node
-	relations     map[string]Relation
-	store         *graphstore.Store
-	report        BuildReport
-	factCacheMu   sync.Mutex
-	factCache     map[string]factCacheEntry
+	mu             sync.RWMutex
+	buildMu        sync.Mutex
+	asyncMu        sync.Mutex
+	asyncPool      pond.ResultPool[Facts]
+	building       bool
+	pending        []Document
+	pendingWorkers *sync.WaitGroup
+	pendingWorks   []*buildWork
+	latestWork     *buildWork
+	documentTasks  map[string]documentTask
+	snapshot       string
+	opts           Options
+	files          map[string]extract.Facts
+	failures       map[string]Diagnostic
+	nodes          map[string]Node
+	relations      map[string]Relation
+	store          *graphstore.Store
+	report         BuildReport
+	factCacheMu    sync.Mutex
+	factCache      map[string]factCacheEntry
 }
 
 func New(snapshot string, opts Options) (*Graph, error) {

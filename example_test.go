@@ -37,7 +37,7 @@ func ExampleGraph_AddDocuments() {
 		fmt.Println(err)
 		return
 	}
-	report, err := g.Flush(context.Background())
+	report, err := g.Wait(context.Background())
 	if err != nil {
 		fmt.Println(err)
 		return
