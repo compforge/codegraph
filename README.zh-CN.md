@@ -94,9 +94,11 @@ for _, row := range rows {
 
 也可以 `New(snapshot, options)` 创建空图。`AddDocuments` 将批量材料入队；`AddDocument` 入队单份材料并
 返回 `ResultTask[Facts]`。`GetDocument(document.ID())` 与 `FindAsync(path, kind, qualifiedName)` 可在
-`Flush` 前读取已解析的文件事实和声明。`Flush` 等待当前批次、解析跨文件关系并原子发布可查询的图；
-期间查询继续读取上一批次。before/after 应创建不同的 Graph；同一路径重新加入不同字节会返回
-`ErrSnapshotChanged`。调用方负责选择 Document 以及源码访问边界。
+`Wait` 前读取已解析的文件事实和声明。后台任务会自行解析跨文件关系并原子发布可查询的图；
+`Wait` 等待调用前提交的工作并返回报告；后续提交也可能合并到同一次发布。
+构建期间查询继续读取上一已发布批次。
+before/after 应创建不同的 Graph；同一路径重新加入不同字节会返回 `ErrSnapshotChanged`。
+调用方负责选择 Document 以及源码访问边界。
 
 同一 `Build` / `AddDocuments` 可接收 `[]codegraph.Document{{Path: "server.go"}, {Path: "worker.py"}, {Path: "web/app.ts"}}` 等混合语言材料。
 不同语言的同名声明不会互相绑定。`ModulePath` 只控制 Go 模块 import；所有语言共用范围、预算及原子发布规则。
@@ -121,8 +123,8 @@ if err := g.AddDocuments(ctx, main,
 }
 task, err := g.GetDocument(main.ID())
 if err != nil { return err } // 必须先提交 Document。
-if _, err := task.Wait(); err != nil { return err } // Flush 前即可取得 Facts。
-report, err := g.Flush(ctx)
+if _, err := task.Wait(); err != nil { return err } // Wait 前即可取得 Facts。
+report, err := g.Wait(ctx)
 if err != nil {
     return err
 }
@@ -135,8 +137,8 @@ if !report.Complete {
 - `Document.ID()` 是当前 Graph 快照中对应的 File 节点 ID，即 `FileID(Path)`。
 - `AddDocuments` 批量入队但不返回逐文件任务；需提前读取时按 ID 调用 `GetDocument`，或用 `FindAsync`
   取得声明。未提交的 ID 会使 `GetDocument` 返回 `ErrDocumentNotFound`；`AddDocument` 则直接返回任务。
-- `Flush` 在已提交材料和已加载源码之间解析关系，不会隐式获取依赖；构建预算、解析诊断与原子发布
-  在此完成。相同输入保持幂等；内容冲突返回 `ErrSnapshotChanged`。
+- 后台构建在已提交材料和已加载源码之间解析关系、检查预算并原子发布，不会隐式获取依赖。
+  `Wait` 只等待并返回构建报告；取消等待不会取消构建。相同输入保持幂等；内容冲突返回 `ErrSnapshotChanged`。
 - 入队时复制源码内容，调用返回后即可复用原始字节缓冲区。
 
 ### 定位声明

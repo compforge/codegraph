@@ -24,10 +24,10 @@ type Identifiable interface {
 // ID is the File node identity for this source document.
 func (d Document) ID() string { return FileID(d.Path) }
 
-// AddDocuments queues an explicit batch of source documents for the next Flush.
+// AddDocuments admits an explicit batch and starts background graph construction.
 // The batch is validated before any document is admitted. It returns after
-// submission; callers can use GetDocument or FindAsync for early results.
-// Documents are copied on admission and never fetched implicitly.
+// submission; callers can use GetDocument or FindAsync for early facts, and
+// Wait to wait for complete graph publication. Input bytes are copied.
 func (g *Graph) AddDocuments(ctx context.Context, documents ...Document) error {
 	_, err := g.enqueueDocuments(ctx, documents...)
 	return err

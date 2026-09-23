@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/alitto/pond/v2"
 )
@@ -13,15 +14,15 @@ import (
 var _ Identifiable = Document{}
 
 // addDocumentsSync keeps existing build-contract tests focused on the final
-// published batch while production callers use AddDocuments followed by Flush.
+// published batch while production callers use AddDocuments followed by Wait.
 func (g *Graph) addDocumentsSync(ctx context.Context, docs ...Document) (BuildReport, error) {
 	if err := g.AddDocuments(ctx, docs...); err != nil {
 		return g.Report(), err
 	}
-	return g.Flush(ctx)
+	return g.Wait(ctx)
 }
 
-func TestAsyncDocumentAndSymbolBeforeFlush(t *testing.T) {
+func TestAsyncDocumentAndSymbolWithoutWait(t *testing.T) {
 	ctx := context.Background()
 	g, err := New("rev", Options{})
 	if err != nil {
@@ -50,13 +51,16 @@ func TestAsyncDocumentAndSymbolBeforeFlush(t *testing.T) {
 	if err != nil || len(symbols) != 1 || symbols[0].Name != "Entry" {
 		t.Fatalf("symbols = %+v, %v", symbols, err)
 	}
-	if _, ok := g.Node(doc.ID()); ok {
-		t.Fatal("file node published before Flush")
+	// Observe the build barrier directly: publication must finish even if the
+	// caller never invokes Wait.
+	background := waitBackgroundBuild(t, g)
+	if !background.Complete {
+		t.Fatalf("background report = %+v", background)
 	}
-	if len(g.Nodes()) != 0 {
-		t.Fatal("declaration published before Flush")
+	report, err := g.Wait(ctx)
+	if !reflect.DeepEqual(report, background) {
+		t.Fatalf("Wait changed the built report: before=%+v after=%+v", background, report)
 	}
-	report, err := g.Flush(ctx)
 	if err != nil || !report.Complete {
 		t.Fatalf("report = %+v, %v", report, err)
 	}
@@ -65,6 +69,57 @@ func TestAsyncDocumentAndSymbolBeforeFlush(t *testing.T) {
 	}
 	if got, ok := g.Node(symbols[0].ID); !ok || !reflect.DeepEqual(got, symbols[0]) {
 		t.Fatalf("published symbol = %+v, %v", got, ok)
+	}
+}
+
+func waitBackgroundBuild(t *testing.T, g *Graph) BuildReport {
+	t.Helper()
+	g.asyncMu.Lock()
+	work := g.latestWork
+	g.asyncMu.Unlock()
+	if work == nil {
+		t.Fatal("no build was scheduled")
+	}
+	select {
+	case <-work.done:
+		if work.err != nil {
+			t.Fatal(work.err)
+		}
+		return cloneReport(work.report)
+	case <-time.After(10 * time.Second):
+		t.Fatal("background graph build did not complete")
+		return BuildReport{}
+	}
+}
+
+func TestWaitCancellationDoesNotCancelBuild(t *testing.T) {
+	g, err := New("rev", Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	started, release := make(chan struct{}), make(chan struct{})
+	parseObserver = func(string) { close(started); <-release }
+	defer func() { parseObserver = nil }()
+	doc := Document{Path: "wait.go", Content: []byte("package p\nfunc Wait(){}\n")}
+	if err := g.AddDocuments(context.Background(), doc); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-started:
+	case <-time.After(10 * time.Second):
+		t.Fatal("extraction did not start")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := g.Wait(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled wait = %v", err)
+	}
+	close(release)
+	if report := waitBackgroundBuild(t, g); len(report.Files) != 1 {
+		t.Fatalf("background build after canceled wait = %+v", report)
+	}
+	if _, ok := g.Node(doc.ID()); !ok {
+		t.Fatal("wait cancellation stopped graph publication")
 	}
 }
 
@@ -78,7 +133,7 @@ func TestAddDocumentAndBatchProduceSameGraph(t *testing.T) {
 	if err := batch.AddDocuments(ctx, docs...); err != nil {
 		t.Fatal(err)
 	}
-	batchReport, err := batch.Flush(ctx)
+	batchReport, err := batch.Wait(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +150,7 @@ func TestAddDocumentAndBatchProduceSameGraph(t *testing.T) {
 			t.Fatalf("%s: %+v, %v", docs[i].Path, facts, err)
 		}
 	}
-	singleReport, err := single.Flush(ctx)
+	singleReport, err := single.Wait(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +172,7 @@ func TestAsyncBatchAdmissionIsAtomic(t *testing.T) {
 	if _, err := g.GetDocument(valid.ID()); !errors.Is(err, ErrDocumentNotFound) {
 		t.Fatalf("partial batch was queued: %v", err)
 	}
-	if report, err := g.Flush(context.Background()); err != nil || len(report.Files) != 0 {
+	if report, err := g.Wait(context.Background()); err != nil || len(report.Files) != 0 {
 		t.Fatalf("report = %+v, %v", report, err)
 	}
 	if _, err := g.AddDocument(context.Background(), invalid).Wait(); err == nil {
@@ -125,7 +180,7 @@ func TestAsyncBatchAdmissionIsAtomic(t *testing.T) {
 	}
 }
 
-func TestAsyncParseFailureIsNotRetriedOnFlush(t *testing.T) {
+func TestAsyncParseFailureIsNotRetriedByWait(t *testing.T) {
 	g, err := New("rev", Options{})
 	if err != nil {
 		t.Fatal(err)
@@ -144,12 +199,43 @@ func TestAsyncParseFailureIsNotRetriedOnFlush(t *testing.T) {
 	if _, err := task.Wait(); err == nil {
 		t.Fatal("invalid source parsed successfully")
 	}
-	report, err := g.Flush(context.Background())
+	report, err := g.Wait(context.Background())
+	retained, getErr := g.GetDocument(doc.ID())
+	if getErr != nil || retained != task {
+		t.Fatalf("submitted failed document lost its task: %v", getErr)
+	}
 	if err != nil || !hasDiagnostic(report, "parse_error") || count != 1 {
 		t.Fatalf("report = %+v, count=%d, err=%v", report, count, err)
 	}
 	if _, ok := g.Node(doc.ID()); ok {
 		t.Fatal("failed file published")
+	}
+	if _, err := g.AddDocument(context.Background(), doc).Wait(); err == nil {
+		t.Fatal("failed document was not retried on a new submission")
+	}
+	if _, err := g.Wait(context.Background()); err != nil || count != 2 {
+		t.Fatalf("retry report: count=%d, err=%v", count, err)
+	}
+}
+
+func TestBackgroundBuildFailureCanBeRetried(t *testing.T) {
+	g, err := New("rev", Options{MaxFiles: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := Document{Path: "first.go", Content: []byte("package p\nfunc First(){}\n")}
+	second := Document{Path: "second.go", Content: []byte("package p\nfunc Second(){}\n")}
+	if err := g.AddDocuments(context.Background(), first, second); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.Wait(context.Background()); !errors.Is(err, ErrBuildBudget) || len(g.Nodes()) != 0 {
+		t.Fatalf("failed background batch published: %v", err)
+	}
+	if err := g.AddDocuments(context.Background(), first); err != nil {
+		t.Fatal(err)
+	}
+	if report, err := g.Wait(context.Background()); err != nil || len(report.Files) != 1 {
+		t.Fatalf("retry report = %+v, %v", report, err)
 	}
 }
 
@@ -182,7 +268,7 @@ func BenchmarkDocumentSubmission(b *testing.B) {
 				if err != nil {
 					b.Fatal(err)
 				}
-				if _, err := g.Flush(context.Background()); err != nil {
+				if _, err := g.Wait(context.Background()); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -211,7 +297,7 @@ func TestGetDocumentRequiresSubmission(t *testing.T) {
 	if _, err := g.GetDocument(doc.ID()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := g.Flush(context.Background()); err != nil {
+	if _, err := g.Wait(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 }

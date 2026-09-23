@@ -104,9 +104,10 @@ for _, row := range rows {
 
 You can also create an empty graph with `New(snapshot, options)`. `AddDocuments` queues a batch;
 `AddDocument` queues one document and returns a `ResultTask[Facts]`. `GetDocument(document.ID())`
-and `FindAsync(path, kind, qualifiedName)` expose document and declaration results before `Flush`.
-`Flush` waits for the current batch, resolves cross-document relations, and atomically publishes the
-queryable graph. Queries keep reading the previous published batch until then.
+and `FindAsync(path, kind, qualifiedName)` expose document and declaration results before `Wait`.
+Background work resolves cross-document relations and atomically publishes the queryable graph
+without a `Wait` call. `Wait` waits for work submitted before the call and returns its report;
+later submissions may share that publication. Queries read the previous published batch while a build is in progress.
 
 Use separate Graph instances for before/after snapshots. Adding the same path with different bytes
 returns `ErrSnapshotChanged`. The caller owns document selection and source access boundaries.
@@ -136,8 +137,8 @@ if err := g.AddDocuments(ctx, main,
 }
 task, err := g.GetDocument(main.ID())
 if err != nil { return err } // The document must have been submitted.
-if _, err := task.Wait(); err != nil { return err } // Facts are ready before Flush.
-report, err := g.Flush(ctx)
+if _, err := task.Wait(); err != nil { return err } // Facts are ready before Wait.
+report, err := g.Wait(ctx)
 if err != nil {
     return err
 }
@@ -151,8 +152,9 @@ if !report.Complete {
 - `AddDocuments` queues documents without returning one task per document. Use `GetDocument(ID)` for early
   facts or `FindAsync` for detached declarations. `GetDocument` returns `ErrDocumentNotFound` for an ID that
   has not been submitted. `AddDocument` returns its task directly.
-- `Flush` resolves references against submitted and previously loaded sources; no dependencies are fetched
-  implicitly. It applies build budgets and reports parse coverage before atomically publishing the graph.
+- Background builds resolve references against submitted and previously loaded sources, apply budgets,
+  and atomically publish the graph. No dependencies are fetched implicitly. `Wait` only waits for the
+  submitted work and returns the build report; canceling that wait does not cancel the build.
 - Repeated identical input is idempotent. Conflicting content returns `ErrSnapshotChanged`. Content is copied
   when admitted, so callers may reuse their input buffer after `AddDocument` or `AddDocuments` returns.
 

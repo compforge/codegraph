@@ -126,6 +126,17 @@ func TestParallelExtractionBoundAndAtomicPublication(t *testing.T) {
 			case <-time.After(10 * time.Second):
 				t.Fatal("workers did not finish")
 			}
+			if canceled {
+				// Wait cancellation is independent of background worker lifetime.
+				g.asyncMu.Lock()
+				work := g.latestWork
+				g.asyncMu.Unlock()
+				select {
+				case <-work.done:
+				case <-time.After(10 * time.Second):
+					t.Fatal("canceled build did not stop its workers")
+				}
+			}
 			if peak.Load() != 3 || active.Load() != 0 {
 				t.Fatalf("worker bound/lifetime: peak=%d active=%d", peak.Load(), active.Load())
 			}
