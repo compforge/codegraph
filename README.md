@@ -149,7 +149,7 @@ if !report.Complete {
 - Paths use slash-separated, snapshot-relative names valid under `fs.ValidPath`, not absolute paths or URLs.
 - `Document.ID()` is the corresponding File node ID (`FileID(Path)`) within the Graph snapshot.
 - `AddDocuments` queues documents without returning one task per document. Use `GetDocument(ID)` for early
-  facts or `FindAsync` for detached declarations. `GetDocument` returns `ErrDocumentNotAdded` for an ID that
+  facts or `FindAsync` for detached declarations. `GetDocument` returns `ErrDocumentNotFound` for an ID that
   has not been submitted. `AddDocument` returns its task directly.
 - `Flush` resolves references against submitted and previously loaded sources; no dependencies are fetched
   implicitly. It applies build budgets and reports parse coverage before atomically publishing the graph.

@@ -10,7 +10,7 @@ import (
 var (
 	ErrSnapshotChanged  = errors.New("source changed within graph snapshot")
 	ErrBuildInProgress  = errors.New("graph flush in progress")
-	ErrDocumentNotAdded = errors.New("document was not added to graph")
+	ErrDocumentNotFound = errors.New("document not found in graph")
 	ErrBuildBudget      = errors.New("build budget exceeded")
 	ErrQueryBudget      = graphstore.ErrBudget
 	ErrReadOnly         = graphstore.ErrReadOnly

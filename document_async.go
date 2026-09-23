@@ -58,14 +58,14 @@ func (g *Graph) AddDocument(ctx context.Context, document Document) pond.ResultT
 }
 
 // GetDocument returns the extraction task for an already submitted Document ID.
-// It reports ErrDocumentNotAdded when no result exists for the ID; it never
+// It reports ErrDocumentNotFound when no result exists for the ID; it never
 // starts extraction implicitly. The task can be awaited before Flush.
 func (g *Graph) GetDocument(id string) (pond.ResultTask[Facts], error) {
 	g.asyncMu.Lock()
 	defer g.asyncMu.Unlock()
 	entry, ok := g.documentTasks[id]
 	if !ok {
-		return nil, fmt.Errorf("%w: %s", ErrDocumentNotAdded, id)
+		return nil, fmt.Errorf("%w: %s", ErrDocumentNotFound, id)
 	}
 	return entry.task, nil
 }

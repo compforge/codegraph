@@ -114,7 +114,7 @@ func TestAsyncBatchAdmissionIsAtomic(t *testing.T) {
 	if err := g.AddDocuments(context.Background(), valid, invalid); err == nil {
 		t.Fatal("invalid batch accepted")
 	}
-	if _, err := g.GetDocument(valid.ID()); !errors.Is(err, ErrDocumentNotAdded) {
+	if _, err := g.GetDocument(valid.ID()); !errors.Is(err, ErrDocumentNotFound) {
 		t.Fatalf("partial batch was queued: %v", err)
 	}
 	if report, err := g.Flush(context.Background()); err != nil || len(report.Files) != 0 {
@@ -196,13 +196,13 @@ func TestGetDocumentRequiresSubmission(t *testing.T) {
 		t.Fatal(err)
 	}
 	doc := Document{Path: "main.go", Content: []byte("package p\nfunc Main(){}\n")}
-	if _, err := g.GetDocument(doc.ID()); !errors.Is(err, ErrDocumentNotAdded) {
+	if _, err := g.GetDocument(doc.ID()); !errors.Is(err, ErrDocumentNotFound) {
 		t.Fatalf("missing document: %v", err)
 	}
 	if _, err := g.Extract(context.Background(), doc); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := g.GetDocument(doc.ID()); !errors.Is(err, ErrDocumentNotAdded) {
+	if _, err := g.GetDocument(doc.ID()); !errors.Is(err, ErrDocumentNotFound) {
 		t.Fatalf("Extract implicitly submitted document: %v", err)
 	}
 	if err := g.AddDocuments(context.Background(), doc); err != nil {

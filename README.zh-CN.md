@@ -134,7 +134,7 @@ if !report.Complete {
 - 路径使用符合 `fs.ValidPath` 的快照相对路径，以 `/` 分隔，不是绝对路径或 URL。
 - `Document.ID()` 是当前 Graph 快照中对应的 File 节点 ID，即 `FileID(Path)`。
 - `AddDocuments` 批量入队但不返回逐文件任务；需提前读取时按 ID 调用 `GetDocument`，或用 `FindAsync`
-  取得声明。未提交的 ID 会使 `GetDocument` 返回 `ErrDocumentNotAdded`；`AddDocument` 则直接返回任务。
+  取得声明。未提交的 ID 会使 `GetDocument` 返回 `ErrDocumentNotFound`；`AddDocument` 则直接返回任务。
 - `Flush` 在已提交材料和已加载源码之间解析关系，不会隐式获取依赖；构建预算、解析诊断与原子发布
   在此完成。相同输入保持幂等；内容冲突返回 `ErrSnapshotChanged`。
 - 入队时复制源码内容，调用返回后即可复用原始字节缓冲区。
