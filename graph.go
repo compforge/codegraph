@@ -16,14 +16,6 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
-var (
-	ErrSnapshotChanged = errors.New("source changed within graph snapshot")
-	ErrBuildInProgress = errors.New("graph flush in progress")
-	ErrBuildBudget     = errors.New("build budget exceeded")
-	ErrQueryBudget     = graphstore.ErrBudget
-	ErrReadOnly        = graphstore.ErrReadOnly
-)
-
 // Options bounds a graph's build and query work. Zero values select finite defaults.
 // Scope contains snapshot-relative, slash-separated document paths or directory prefixes.
 // Empty Scope allows any relative path; documents are only analyzed when supplied.

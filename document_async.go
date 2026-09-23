@@ -57,21 +57,25 @@ func (g *Graph) AddDocument(ctx context.Context, document Document) pond.ResultT
 	return tasks[0]
 }
 
-// GetDocument returns the extraction task for an already submitted
-// Document ID. It can be awaited before Flush to discover more dependencies.
-func (g *Graph) GetDocument(id string) (pond.ResultTask[Facts], bool) {
+// GetDocument returns the extraction task for an already submitted Document ID.
+// It reports ErrDocumentNotAdded when no result exists for the ID; it never
+// starts extraction implicitly. The task can be awaited before Flush.
+func (g *Graph) GetDocument(id string) (pond.ResultTask[Facts], error) {
 	g.asyncMu.Lock()
 	defer g.asyncMu.Unlock()
 	entry, ok := g.documentTasks[id]
-	return entry.task, ok
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", ErrDocumentNotAdded, id)
+	}
+	return entry.task, nil
 }
 
 // FindAsync projects declarations from an already submitted document as soon
 // as its extraction completes. These detached nodes do not imply that cross-
 // document relations or the queryable graph have been published.
 func (g *Graph) FindAsync(path string, kind NodeKind, qualifiedName string) (pond.ResultTask[[]Node], bool) {
-	task, ok := g.GetDocument(FileID(path))
-	if !ok {
+	task, err := g.GetDocument(FileID(path))
+	if err != nil {
 		return nil, false
 	}
 	return mappedTask[Facts, []Node]{source: task, project: func(facts Facts) ([]Node, error) {

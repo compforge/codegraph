@@ -2,6 +2,7 @@ package codegraph
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -33,9 +34,9 @@ func TestAsyncDocumentAndSymbolBeforeFlush(t *testing.T) {
 	if err := g.AddDocuments(ctx, doc); err != nil {
 		t.Fatal(err)
 	}
-	task, ok := g.GetDocument(doc.ID())
-	if !ok {
-		t.Fatal("submitted document has no task")
+	task, err := g.GetDocument(doc.ID())
+	if err != nil {
+		t.Fatal(err)
 	}
 	facts, err := task.Wait()
 	if err != nil || facts.Path != doc.Path || len(facts.Declarations) != 1 {
@@ -113,8 +114,8 @@ func TestAsyncBatchAdmissionIsAtomic(t *testing.T) {
 	if err := g.AddDocuments(context.Background(), valid, invalid); err == nil {
 		t.Fatal("invalid batch accepted")
 	}
-	if _, ok := g.GetDocument(valid.ID()); ok {
-		t.Fatal("partial batch was queued")
+	if _, err := g.GetDocument(valid.ID()); !errors.Is(err, ErrDocumentNotAdded) {
+		t.Fatalf("partial batch was queued: %v", err)
 	}
 	if report, err := g.Flush(context.Background()); err != nil || len(report.Files) != 0 {
 		t.Fatalf("report = %+v, %v", report, err)
@@ -136,9 +137,9 @@ func TestAsyncParseFailureIsNotRetriedOnFlush(t *testing.T) {
 	if err := g.AddDocuments(context.Background(), doc); err != nil {
 		t.Fatal(err)
 	}
-	task, ok := g.GetDocument(doc.ID())
-	if !ok {
-		t.Fatal("missing failed-document task")
+	task, err := g.GetDocument(doc.ID())
+	if err != nil {
+		t.Fatal(err)
 	}
 	if _, err := task.Wait(); err == nil {
 		t.Fatal("invalid source parsed successfully")
@@ -186,5 +187,31 @@ func BenchmarkDocumentSubmission(b *testing.B) {
 				}
 			}
 		})
+	}
+}
+
+func TestGetDocumentRequiresSubmission(t *testing.T) {
+	g, err := New("rev", Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := Document{Path: "main.go", Content: []byte("package p\nfunc Main(){}\n")}
+	if _, err := g.GetDocument(doc.ID()); !errors.Is(err, ErrDocumentNotAdded) {
+		t.Fatalf("missing document: %v", err)
+	}
+	if _, err := g.Extract(context.Background(), doc); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.GetDocument(doc.ID()); !errors.Is(err, ErrDocumentNotAdded) {
+		t.Fatalf("Extract implicitly submitted document: %v", err)
+	}
+	if err := g.AddDocuments(context.Background(), doc); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.GetDocument(doc.ID()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.Flush(context.Background()); err != nil {
+		t.Fatal(err)
 	}
 }

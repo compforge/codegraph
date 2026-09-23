@@ -10,7 +10,7 @@ CodeGraph 是可内嵌的代码属性图 Go 库，直接依赖 gotreesitter 与 
 
 ```text
 VERSION                                # 项目版本
-graph.go、node.go、relation.go、marker.go  # 公共图模型与能力声明
+graph.go、node.go、relation.go、marker.go、error.go # 公共图模型、错误与能力声明
 access.go                                # 按源码路径、限定名和关系方向消费图事实
 document.go、document_async.go            # Document 身份、异步入队、提前读取与 Flush 发布
 build.go、build_graph.go                 # 范围构建、诊断及原子发布

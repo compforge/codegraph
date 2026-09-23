@@ -134,9 +134,9 @@ if err := g.AddDocuments(ctx, main,
 ); err != nil {
     return err
 }
-if task, ok := g.GetDocument(main.ID()); ok {
-    if _, err := task.Wait(); err != nil { return err } // Facts are ready before Flush.
-}
+task, err := g.GetDocument(main.ID())
+if err != nil { return err } // The document must have been submitted.
+if _, err := task.Wait(); err != nil { return err } // Facts are ready before Flush.
 report, err := g.Flush(ctx)
 if err != nil {
     return err
@@ -149,7 +149,8 @@ if !report.Complete {
 - Paths use slash-separated, snapshot-relative names valid under `fs.ValidPath`, not absolute paths or URLs.
 - `Document.ID()` is the corresponding File node ID (`FileID(Path)`) within the Graph snapshot.
 - `AddDocuments` queues documents without returning one task per document. Use `GetDocument(ID)` for early
-  facts or `FindAsync` for detached declarations. `AddDocument` returns its task directly.
+  facts or `FindAsync` for detached declarations. `GetDocument` returns `ErrDocumentNotAdded` for an ID that
+  has not been submitted. `AddDocument` returns its task directly.
 - `Flush` resolves references against submitted and previously loaded sources; no dependencies are fetched
   implicitly. It applies build budgets and reports parse coverage before atomically publishing the graph.
 - Repeated identical input is idempotent. Conflicting content returns `ErrSnapshotChanged`. Content is copied
