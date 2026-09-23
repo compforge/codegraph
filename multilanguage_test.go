@@ -76,7 +76,7 @@ func TestModuleImportExpansion(t *testing.T) {
 			if err != nil || !hasDiagnostic(r, "unresolved_import") {
 				t.Fatal(r, err)
 			}
-			r, err = g.AddDocuments(context.Background(), documents(fs, tc.target)...)
+			r, err = g.addDocumentsSync(context.Background(), documents(fs, tc.target)...)
 			if err != nil || !r.Complete {
 				t.Fatal(r, err)
 			}
@@ -125,14 +125,14 @@ func TestMixedLanguageIsolationAndRollback(t *testing.T) {
 	}
 	before := g.Nodes()
 	fs["a.py"].Data = []byte("def Changed():\n    pass\n")
-	if _, err = g.AddDocuments(context.Background(), documents(fs, "a.py")...); !errors.Is(err, ErrSnapshotChanged) || !reflect.DeepEqual(before, g.Nodes()) {
+	if _, err = g.addDocumentsSync(context.Background(), documents(fs, "a.py")...); !errors.Is(err, ErrSnapshotChanged) || !reflect.DeepEqual(before, g.Nodes()) {
 		t.Fatal(err)
 	}
 	g, err = New("rev", Options{MaxNodes: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = g.AddDocuments(context.Background(), documents(fs, "a.go", "a.py")...); !errors.Is(err, ErrBuildBudget) || len(g.Nodes()) != 0 {
+	if _, err = g.addDocumentsSync(context.Background(), documents(fs, "a.go", "a.py")...); !errors.Is(err, ErrBuildBudget) || len(g.Nodes()) != 0 {
 		t.Fatal("non-Go bypassed atomic budget", err)
 	}
 }
@@ -238,7 +238,7 @@ func TestMultilanguageExpansionBudget(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err = g.AddDocuments(context.Background(), documents(fs, "a.js", "b.js", "c.js")...); !errors.Is(err, ErrBuildBudget) || len(g.Nodes()) != 0 {
+		if _, err = g.addDocumentsSync(context.Background(), documents(fs, "a.js", "b.js", "c.js")...); !errors.Is(err, ErrBuildBudget) || len(g.Nodes()) != 0 {
 			t.Fatal("import budget did not roll back", err)
 		}
 	}

@@ -102,10 +102,11 @@ for _, row := range rows {
 }
 ```
 
-You can also create an empty graph with `New(snapshot, options)` and add documents using
-`AddDocuments(ctx, documents...)`. Each addition rebuilds the current local graph before publishing
-it atomically. Queries can continue reading the previous batch while the replacement is being built.
-This is a correctness-first batch update, not an incremental graph-engine optimization.
+You can also create an empty graph with `New(snapshot, options)`. `AddDocuments` queues a batch;
+`AddDocument` queues one document and returns a `ResultTask[Facts]`. `GetDocument(document.ID())`
+and `FindAsync(path, kind, qualifiedName)` expose document and declaration results before `Flush`.
+`Flush` waits for the current batch, resolves cross-document relations, and atomically publishes the
+queryable graph. Queries keep reading the previous published batch until then.
 
 Use separate Graph instances for before/after snapshots. Adding the same path with different bytes
 returns `ErrSnapshotChanged`. The caller owns document selection and source access boundaries.
@@ -127,10 +128,16 @@ g, err := codegraph.New("revision-1", codegraph.Options{})
 if err != nil {
     return err
 }
-report, err := g.AddDocuments(ctx,
-    codegraph.Document{Path: "main.go", Content: []byte("package demo\nfunc Entry(){ Work() }")},
+main := codegraph.Document{Path: "main.go", Content: []byte("package demo\nfunc Entry(){ Work() }")}
+if err := g.AddDocuments(ctx, main,
     codegraph.Document{Path: "work.go", Content: []byte("package demo\nfunc Work(){}")},
-)
+); err != nil {
+    return err
+}
+task, err := g.GetDocument(main.ID())
+if err != nil { return err } // The document must have been submitted.
+if _, err := task.Wait(); err != nil { return err } // Facts are ready before Flush.
+report, err := g.Flush(ctx)
 if err != nil {
     return err
 }
@@ -140,11 +147,14 @@ if !report.Complete {
 ```
 
 - Paths use slash-separated, snapshot-relative names valid under `fs.ValidPath`, not absolute paths or URLs.
-- `AddDocuments` resolves references against the supplied batch and previously loaded sources. It does not
-  fetch dependencies; provide every source unit needed for the intended graph explicitly.
-- Document batches share scope, budgets, diagnostics, and snapshot identity. Repeated identical input is
-  idempotent; conflicting content at a loaded path returns `ErrSnapshotChanged` and rolls back the batch.
-- Keep content unchanged during the call. After it returns, the graph owns its retained bytes.
+- `Document.ID()` is the corresponding File node ID (`FileID(Path)`) within the Graph snapshot.
+- `AddDocuments` queues documents without returning one task per document. Use `GetDocument(ID)` for early
+  facts or `FindAsync` for detached declarations. `GetDocument` returns `ErrDocumentNotFound` for an ID that
+  has not been submitted. `AddDocument` returns its task directly.
+- `Flush` resolves references against submitted and previously loaded sources; no dependencies are fetched
+  implicitly. It applies build budgets and reports parse coverage before atomically publishing the graph.
+- Repeated identical input is idempotent. Conflicting content returns `ErrSnapshotChanged`. Content is copied
+  when admitted, so callers may reuse their input buffer after `AddDocument` or `AddDocuments` returns.
 
 ### Locating declarations
 

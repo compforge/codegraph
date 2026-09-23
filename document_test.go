@@ -28,7 +28,7 @@ func TestDocumentsMatchFilesystem(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := g.AddDocuments(ctx, inputs...); err != nil {
+	if _, err := g.addDocumentsSync(ctx, inputs...); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(g.Nodes(), want.Nodes()) || !reflect.DeepEqual(g.Relations(), want.Relations()) || !reflect.DeepEqual(g.Report(), want.Report()) {
@@ -44,15 +44,15 @@ func TestDocumentsResolveAcrossBatchesAndInputForms(t *testing.T) {
 		t.Fatal(err)
 	}
 	main := Document{Path: "main.go", Content: source["main.go"].Data}
-	r, err := g.AddDocuments(ctx, main, main)
+	r, err := g.addDocumentsSync(ctx, main, main)
 	if err != nil || r.Complete || !reflect.DeepEqual(r.Files, []string{"main.go"}) {
 		t.Fatalf("explicit batch must not discover dependencies: %+v, %v", r, err)
 	}
-	r, err = g.AddDocuments(ctx, Document{Path: "lib/work.go", Content: source["lib/work.go"].Data})
+	r, err = g.addDocumentsSync(ctx, Document{Path: "lib/work.go", Content: source["lib/work.go"].Data})
 	if err != nil || r.Complete {
 		t.Fatal(r, err)
 	}
-	r, err = g.AddDocuments(ctx, Document{Path: "helper.go", Content: source["helper.go"].Data})
+	r, err = g.addDocumentsSync(ctx, Document{Path: "helper.go", Content: source["helper.go"].Data})
 	if err != nil || !r.Complete {
 		t.Fatal(r, err)
 	}
@@ -60,17 +60,17 @@ func TestDocumentsResolveAcrossBatchesAndInputForms(t *testing.T) {
 		t.Fatalf("cross-document calls missing: %v", got)
 	}
 	nodes, relations, report := g.Nodes(), g.Relations(), g.Report()
-	if _, err := g.AddDocuments(ctx, main, Document{Path: "helper.go", Content: source["helper.go"].Data}); err != nil {
+	if _, err := g.addDocumentsSync(ctx, main, Document{Path: "helper.go", Content: source["helper.go"].Data}); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(nodes, g.Nodes()) || !reflect.DeepEqual(relations, g.Relations()) || !reflect.DeepEqual(report, g.Report()) {
 		t.Fatal("re-adding files as documents changed identities or coverage")
 	}
-	if _, err := g.AddDocuments(ctx, Document{Path: "helper.go", Content: []byte("package app\nfunc Changed(){}")}); !errors.Is(err, ErrSnapshotChanged) {
+	if _, err := g.addDocumentsSync(ctx, Document{Path: "helper.go", Content: []byte("package app\nfunc Changed(){}")}); !errors.Is(err, ErrSnapshotChanged) {
 		t.Fatalf("filesystem identity not shared with documents: %v", err)
 	}
 	changed := fstest.MapFS{"main.go": {Data: []byte("package app\nfunc Changed(){}")}}
-	if _, err := g.AddDocuments(ctx, Document{Path: "main.go", Content: changed["main.go"].Data}); !errors.Is(err, ErrSnapshotChanged) {
+	if _, err := g.addDocumentsSync(ctx, Document{Path: "main.go", Content: changed["main.go"].Data}); !errors.Is(err, ErrSnapshotChanged) {
 		t.Fatalf("document identity not shared with files: %v", err)
 	}
 	if !reflect.DeepEqual(nodes, g.Nodes()) || !reflect.DeepEqual(relations, g.Relations()) || !reflect.DeepEqual(report, g.Report()) {
@@ -86,14 +86,14 @@ func TestDocumentsOwnContent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := g.AddDocuments(ctx, Document{Path: "main.go", Content: content}); err != nil {
+	if _, err := g.addDocumentsSync(ctx, Document{Path: "main.go", Content: content}); err != nil {
 		t.Fatal(err)
 	}
 	// A later rebuild must still use the submitted snapshot, not caller memory.
 	for i := range content {
 		content[i] = 'x'
 	}
-	r, err := g.AddDocuments(ctx,
+	r, err := g.addDocumentsSync(ctx,
 		Document{Path: "work.go", Content: []byte("package app\nfunc Work(){}\n")},
 		Document{Path: "main.go", Content: original},
 	)
@@ -129,7 +129,7 @@ func TestDocumentsRollback(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := g.AddDocuments(context.Background(), seed); err != nil {
+			if _, err := g.addDocumentsSync(context.Background(), seed); err != nil {
 				t.Fatal(err)
 			}
 			nodes, relations, report := g.Nodes(), g.Relations(), g.Report()
@@ -138,7 +138,7 @@ func TestDocumentsRollback(t *testing.T) {
 			if tc.cancel {
 				cancel()
 			}
-			r, err := g.AddDocuments(ctx, tc.documents...)
+			r, err := g.addDocumentsSync(ctx, tc.documents...)
 			if err == nil || (tc.wantErr != nil && !errors.Is(err, tc.wantErr)) {
 				t.Fatalf("error = %v, want %v", err, tc.wantErr)
 			}
@@ -154,7 +154,7 @@ func TestDocumentsPartialCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := g.AddDocuments(context.Background(),
+	r, err := g.addDocumentsSync(context.Background(),
 		Document{Path: "src/good.go", Content: []byte("package app\nfunc Good(){}")},
 		Document{Path: "src/bad.go", Content: []byte("package broken\nfunc (")},
 		Document{Path: "src/unknown.codegraph-unknown", Content: []byte("unknown")},

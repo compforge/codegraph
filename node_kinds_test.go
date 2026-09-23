@@ -129,7 +129,7 @@ func Local(){ type Box struct{} }
 		t.Fatal(r, err)
 	}
 	before := query(t, g, `MATCH (m:Method) RETURN m`, nil)[0]["m"].(Node)
-	r, err = g.AddDocuments(ctx, documents(source, "types.go")...)
+	r, err = g.addDocumentsSync(ctx, documents(source, "types.go")...)
 	if err != nil || !r.Complete {
 		t.Fatal(r, err)
 	}
@@ -153,7 +153,7 @@ func Local(){ type Box struct{} }
 		t.Fatal("method's lexical file owner missing")
 	}
 	nodes, edges := g.Nodes(), g.Relations()
-	if _, err = g.AddDocuments(ctx, documents(source, "methods.go", "types.go")...); err != nil || !reflect.DeepEqual(nodes, g.Nodes()) || !reflect.DeepEqual(edges, g.Relations()) {
+	if _, err = g.addDocumentsSync(ctx, documents(source, "methods.go", "types.go")...); err != nil || !reflect.DeepEqual(nodes, g.Nodes()) || !reflect.DeepEqual(edges, g.Relations()) {
 		t.Fatal("repeated build changed concrete identities", err)
 	}
 }
@@ -201,7 +201,7 @@ func TestConcreteKindsBudgetRollback(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err = g.AddDocuments(context.Background(), documents(source, "types.go")...); !errors.Is(err, ErrBuildBudget) {
+		if _, err = g.addDocumentsSync(context.Background(), documents(source, "types.go")...); !errors.Is(err, ErrBuildBudget) {
 			t.Fatal("member/receiver growth bypassed budget", err)
 		}
 		if len(g.Nodes()) != 0 || len(g.Relations()) != 0 {

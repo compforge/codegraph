@@ -1,9 +1,7 @@
 package codegraph
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 )
 
 // Document is one source unit supplied for graph construction. It may come from
@@ -18,38 +16,19 @@ type Document struct {
 	Content []byte
 }
 
-// AddDocuments adds an explicit batch of source documents atomically. Content
-// must remain unchanged during the call; the graph retains its own copy afterward.
-// Scope and all size/parse budgets apply to every explicit batch. Re-adding a
-// loaded path with different content returns ErrSnapshotChanged.
-// Identical paths and content within a batch are deduplicated; conflicting
-// content returns ErrSnapshotChanged. Documents without a registered grammar
-// still enter the graph as file-level nodes without parsing; unparseable
-// documents produce partial coverage; budget, identity, and cancellation
-// errors roll back.
-// References resolve against this batch and previously loaded documents.
-// Dependencies are never fetched implicitly; callers supply them explicitly.
-// Extraction within a batch is bounded by Options.BuildConcurrency. Separate
-// batches on the same Graph remain serialized; readers see only published state.
-func (g *Graph) AddDocuments(ctx context.Context, documents ...Document) (BuildReport, error) {
-	if err := ctx.Err(); err != nil {
-		return g.Report(), err
-	}
-	byPath := make(map[string]Document, len(documents))
-	paths := make([]string, 0, len(documents))
-	for _, document := range documents {
-		if prior, ok := byPath[document.Path]; ok {
-			if !bytes.Equal(prior.Content, document.Content) {
-				return g.Report(), fmt.Errorf("%w: %s", ErrSnapshotChanged, document.Path)
-			}
-			continue
-		}
-		byPath[document.Path] = document
-		paths = append(paths, document.Path)
-	}
-	ordered := make([]Document, 0, len(paths))
-	for _, path := range paths {
-		ordered = append(ordered, byPath[path])
-	}
-	return g.add(ctx, ordered...)
+// Identifiable has a stable identity within one Graph snapshot.
+type Identifiable interface {
+	ID() string
+}
+
+// ID is the File node identity for this source document.
+func (d Document) ID() string { return FileID(d.Path) }
+
+// AddDocuments queues an explicit batch of source documents for the next Flush.
+// The batch is validated before any document is admitted. It returns after
+// submission; callers can use GetDocument or FindAsync for early results.
+// Documents are copied on admission and never fetched implicitly.
+func (g *Graph) AddDocuments(ctx context.Context, documents ...Document) error {
+	_, err := g.enqueueDocuments(ctx, documents...)
+	return err
 }

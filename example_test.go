@@ -29,10 +29,15 @@ func ExampleGraph_AddDocuments() {
 		fmt.Println(err)
 		return
 	}
-	report, err := g.AddDocuments(context.Background(),
+	err = g.AddDocuments(context.Background(),
 		codegraph.Document{Path: "main.go", Content: []byte("package demo\nfunc Entry(){ Work() }")},
 		codegraph.Document{Path: "work.go", Content: []byte("package demo\nfunc Work(){}")},
 	)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	report, err := g.Flush(context.Background())
 	if err != nil {
 		fmt.Println(err)
 		return

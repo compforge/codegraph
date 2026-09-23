@@ -61,10 +61,10 @@ func TestExtractThenAddParsesOnce(t *testing.T) {
 	if _, err := g.Extract(ctx, doc); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := g.AddDocuments(ctx, doc, Document{Path: "helper.go", Content: source["helper.go"].Data}); err != nil {
+	if _, err := g.addDocumentsSync(ctx, doc, Document{Path: "helper.go", Content: source["helper.go"].Data}); err != nil {
 		t.Fatal(err)
 	}
-	if parsed["main.go"] != 0 || parsed["helper.go"] != 1 {
+	if parsed["main.go"] != 1 || parsed["helper.go"] != 1 {
 		t.Fatalf("batch parses = %v, main.go must reuse the Extract facts", parsed)
 	}
 	if got := query(t, g, `MATCH (:File {path:'main.go'})-[:contains]->(f:Function {name:'Entry'}) RETURN f`, nil); len(got) != 1 {
@@ -72,10 +72,10 @@ func TestExtractThenAddParsesOnce(t *testing.T) {
 	}
 	// The cache entry was consumed on staging; re-adding identical content must
 	// hit the retained facts, not a stale cache.
-	if _, err := g.AddDocuments(ctx, doc); err != nil {
+	if _, err := g.addDocumentsSync(ctx, doc); err != nil {
 		t.Fatal(err)
 	}
-	if parsed["main.go"] != 0 {
+	if parsed["main.go"] != 1 {
 		t.Fatalf("re-add reparsed: %v", parsed)
 	}
 }
@@ -93,10 +93,10 @@ func TestExtractCacheFollowsContentIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 	fresh := Document{Path: "main.go", Content: []byte("package app\nfunc Fresh(){}\n")}
-	if _, err := g.AddDocuments(ctx, fresh); err != nil {
+	if _, err := g.addDocumentsSync(ctx, fresh); err != nil {
 		t.Fatal(err)
 	}
-	if parsed["main.go"] != 1 {
+	if parsed["main.go"] != 2 {
 		t.Fatalf("changed content reused cached facts: %v", parsed)
 	}
 	if got := query(t, g, `MATCH (f:Function) RETURN f`, nil); len(got) != 1 || got[0]["f"].(Node).Name != "Fresh" {
@@ -115,7 +115,7 @@ func TestExtractProjectsLoadedDocuments(t *testing.T) {
 		t.Fatal(err)
 	}
 	doc := Document{Path: "helper.go", Content: source["helper.go"].Data}
-	if _, err := g.AddDocuments(ctx, doc); err != nil {
+	if _, err := g.addDocumentsSync(ctx, doc); err != nil {
 		t.Fatal(err)
 	}
 	facts, err := g.Extract(ctx, doc)
@@ -148,7 +148,7 @@ func TestExtractFileOnlyDocument(t *testing.T) {
 		t.Fatalf("issues = %+v", facts.Issues)
 	}
 	// Cached file-only facts feed AddDocuments the same way as a direct add.
-	r, err := g.AddDocuments(ctx, doc)
+	r, err := g.addDocumentsSync(ctx, doc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,7 +236,7 @@ func TestExtractConcurrentWithBuild(t *testing.T) {
 			}
 		}()
 	}
-	if _, err := g.AddDocuments(ctx, Document{Path: "helper.go", Content: source["helper.go"].Data}); err != nil {
+	if _, err := g.addDocumentsSync(ctx, Document{Path: "helper.go", Content: source["helper.go"].Data}); err != nil {
 		t.Fatal(err)
 	}
 	wg.Wait()

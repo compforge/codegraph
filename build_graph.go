@@ -16,6 +16,11 @@ import (
 
 func FileID(name string) string { return "file:" + name }
 
+// declarationID is shared by early detached results and published nodes.
+func declarationID(path string, kind NodeKind, qualifiedName string, start int) string {
+	return "node:" + identity(path, kind, qualifiedName, start)
+}
+
 func identity(parts ...any) string {
 	b, _ := json.Marshal(parts)
 	h := sha256.Sum256(b)
@@ -62,7 +67,7 @@ func (g *Graph) assemble(ctx context.Context, files map[string]extract.Facts, fa
 			if err != nil {
 				return nil, nil, report, fmt.Errorf("%s: %w", p, err)
 			}
-			id := "node:" + identity(p, kind, d.QualifiedName, d.Start)
+			id := declarationID(p, kind, d.QualifiedName, d.Start)
 			ids[resolve.Ref{Path: p, Declaration: i}] = id
 			n := Node{ID: id, Kind: kind, Name: d.Name, QualifiedName: d.QualifiedName, Language: f.Language, Location: location(f, d.Span)}
 			for _, m := range d.Comments {

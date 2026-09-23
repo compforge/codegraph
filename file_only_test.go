@@ -47,17 +47,17 @@ func TestFileOnlyDocumentsIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 	notes := Document{Path: "notes.cg-unrecognized", Content: []byte("plain text notes")}
-	if _, err := g.AddDocuments(ctx, notes); err != nil {
+	if _, err := g.addDocumentsSync(ctx, notes); err != nil {
 		t.Fatal(err)
 	}
 	nodes, relations, report := g.Nodes(), g.Relations(), g.Report()
-	if _, err := g.AddDocuments(ctx, notes, notes); err != nil {
+	if _, err := g.addDocumentsSync(ctx, notes, notes); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(nodes, g.Nodes()) || !reflect.DeepEqual(relations, g.Relations()) || !reflect.DeepEqual(report, g.Report()) {
 		t.Fatal("re-adding a file-only document changed identities or coverage")
 	}
-	if _, err := g.AddDocuments(ctx, Document{Path: notes.Path, Content: []byte("changed notes")}); !errors.Is(err, ErrSnapshotChanged) {
+	if _, err := g.addDocumentsSync(ctx, Document{Path: notes.Path, Content: []byte("changed notes")}); !errors.Is(err, ErrSnapshotChanged) {
 		t.Fatalf("conflicting file-only content = %v", err)
 	}
 	if !reflect.DeepEqual(nodes, g.Nodes()) || !reflect.DeepEqual(relations, g.Relations()) || !reflect.DeepEqual(report, g.Report()) {
@@ -72,16 +72,16 @@ func TestFileOnlyDocumentsOwnContent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := g.AddDocuments(ctx, Document{Path: "notes.cg-unrecognized", Content: content}); err != nil {
+	if _, err := g.addDocumentsSync(ctx, Document{Path: "notes.cg-unrecognized", Content: content}); err != nil {
 		t.Fatal(err)
 	}
 	for i := range content {
 		content[i] = 'x'
 	}
-	if _, err := g.AddDocuments(ctx, Document{Path: "notes.cg-unrecognized", Content: []byte("original notes")}); err != nil {
+	if _, err := g.addDocumentsSync(ctx, Document{Path: "notes.cg-unrecognized", Content: []byte("original notes")}); err != nil {
 		t.Fatalf("caller mutation corrupted retained source: %v", err)
 	}
-	if _, err := g.AddDocuments(ctx, Document{Path: "notes.cg-unrecognized", Content: content}); !errors.Is(err, ErrSnapshotChanged) {
+	if _, err := g.addDocumentsSync(ctx, Document{Path: "notes.cg-unrecognized", Content: content}); !errors.Is(err, ErrSnapshotChanged) {
 		t.Fatalf("mutated caller memory matched retained source: %v", err)
 	}
 }
@@ -102,11 +102,11 @@ func TestFileOnlyDocumentsBudget(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := g.AddDocuments(context.Background(), seed); err != nil {
+			if _, err := g.addDocumentsSync(context.Background(), seed); err != nil {
 				t.Fatal(err)
 			}
 			nodes, relations, report := g.Nodes(), g.Relations(), g.Report()
-			if _, err := g.AddDocuments(context.Background(), notes); !errors.Is(err, ErrBuildBudget) {
+			if _, err := g.addDocumentsSync(context.Background(), notes); !errors.Is(err, ErrBuildBudget) {
 				t.Fatalf("file-only document bypassed budget: %v", err)
 			}
 			if !reflect.DeepEqual(nodes, g.Nodes()) || !reflect.DeepEqual(relations, g.Relations()) || !reflect.DeepEqual(report, g.Report()) {

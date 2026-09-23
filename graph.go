@@ -10,16 +10,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/alitto/pond/v2"
 	"github.com/compforge/codegraph/internal/extract"
 	"github.com/compforge/codegraph/internal/graphstore"
 	"github.com/odvcencio/gotreesitter/grammars"
-)
-
-var (
-	ErrSnapshotChanged = errors.New("source changed within graph snapshot")
-	ErrBuildBudget     = errors.New("build budget exceeded")
-	ErrQueryBudget     = graphstore.ErrBudget
-	ErrReadOnly        = graphstore.ErrReadOnly
 )
 
 // Options bounds a graph's build and query work. Zero values select finite defaults.
@@ -42,18 +36,24 @@ type Options struct {
 // Queries observe either the old or the new batch; they cannot mutate the graph.
 // +spec=`A failed or cancelled build must not publish a partially written graph`
 type Graph struct {
-	mu          sync.RWMutex
-	buildMu     sync.Mutex
-	snapshot    string
-	opts        Options
-	files       map[string]extract.Facts
-	failures    map[string]Diagnostic
-	nodes       map[string]Node
-	relations   map[string]Relation
-	store       *graphstore.Store
-	report      BuildReport
-	factCacheMu sync.Mutex
-	factCache   map[string]factCacheEntry
+	mu            sync.RWMutex
+	buildMu       sync.Mutex
+	flushMu       sync.Mutex
+	asyncMu       sync.Mutex
+	asyncPool     pond.ResultPool[Facts]
+	flushing      bool
+	pending       []Document
+	documentTasks map[string]documentTask
+	snapshot      string
+	opts          Options
+	files         map[string]extract.Facts
+	failures      map[string]Diagnostic
+	nodes         map[string]Node
+	relations     map[string]Relation
+	store         *graphstore.Store
+	report        BuildReport
+	factCacheMu   sync.Mutex
+	factCache     map[string]factCacheEntry
 }
 
 func New(snapshot string, opts Options) (*Graph, error) {
@@ -64,6 +64,7 @@ func New(snapshot string, opts Options) (*Graph, error) {
 		return nil, err
 	}
 	g := &Graph{snapshot: snapshot, opts: opts, files: map[string]extract.Facts{}, failures: map[string]Diagnostic{}, nodes: map[string]Node{}, relations: map[string]Relation{}, factCache: map[string]factCacheEntry{}}
+	g.documentTasks = map[string]documentTask{}
 	g.store = graphstore.New(g.limits())
 	g.report = BuildReport{Snapshot: snapshot, Complete: true, Files: []string{}}
 	return g, nil

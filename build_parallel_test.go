@@ -59,7 +59,7 @@ func TestParallelFailedParseReleasesBudget(t *testing.T) {
 			t.Fatalf("concurrency %d: %+v, %v", concurrency, report, err)
 		}
 		nodes, relations := g.Nodes(), g.Relations()
-		if _, err := g.AddDocuments(context.Background(), Document{Path: "c.go", Content: good}); !errors.Is(err, ErrBuildBudget) {
+		if _, err := g.addDocumentsSync(context.Background(), Document{Path: "c.go", Content: good}); !errors.Is(err, ErrBuildBudget) {
 			t.Fatalf("expected exhausted budget: %v", err)
 		}
 		if !reflect.DeepEqual(report, g.Report()) || !reflect.DeepEqual(nodes, g.Nodes()) || !reflect.DeepEqual(relations, g.Relations()) {
@@ -103,7 +103,7 @@ func TestParallelExtractionBoundAndAtomicPublication(t *testing.T) {
 				docs = append(docs, Document{Path: fmt.Sprintf("f%d%s", i, ext), Content: []byte("def work():\n    pass\n")})
 			}
 			done := make(chan error, 1)
-			go func() { _, err := g.AddDocuments(ctx, docs...); done <- err }()
+			go func() { _, err := g.addDocumentsSync(ctx, docs...); done <- err }()
 			for i := 0; i < 3; i++ {
 				select {
 				case <-started:
