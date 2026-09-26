@@ -14,7 +14,7 @@ func (b Box) Run() { Work(); Work() }
 func Work() {}
 `)}}
 	g, report, err := Build(context.Background(), "rev", documents(source, "main.go"), Options{})
-	if err != nil || !report.Complete {
+	if err != nil || len(report.Diagnostics) != 0 {
 		t.Fatal(report, err)
 	}
 	methods := g.Find("main.go", Method, "Box.Run")

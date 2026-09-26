@@ -68,7 +68,7 @@ func New(snapshot string, opts Options) (*Graph, error) {
 	g := &Graph{snapshot: snapshot, opts: opts, files: map[string]extract.Facts{}, failures: map[string]Diagnostic{}, nodes: map[string]Node{}, relations: map[string]Relation{}, factCache: map[string]factCacheEntry{}}
 	g.documentTasks = map[string]documentTask{}
 	g.store = graphstore.New(g.limits())
-	g.report = BuildReport{Snapshot: snapshot, Complete: true, Files: []string{}}
+	g.report = BuildReport{Snapshot: snapshot, Files: []string{}}
 	return g, nil
 }
 

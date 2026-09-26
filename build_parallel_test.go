@@ -172,7 +172,7 @@ func BenchmarkDocumentBuild(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
 				_, report, err := Build(context.Background(), "bench", docs, Options{BuildConcurrency: concurrency})
-				if err != nil || !report.Complete {
+				if err != nil || len(report.Diagnostics) != 0 {
 					b.Fatalf("%+v, %v", report, err)
 				}
 			}

@@ -59,8 +59,26 @@ type Facts struct {
 }
 
 type Issue struct {
-	Code, Message string
+	Code, Message     string
+	Subject, Relation string
 	Span
+	Outline *OutlineCoverage
+}
+
+// OutlineCoverage is a detached receipt for the declaration query. Keeping
+// this value independent of the parser makes cached facts safe to publish.
+type OutlineCoverage struct {
+	Symbols                    int    `json:"symbols"`
+	OmittedNoName              int    `json:"omittedNoName,omitempty"`
+	OmittedDuplicate           int    `json:"omittedDuplicate,omitempty"`
+	OmittedNameConflict        int    `json:"omittedNameConflict,omitempty"`
+	OmittedConflict            int    `json:"omittedConflict,omitempty"`
+	OmittedOverlap             int    `json:"omittedOverlap,omitempty"`
+	OmittedInvalidNameRange    int    `json:"omittedInvalidNameRange,omitempty"`
+	OmittedMultipleDefinitions int    `json:"omittedMultipleDefinitions,omitempty"`
+	OwnerRuleMisses            int    `json:"ownerRuleMisses,omitempty"`
+	DeclineReason              string `json:"declineReason,omitempty"`
+	Truncated                  bool   `json:"truncated,omitempty"`
 }
 
 func lineStarts(source []byte) []int {
@@ -148,7 +166,7 @@ func Analyze(ctx context.Context, name string, source []byte, timeout time.Durat
 		f.Imports = append(f.Imports, Import{Alias: i.Alias, Path: i.Path, Binding: i.Name, Span: Span{int(i.StartByte), int(i.EndByte)}})
 	}
 	if bytes.Contains(source, []byte("//go:embed")) {
-		f.Issues = append(f.Issues, Issue{Code: "unsupported_resource", Message: "go:embed dependencies are not resolved"})
+		f.Issues = append(f.Issues, Issue{Code: "unsupported_resource", Message: "go:embed dependencies are not resolved", Subject: "resources", Span: Span{End: len(source)}})
 	}
 	if err := enrichGo(&f); err != nil {
 		return f, err

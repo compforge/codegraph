@@ -17,7 +17,7 @@ func TestMultilanguageGraph(t *testing.T) {
 	} {
 		t.Run(tc.language, func(t *testing.T) {
 			g, r, err := Build(context.Background(), "rev", []Document{{Path: tc.path, Content: []byte(tc.source)}}, Options{})
-			if err != nil || !r.Complete {
+			if err != nil || len(r.Diagnostics) != 0 {
 				t.Fatal(r, err)
 			}
 			rows := query(t, g, `MATCH (a:Function {name:'entry'})-[r:calls]->(b:Function {name:'work'}) RETURN a,r,b`, nil)
@@ -49,7 +49,7 @@ func TestRegisteredLanguageOutline(t *testing.T) {
 	} {
 		t.Run(tc.path, func(t *testing.T) {
 			g, r, err := Build(context.Background(), "rev", []Document{{Path: tc.path, Content: []byte(tc.source)}}, Options{})
-			if err != nil || !hasDiagnostic(r, "unsupported_resolution") || r.Complete {
+			if err != nil || !hasDiagnostic(r, "unsupported_resolution") || (len(r.Diagnostics) == 0) {
 				t.Fatal(r, err)
 			}
 			found := false
@@ -77,7 +77,7 @@ func TestModuleImportExpansion(t *testing.T) {
 				t.Fatal(r, err)
 			}
 			r, err = g.addDocumentsSync(context.Background(), documents(fs, tc.target)...)
-			if err != nil || !r.Complete {
+			if err != nil || len(r.Diagnostics) != 0 {
 				t.Fatal(r, err)
 			}
 			rows := query(t, g, `MATCH (a:File)-[r:imports]->(b:File) RETURN a,r,b`, nil)
@@ -85,7 +85,7 @@ func TestModuleImportExpansion(t *testing.T) {
 				t.Fatal(rows)
 			}
 			g2, r, err := Build(context.Background(), "rev", documents(fs, tc.entry, tc.target), Options{})
-			if err != nil || !r.Complete || !reflect.DeepEqual(g.Nodes(), g2.Nodes()) || !reflect.DeepEqual(g.Relations(), g2.Relations()) {
+			if err != nil || len(r.Diagnostics) != 0 || !reflect.DeepEqual(g.Nodes(), g2.Nodes()) || !reflect.DeepEqual(g.Relations(), g2.Relations()) {
 				t.Fatal(r, err)
 			}
 		})
@@ -103,7 +103,7 @@ func TestModuleUncertainty(t *testing.T) {
 		{"app.ts", "function work(){} function entry(){return function(){work()}}"},
 	} {
 		g, r, err := Build(context.Background(), "rev", []Document{{Path: tc.path, Content: []byte(tc.source)}}, Options{})
-		if err != nil || r.Complete || !hasDiagnostic(r, "dynamic_call") {
+		if err != nil || (len(r.Diagnostics) == 0) || !hasDiagnostic(r, "dynamic_call") {
 			t.Fatal(r, err)
 		}
 		if len(query(t, g, `MATCH ()-[:calls]->() RETURN 1`, nil)) != 0 {
@@ -115,7 +115,7 @@ func TestModuleUncertainty(t *testing.T) {
 func TestMixedLanguageIsolationAndRollback(t *testing.T) {
 	fs := fstest.MapFS{"a.go": {Data: []byte("package p; func Work(){}; func Entry(){Work()}")}, "a.py": {Data: []byte("def Work():\n    pass\ndef Entry():\n    Work()\n")}}
 	g, r, err := Build(context.Background(), "rev", documents(fs, "a.go", "a.py"), Options{})
-	if err != nil || !r.Complete {
+	if err != nil || len(r.Diagnostics) != 0 {
 		t.Fatal(r, err)
 	}
 	for _, row := range query(t, g, `MATCH (a)-[:calls]->(b) RETURN a,b`, nil) {
@@ -149,7 +149,7 @@ func TestModuleDeclarationsAndMarkers(t *testing.T) {
 	} {
 		t.Run(tc.path, func(t *testing.T) {
 			g, r, err := Build(context.Background(), "rev", []Document{{Path: tc.path, Content: []byte(tc.source)}}, Options{})
-			if err != nil || !r.Complete {
+			if err != nil || len(r.Diagnostics) != 0 {
 				t.Fatal(r, err)
 			}
 			got := map[string]NodeKind{}
@@ -178,7 +178,7 @@ func TestImportCandidatesAndScope(t *testing.T) {
 		"src/lib.js": {Data: []byte("export function run(){}")},
 	}
 	g, r, err := Build(context.Background(), "rev", documents(fs, "src/app.ts", "src/lib.ts", "src/lib.js"), Options{})
-	if err != nil || r.Complete || !hasDiagnostic(r, "ambiguous_import") {
+	if err != nil || len(r.Diagnostics) != 0 {
 		t.Fatal(r, err)
 	}
 	rows := query(t, g, `MATCH ()-[r:imports]->() RETURN r`, nil)
@@ -191,7 +191,7 @@ func TestImportCandidatesAndScope(t *testing.T) {
 		}
 	}
 	g, r, err = Build(context.Background(), "rev", documents(fs, "src/app.ts", "src/lib.ts", "src/lib.js"), Options{Scope: []string{"src/app.ts"}})
-	if err != nil || r.Complete || len(g.Nodes()) != 1 || !hasDiagnostic(r, "out_of_scope") {
+	if err != nil || (len(r.Diagnostics) == 0) || len(g.Nodes()) != 1 || !hasDiagnostic(r, "out_of_scope") {
 		t.Fatal(r, err)
 	}
 }
@@ -205,7 +205,7 @@ func TestUnsupportedAndMalformedLanguages(t *testing.T) {
 		{"app.js", "import(target)", "dynamic_import"},
 	} {
 		_, r, err := Build(context.Background(), "rev", []Document{{Path: tc.path, Content: []byte(tc.source)}}, Options{})
-		if err != nil || r.Complete || !hasDiagnostic(r, tc.code) {
+		if err != nil || (len(r.Diagnostics) == 0) || !hasDiagnostic(r, tc.code) {
 			t.Fatal(tc.path, r, err)
 		}
 	}

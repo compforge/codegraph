@@ -25,7 +25,7 @@ func TestRegisteredExtension(t *testing.T) {
 		t.Fatal(cap)
 	}
 	g, r, err := codegraph.Build(context.Background(), "rev", []codegraph.Document{{Path: "app.cgtest", Content: []byte("def work():\n    pass\n")}}, codegraph.Options{})
-	if err != nil || r.Complete {
+	if err != nil || (len(r.Diagnostics) == 0) {
 		t.Fatal(r, err)
 	}
 	rows, err := g.Query(context.Background(), `MATCH (n:Function {name:'work'}) RETURN n`, nil)
@@ -38,7 +38,7 @@ func TestRegisteredExtension(t *testing.T) {
 	entry.Language = nil
 	grammars.Register(entry)
 	_, r, err = codegraph.Build(context.Background(), "rev", []codegraph.Document{{Path: "app.cgunavailable", Content: []byte("code")}}, codegraph.Options{})
-	if err != nil || r.Complete || len(r.Diagnostics) != 1 || r.Diagnostics[0].Code != "parse_error" {
+	if err != nil || (len(r.Diagnostics) == 0) || len(r.Diagnostics) != 1 || r.Diagnostics[0].Code != "parse_error" {
 		t.Fatal(r, err)
 	}
 }

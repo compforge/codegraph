@@ -10,25 +10,20 @@ import (
 	"github.com/compforge/codegraph/internal/extract"
 )
 
-type Diagnostic struct {
-	Code     string   `json:"code"`
-	Message  string   `json:"message"`
-	Location Location `json:"location"`
-}
-
-// Complete means every supplied document and extracted reference in this
-// scope was handled. It never claims whole-repository or compiler completeness.
+// BuildReport describes the published graph and its local information gaps.
+// Build/Wait errors describe execution failures; diagnostics do not invalidate
+// unrelated graph facts or prescribe a consumer's fallback policy.
+// +spec=`Candidate relations and local gaps remain usable analysis results`
 type BuildReport struct {
 	Snapshot         string       `json:"snapshot"`
 	Files            []string     `json:"files"`
 	Diagnostics      []Diagnostic `json:"diagnostics"`
-	Complete         bool         `json:"complete"`
 	Nodes, Relations int
 }
 
 func cloneReport(r BuildReport) BuildReport {
 	r.Files = append([]string(nil), r.Files...)
-	r.Diagnostics = append([]Diagnostic(nil), r.Diagnostics...)
+	r.Diagnostics = cloneDiagnostics(r.Diagnostics)
 	return r
 }
 

@@ -30,7 +30,7 @@ JS、TS、TSX 的适配能力。`Capabilities("rust", "java")` 按需查看其�
 
 Python import 使用仓库相对的模块候选，绝对 import 因运行时搜索路径未知而保留为 `candidate`。
 JS/TS 解析相对源码路径及 index 文件；多个匹配文件保留为候选。不评估包元数据、tsconfig alias、
-Python 包初始化、re-export 的符号绑定、跨文件函数调用和运行时分派。`Complete` 只覆盖这些声明边界内
+Python 包初始化、re-export 的符号绑定、跨文件函数调用和运行时分派。返回路径只描述这些声明边界内
 的已提取事实，不代表与编译器或运行时等价。
 
 ## 节点类别
@@ -49,8 +49,8 @@ RETURN s, f
 ```
 
 `contains` 记录词法归属。接收者方法还会从已加载包内的接收者类型建立 `contains` 边，支持跨文件；
-关系的 `basis` 用 `declaration` 与 `receiver_declaration` 区分两种依据。接收者未解析或存在歧义时
-输出诊断。不展开匿名嵌套类型或提升成员。
+关系的 `basis` 用 `declaration` 与 `receiver_declaration` 区分两种依据。接收者有多个候选时输出
+candidate 边，无法确定目标时保留诊断。不展开匿名嵌套类型或提升成员。
 
 ## 快速使用
 
@@ -71,10 +71,9 @@ g, report, err := codegraph.Build(
 if err != nil {
     return err
 }
-// report.Complete 只描述本次已请求/扩展范围，不代表整个仓库。
-// 消费者必须检查 report.Diagnostics，再决定是否回退到其他分析方式。
-if !report.Complete {
-    return fmt.Errorf("partial code graph: %v", report.Diagnostics)
+// 局部缺口与可用图一起返回，由消费者判断相关性。
+for _, diagnostic := range report.Diagnostics {
+    fmt.Printf("%s: %s (%s)\n", diagnostic.Location.Path, diagnostic.Code, diagnostic.Subject)
 }
 
 rows, err := g.Query(ctx, `
@@ -128,8 +127,8 @@ report, err := g.Wait(ctx)
 if err != nil {
     return err
 }
-if !report.Complete {
-    return fmt.Errorf("partial code graph: %v", report.Diagnostics)
+for _, diagnostic := range report.Diagnostics {
+    fmt.Printf("%s: %s (%s)\n", diagnostic.Location.Path, diagnostic.Code, diagnostic.Subject)
 }
 ```
 
@@ -195,7 +194,16 @@ confidence 为 `exact` 或 `candidate`，不是概率。`exact` 指已加载范�
 解析关系并原子发布。调用方同时构建多张图时，应控制合计 worker 数量。
 
 Options 为文件数、源码体积、节点/边数量、解析/查询超时、路径深度和结果体积提供有限默认预算。
-错误时不返回部分查询行。读文件/解析失败会发布带诊断的局部图；预算、快照冲突和取消则回滚整个批次。
+查询错误时不返回部分行。解析失败仍保留 File 身份和文档诊断，其他文档的可用事实正常发布；
+预算、快照冲突和取消则回滚整个批次。
+
+Build 和 Wait 通过 error 表达执行失败。成功发布的图可以包含候选关系和局部信息缺口。
+`BuildReport.Diagnostics` 标明每个缺口的 subject（文档、声明、关系、上下文或资源）、源码范围，
+以及已知的关系类别。候选边用 confidence 与 basis 表达不确定性；没有目标的引用保留诊断。
+
+outline 遗漏通过结构化计数返回，计数描述查询候选，不代表源码中的全部声明。
+上游没有提供遗漏位置时，诊断使用完整文档范围；单纯的候选去重不作为缺口。
+已有导入和其他声明继续可用，由调用方决定这些信息如何参与自己的分析。
 
 ## 本地验证
 

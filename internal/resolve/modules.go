@@ -85,10 +85,9 @@ func resolveModule(ctx context.Context, f extract.Facts, files map[string]extrac
 		}
 		confidence := "exact"
 		if len(targets) == 0 {
-			issues = append(issues, Issue{f.Path, "unresolved_import", imp.Path, imp.Span})
+			issues = append(issues, Issue{f.Path, "unresolved_import", imp.Path, "imports", imp.Span})
 		} else if len(targets) > 1 || (f.Language == "python" && imp.Relative == 0) {
 			confidence = "candidate"
-			issues = append(issues, Issue{f.Path, "ambiguous_import", imp.Path, imp.Span})
 		}
 		for _, target := range targets {
 			if err := add(Edge{Ref{f.Path, -1}, Ref{target, -1}, "imports", confidence, "source_module", f.Path, imp.Span}); err != nil {
@@ -113,17 +112,16 @@ func resolveModule(ctx context.Context, f extract.Facts, files map[string]extrac
 			}
 		}
 		if call.Blocked || call.Receiver != "" {
-			issues = append(issues, Issue{f.Path, "dynamic_call", call.Name, call.Span})
+			issues = append(issues, Issue{f.Path, "dynamic_call", call.Name, "calls", call.Span})
 			continue
 		}
 		if len(targets) == 0 {
-			issues = append(issues, Issue{f.Path, "unresolved_call", call.Name, call.Span})
+			issues = append(issues, Issue{f.Path, "unresolved_call", call.Name, "calls", call.Span})
 			continue
 		}
 		confidence := "exact"
 		if len(targets) > 1 {
 			confidence = "candidate"
-			issues = append(issues, Issue{f.Path, "ambiguous_call", call.Name, call.Span})
 		}
 		for _, target := range targets {
 			if err := add(Edge{source, target, "calls", confidence, "module_function", f.Path, call.Span}); err != nil {

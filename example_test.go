@@ -19,8 +19,8 @@ func ExampleBuild() {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println(report.Complete, rows[0]["caller"])
-	// Output: true Entry
+	fmt.Println(len(report.Diagnostics), rows[0]["caller"])
+	// Output: 0 Entry
 }
 
 func ExampleGraph_AddDocuments() {
@@ -43,6 +43,6 @@ func ExampleGraph_AddDocuments() {
 		return
 	}
 	work := g.Find("work.go", codegraph.Function, "Work")
-	fmt.Println(report.Complete, len(g.RelationsTo(work[0].ID, codegraph.Calls)))
-	// Output: true 1
+	fmt.Println(len(report.Diagnostics), len(g.RelationsTo(work[0].ID, codegraph.Calls)))
+	// Output: 0 1
 }

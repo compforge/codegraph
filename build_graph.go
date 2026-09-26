@@ -43,6 +43,13 @@ func (g *Graph) assemble(ctx context.Context, files map[string]extract.Facts, fa
 	report := BuildReport{Snapshot: g.snapshot, Files: sortedFiles(files)}
 	for _, d := range failures {
 		report.Diagnostics = append(report.Diagnostics, d)
+		// A failed parser cannot erase the identity of a supplied document.
+		// Keep only the File node; no declarations or relations are inferred.
+		if d.Code == "parse_error" {
+			id := FileID(d.Location.Path)
+			nodes[id] = Node{ID: id, Kind: File, Name: path.Base(d.Location.Path),
+				Language: Language(d.Location.Path), Location: d.Location}
+		}
 	}
 	addEdge := func(source, target string, kind RelationKind, confidence Confidence, basis string, loc Location) {
 		id := identity(source, target, kind, loc.Path, loc.StartByte, loc.EndByte)
@@ -54,7 +61,7 @@ func (g *Graph) assemble(ctx context.Context, files map[string]extract.Facts, fa
 		}
 		f := files[p]
 		for _, issue := range f.Issues {
-			report.Diagnostics = append(report.Diagnostics, Diagnostic{Code: issue.Code, Message: issue.Message, Location: location(f, issue.Span)})
+			report.Diagnostics = append(report.Diagnostics, extractionDiagnostic(f, issue))
 		}
 		if len(nodes)+1+len(f.Declarations) > g.opts.MaxNodes || len(relations)+len(f.Declarations) > g.opts.MaxRelations {
 			return nil, nil, report, fmt.Errorf("%w: declaration graph size", ErrBuildBudget)
@@ -91,7 +98,8 @@ func (g *Graph) assemble(ctx context.Context, files map[string]extract.Facts, fa
 		addEdge(ids[e.Source], ids[e.Target], RelationKind(e.Kind), Confidence(e.Confidence), e.Basis, location(files[e.Path], e.Span))
 	}
 	for _, i := range issues {
-		report.Diagnostics = append(report.Diagnostics, Diagnostic{Code: i.Code, Message: i.Reference, Location: location(files[i.Path], i.Span)})
+		report.Diagnostics = append(report.Diagnostics, Diagnostic{Code: i.Code, Message: i.Reference,
+			Subject: RelationsSubject, Relation: RelationKind(i.Relation), Location: location(files[i.Path], i.Span)})
 	}
 	if len(nodes) > g.opts.MaxNodes || len(relations) > g.opts.MaxRelations {
 		return nil, nil, report, fmt.Errorf("%w: nodes=%d relations=%d", ErrBuildBudget, len(nodes), len(relations))
@@ -110,7 +118,6 @@ func (g *Graph) assemble(ctx context.Context, files map[string]extract.Facts, fa
 		return a.Message < b.Message
 	})
 	report.Nodes, report.Relations = len(nodes), len(relations)
-	report.Complete = len(report.Diagnostics) == 0
 	return nodes, relations, report, nil
 }
 

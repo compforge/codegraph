@@ -45,15 +45,15 @@ func TestDocumentsResolveAcrossBatchesAndInputForms(t *testing.T) {
 	}
 	main := Document{Path: "main.go", Content: source["main.go"].Data}
 	r, err := g.addDocumentsSync(ctx, main, main)
-	if err != nil || r.Complete || !reflect.DeepEqual(r.Files, []string{"main.go"}) {
+	if err != nil || (len(r.Diagnostics) == 0) || !reflect.DeepEqual(r.Files, []string{"main.go"}) {
 		t.Fatalf("explicit batch must not discover dependencies: %+v, %v", r, err)
 	}
 	r, err = g.addDocumentsSync(ctx, Document{Path: "lib/work.go", Content: source["lib/work.go"].Data})
-	if err != nil || r.Complete {
+	if err != nil || (len(r.Diagnostics) == 0) {
 		t.Fatal(r, err)
 	}
 	r, err = g.addDocumentsSync(ctx, Document{Path: "helper.go", Content: source["helper.go"].Data})
-	if err != nil || !r.Complete {
+	if err != nil || len(r.Diagnostics) != 0 {
 		t.Fatal(r, err)
 	}
 	if got := query(t, g, `MATCH (:Function {name:'Entry'})-[:calls]->(n:Function {name:'Work'}) RETURN n`, nil); len(got) != 2 {
@@ -97,7 +97,7 @@ func TestDocumentsOwnContent(t *testing.T) {
 		Document{Path: "work.go", Content: []byte("package app\nfunc Work(){}\n")},
 		Document{Path: "main.go", Content: original},
 	)
-	if err != nil || !r.Complete {
+	if err != nil || len(r.Diagnostics) != 0 {
 		t.Fatal(r, err)
 	}
 	if got := query(t, g, `MATCH (:Function {name:'Entry'})-[:calls]->(n:Function {name:'Work'}) RETURN n`, nil); len(got) != 1 {
@@ -160,7 +160,7 @@ func TestDocumentsPartialCoverage(t *testing.T) {
 		Document{Path: "src/unknown.codegraph-unknown", Content: []byte("unknown")},
 		Document{Path: "outside.go", Content: []byte("package app")},
 	)
-	if err != nil || r.Complete || !reflect.DeepEqual(r.Files, []string{"src/good.go", "src/unknown.codegraph-unknown"}) {
+	if err != nil || (len(r.Diagnostics) == 0) || !reflect.DeepEqual(r.Files, []string{"src/good.go", "src/unknown.codegraph-unknown"}) {
 		t.Fatal(r, err)
 	}
 	codes := map[string]string{}

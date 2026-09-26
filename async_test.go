@@ -54,14 +54,14 @@ func TestAsyncDocumentAndSymbolWithoutWait(t *testing.T) {
 	// Observe the build barrier directly: publication must finish even if the
 	// caller never invokes Wait.
 	background := waitBackgroundBuild(t, g)
-	if !background.Complete {
+	if len(background.Diagnostics) != 0 {
 		t.Fatalf("background report = %+v", background)
 	}
 	report, err := g.Wait(ctx)
 	if !reflect.DeepEqual(report, background) {
 		t.Fatalf("Wait changed the built report: before=%+v after=%+v", background, report)
 	}
-	if err != nil || !report.Complete {
+	if err != nil || len(report.Diagnostics) != 0 {
 		t.Fatalf("report = %+v, %v", report, err)
 	}
 	if file, ok := g.Node(doc.ID()); !ok || file.Kind != File {
@@ -207,8 +207,11 @@ func TestAsyncParseFailureIsNotRetriedByWait(t *testing.T) {
 	if err != nil || !hasDiagnostic(report, "parse_error") || count != 1 {
 		t.Fatalf("report = %+v, count=%d, err=%v", report, count, err)
 	}
-	if _, ok := g.Node(doc.ID()); ok {
-		t.Fatal("failed file published")
+	if node, ok := g.Node(doc.ID()); !ok || node.Kind != File || node.Location.EndByte != len(doc.Content) {
+		t.Fatal("failed parser erased the supplied file identity", node)
+	}
+	if len(g.Find(doc.Path, "", "")) != 0 || len(g.RelationsFrom(doc.ID())) != 0 {
+		t.Fatal("failed parser invented declarations or relations")
 	}
 	if _, err := g.AddDocument(context.Background(), doc).Wait(); err == nil {
 		t.Fatal("failed document was not retried on a new submission")
