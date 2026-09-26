@@ -2,7 +2,11 @@
 
 ## 项目定位与边界
 
-CodeGraph 是可内嵌的代码属性图 Go 库，直接依赖 gotreesitter 与 GoGraph。
+CodeGraph 是可内嵌的代码属性图 Go 库，从调用方提供的源码快照与材料中提取声明、解析关系，
+提供携带来源位置、置信依据和局部覆盖信息的图查询能力。代码语义与关系证据由 CodeGraph 负责；
+影响判定、评审组织、测试选择及执行策略由消费者负责。
+
+实现直接依赖 gotreesitter 与 GoGraph。
 根包提供语言无关的公共 API；Go、Python、JS/TS 有语言专有适配，其他注册 grammar 走通用声明提取。
 语法可用性与关系解析能力分别报告，具体覆盖以 `Capabilities()` 与契约测试为准。
 
@@ -29,10 +33,10 @@ docs/kernel.md                          # 稳定模型、主流程与设计依�
 ## 关键约定
 
 1. 核心模型沿用 Graph、Node、Relation；Node.Kind 表达 File、Struct、Interface、Field、Method、Function 等具体类别，直接映射为唯一节点标签。symbol 只是文档与代码中的统称，不进入图分类。
-2. spec、case、rule、link、doc 属于核心 marker 类型；置信依据属于关系属性。
-3. Document 是本库拥有的源码输入概念，不是节点类别；材料获取、CCR 的评审策略与 repocli 的测试选择策略留在消费方，本库负责代码事实和通用图查询。
+2. spec、case、rule、link、doc 属于核心 marker 类型；关系的 confidence 描述证据强度，basis 记录建立关系的依据。路径证据聚合、距离衰减与业务阈值由消费者决定。
+3. Document 是本库拥有的源码输入概念，不是节点类别；材料获取与选择由调用方负责。本库提供代码事实及节点、关系、路径和子图的通用查询；受影响文件的判定与排序、评审组织、测试选择及执行回退留在消费方。
 4. AST 与图引擎内部类型不穿透公共 API；消费者通过 `Find`、`Node`、`RelationsFrom`、`RelationsTo` 或 Cypher 消费图事实；局部分析与未解析引用必须保留可辨识的覆盖信息。
-   执行失败由 error 表达；候选关系使用 confidence 与 basis，信息缺口以局部诊断保留，消费策略由调用方决定。
+   执行失败由 error 表达；候选关系使用 confidence 与 basis，信息缺口以局部诊断保留。局部缺口不否定无关事实，不自动触发消费者的全量回退。
 5. 同一 Graph 只容纳同一源码快照；Document.ID 与对应 File 节点 ID 相同。入队任务可提前返回单文件事实，后台构建跨文件关系并原子发布；Wait 只等待已提交工作完成。新增语言解析先声明能力并补契约测试；仅识别 grammar 不表示引用已解析，不得跨语言按同名猜测关系。
 6. 验证入口为 `make lint test build`，测试启用 race detector。
 7. 根目录 `VERSION` 记录项目版本，格式为 `X.Y.Z`。任何代码文件变更（含测试代码、增删及重命名）必须在同一提交同步 bump `VERSION`，默认递增 patch；纯文档变更无需 bump。
