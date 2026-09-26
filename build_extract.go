@@ -27,7 +27,8 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 			document := documents[next]
 			name, data := document.Path, document.Content
 			issue := func(code, message string) {
-				failures[name] = Diagnostic{Code: code, Message: message, Location: Location{Path: name}}
+				failures[name] = Diagnostic{Code: code, Message: message, Subject: DocumentSubject,
+					Location: location(extract.FileOnly(name, data), extract.Span{End: len(data)})}
 			}
 			if !g.allowed(name) {
 				issue("out_of_scope", "file is outside allowed scope")
@@ -73,7 +74,7 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 			}
 			if extract.Detect(name) == nil {
 				facts := extract.FileOnly(name, bytes.Clone(data))
-				facts.Issues = append(facts.Issues, extract.Issue{Code: "unsupported_language", Message: "no registered grammar for file"})
+				facts.Issues = append(facts.Issues, extract.Issue{Code: "unsupported_language", Message: "no registered grammar for file", Subject: "document", Span: extract.Span{End: len(data)}})
 				staged[name] = facts
 				total += int64(len(data))
 				next++
@@ -92,7 +93,8 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 		for i, result := range results {
 			name := batch[i].Path
 			if result.err != nil {
-				failures[name] = Diagnostic{Code: "parse_error", Message: result.err.Error(), Location: Location{Path: name}}
+				failures[name] = Diagnostic{Code: "parse_error", Message: result.err.Error(), Subject: DocumentSubject,
+					Location: location(extract.FileOnly(name, batch[i].Content), extract.Span{End: len(batch[i].Content)})}
 				continue
 			}
 			staged[name] = result.facts

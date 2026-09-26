@@ -2,7 +2,6 @@ package extract
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	gts "github.com/odvcencio/gotreesitter"
@@ -13,11 +12,21 @@ func analyzeOutline(ctx context.Context, f Facts, tree *gts.Tree, entry grammars
 	outliner, err := gts.NewOutliner(tree.Language(), outlineQuery(entry),
 		gts.WithOutlineOwnerRules(grammars.OutlineOwnerRules(entry)))
 	if err != nil {
-		f.Issues = append(f.Issues, Issue{Code: "outline_incomplete", Message: err.Error()})
+		f.Issues = append(f.Issues, Issue{Code: "outline_incomplete", Message: err.Error(), Subject: "declarations", Span: Span{End: len(f.Source)}})
 	} else {
 		declarations, report := outliner.OutlineTree(tree)
-		if report.Declined() || report.Truncated || report.Omitted() > 0 || report.OwnerRuleMisses > 0 {
-			f.Issues = append(f.Issues, Issue{Code: "outline_incomplete", Message: fmt.Sprintf("outline coverage: %+v", report)})
+		// Duplicate candidates retain the same declaration and are not missing
+		// information. All other omissions remain visible at document scope:
+		// upstream reports counts but cannot identify the dropped source ranges.
+		if report.Declined() || report.Truncated || report.Omitted() > report.OmittedDuplicate || report.OwnerRuleMisses > 0 {
+			f.Issues = append(f.Issues, Issue{Code: "outline_incomplete", Message: "declaration query omitted candidates or could not finish", Subject: "declarations", Span: Span{End: len(f.Source)},
+				Outline: &OutlineCoverage{
+					Symbols: report.Symbols, OmittedNoName: report.OmittedNoName, OmittedDuplicate: report.OmittedDuplicate,
+					OmittedNameConflict: report.OmittedNameConflict, OmittedConflict: report.OmittedConflict,
+					OmittedOverlap: report.OmittedOverlap, OmittedInvalidNameRange: report.OmittedInvalidNameRange,
+					OmittedMultipleDefinitions: report.OmittedMultipleDefinitions, OwnerRuleMisses: report.OwnerRuleMisses,
+					DeclineReason: report.DeclineReason, Truncated: report.Truncated,
+				}})
 		}
 		var flatten func([]gts.OutlineSymbol, int)
 		flatten = func(items []gts.OutlineSymbol, parent int) {
@@ -34,7 +43,7 @@ func analyzeOutline(ctx context.Context, f Facts, tree *gts.Tree, entry grammars
 				}
 				span := Span{int(item.Range.StartByte), int(item.Range.EndByte)}
 				if ConcreteKind(kind) == "" {
-					f.Issues = append(f.Issues, Issue{Code: "unsupported_declaration", Message: kind, Span: span})
+					f.Issues = append(f.Issues, Issue{Code: "unsupported_declaration", Message: kind, Subject: "declarations", Span: span})
 					flatten(item.Children, parent)
 					continue
 				}
@@ -46,7 +55,7 @@ func analyzeOutline(ctx context.Context, f Facts, tree *gts.Tree, entry grammars
 				// turn an unresolved owner name into a contains edge.
 				if item.Owner != "" {
 					qualified = item.Owner + "." + item.Name
-					f.Issues = append(f.Issues, Issue{Code: "unresolved_owner", Message: item.Owner, Span: span})
+					f.Issues = append(f.Issues, Issue{Code: "unresolved_owner", Message: item.Owner, Subject: "relations", Relation: "contains", Span: span})
 				}
 				index := len(f.Declarations)
 				f.Declarations = append(f.Declarations, Declaration{Name: item.Name, QualifiedName: qualified, Kind: kind, Parent: parent, Span: span})
@@ -57,7 +66,7 @@ func analyzeOutline(ctx context.Context, f Facts, tree *gts.Tree, entry grammars
 	}
 	if !ModuleLanguage(f.Language) {
 		// +why=`Grammar availability is not proof of language binding support`
-		f.Issues = append(f.Issues, Issue{Code: "unsupported_resolution", Message: "declaration outline only; reference resolution and markers are not implemented for " + f.Language})
+		f.Issues = append(f.Issues, Issue{Code: "unsupported_resolution", Message: "declaration outline only; reference resolution and markers are not implemented for " + f.Language, Subject: "document", Span: Span{End: len(f.Source)}})
 		return f, ctx.Err()
 	}
 	program, err := gts.NewFactProgram(tree.Language(), gts.FactImports|gts.FactCalls)
@@ -211,7 +220,7 @@ func addModuleImport(f *Facts, n *gts.Node, lang *gts.Language) {
 	raw := n.Text(f.Source)
 	span := Span{int(n.StartByte()), int(n.EndByte())}
 	if n.Type(lang) != "string" || len(raw) < 2 || strings.Contains(raw, "\\") {
-		f.Issues = append(f.Issues, Issue{Code: "dynamic_import", Message: "import target is not a plain string literal", Span: span})
+		f.Issues = append(f.Issues, Issue{Code: "dynamic_import", Message: "import target is not a plain string literal", Subject: "relations", Relation: "imports", Span: span})
 		return
 	}
 	f.Imports = append(f.Imports, Import{Path: raw[1 : len(raw)-1], Span: span})

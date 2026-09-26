@@ -38,7 +38,7 @@ func Work(){}
 func (u *User) Save(){ Work() }
 `)}}
 	g, report, err := Build(context.Background(), "rev", documents(source, "types.go"), Options{})
-	if err != nil || !report.Complete {
+	if err != nil || len(report.Diagnostics) != 0 {
 		t.Fatal(report, err)
 	}
 	want := map[string]NodeKind{
@@ -125,12 +125,12 @@ func Local(){ type Box struct{} }
 `)},
 	}
 	g, r, err := Build(ctx, "rev", documents(source, "methods.go"), Options{})
-	if err != nil || r.Complete || !hasDiagnostic(r, "unresolved_receiver") {
+	if err != nil || (len(r.Diagnostics) == 0) || !hasDiagnostic(r, "unresolved_receiver") {
 		t.Fatal(r, err)
 	}
 	before := query(t, g, `MATCH (m:Method) RETURN m`, nil)[0]["m"].(Node)
 	r, err = g.addDocumentsSync(ctx, documents(source, "types.go")...)
-	if err != nil || !r.Complete {
+	if err != nil || len(r.Diagnostics) != 0 {
 		t.Fatal(r, err)
 	}
 	rows := query(t, g, `MATCH (b:Struct)-[r:contains]->(m:Method {name:'Run'}) RETURN b,r,m`, nil)
@@ -163,7 +163,7 @@ func TestReceiverOwnershipUncertainty(t *testing.T) {
 		name, targetPath, targetSource, code string
 		count                                int
 	}{
-		{"duplicate", "b.go", "package p; type Box struct{}", "ambiguous_receiver", 2},
+		{"duplicate", "b.go", "package p; type Box struct{}", "", 2},
 		{"test_only", "b_test.go", "package p; type Missing struct{}", "unresolved_receiver", 0},
 		{"other_package", "b.go", "package other; type Missing struct{}", "unresolved_receiver", 0},
 		{"other_directory", "other/b.go", "package p; type Missing struct{}", "unresolved_receiver", 0},
@@ -178,7 +178,7 @@ func TestReceiverOwnershipUncertainty(t *testing.T) {
 				tc.targetPath: {Data: []byte(tc.targetSource)},
 			}
 			g, r, err := Build(context.Background(), "rev", documents(source, "a.go", tc.targetPath), Options{})
-			if err != nil || r.Complete || !hasDiagnostic(r, tc.code) {
+			if err != nil || (tc.code == "" && len(r.Diagnostics) != 0) || (tc.code != "" && !hasDiagnostic(r, tc.code)) {
 				t.Fatal(r, err)
 			}
 			rows := query(t, g, `MATCH (:Struct)-[r:contains]->(:Method) RETURN r`, nil)
@@ -217,7 +217,7 @@ func hasDiagnostic(r BuildReport, code string) bool {
 func TestGroupedBlankFieldsHaveDistinctIdentities(t *testing.T) {
 	source := fstest.MapFS{"types.go": {Data: []byte("package p; type Padding struct { _, _ int }")}}
 	g, r, err := Build(context.Background(), "rev", documents(source, "types.go"), Options{})
-	if err != nil || !r.Complete {
+	if err != nil || len(r.Diagnostics) != 0 {
 		t.Fatal(r, err)
 	}
 	rows := query(t, g, `MATCH (:Struct)-[:contains]->(f:Field) RETURN f`, nil)

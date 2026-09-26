@@ -36,7 +36,7 @@ func built(t *testing.T, opts Options) *Graph {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !r.Complete {
+	if len(r.Diagnostics) != 0 {
 		t.Fatalf("partial: %+v", r)
 	}
 	return g
@@ -134,11 +134,11 @@ func TestExtendAndSnapshotIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.Complete {
+	if len(r.Diagnostics) == 0 {
 		t.Fatal("unloaded imports/calls reported complete")
 	}
 	r, err = g.addDocumentsSync(ctx, documents(source, "helper.go", "lib/work.go")...)
-	if err != nil || !r.Complete {
+	if err != nil || len(r.Diagnostics) != 0 {
 		t.Fatal(r, err)
 	}
 	nodes, edges := g.Nodes(), g.Relations()
@@ -179,7 +179,7 @@ func TestExpansionAndScope(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(r.Files) != tc.files || r.Complete != tc.complete {
+			if len(r.Files) != tc.files || (len(r.Diagnostics) == 0) != tc.complete {
 				t.Fatal(r)
 			}
 			if len(g.Nodes()) == 0 {
@@ -197,7 +197,7 @@ func TestBuildFailuresAndBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.Complete || len(r.Diagnostics) != 2 {
+	if (len(r.Diagnostics) == 0) || len(r.Diagnostics) != 2 {
 		t.Fatal(r)
 	}
 	if _, err := g.addDocumentsSync(ctx, Document{Path: "../outside.go", Content: []byte("package p")}); err == nil {
@@ -226,7 +226,7 @@ func TestShadowingAndAmbiguity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.Complete {
+	if len(r.Diagnostics) == 0 {
 		t.Fatal(r)
 	}
 	if len(query(t, g, `MATCH (:Function {name:'Entry'})-[:calls]->(n) RETURN n`, nil)) != 0 {
@@ -347,7 +347,7 @@ func Entry(){ callback:=func(){ Work[int]() }; callback() }
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.Complete {
+	if len(r.Diagnostics) == 0 {
 		t.Fatal("closure gap hidden")
 	}
 	rows := query(t, g, `MATCH (n:Method {qualifiedName:'Box.Run'}) RETURN n`, nil)

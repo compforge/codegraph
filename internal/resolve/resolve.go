@@ -26,8 +26,8 @@ type Edge struct {
 	Span extract.Span
 }
 type Issue struct {
-	Path, Code, Reference string
-	Span                  extract.Span
+	Path, Code, Reference, Relation string
+	Span                            extract.Span
 }
 
 func ImportDir(module, imp string) (string, bool) {
@@ -87,10 +87,9 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 			}
 			confidence := "exact"
 			if len(targets) == 0 {
-				issues = append(issues, Issue{name, "unresolved_receiver", d.Receiver, d.Span})
+				issues = append(issues, Issue{name, "unresolved_receiver", d.Receiver, "contains", d.Span})
 			} else if len(targets) > 1 {
 				confidence = "candidate"
-				issues = append(issues, Issue{name, "ambiguous_receiver", d.Receiver, d.Span})
 			}
 			for _, owner := range targets {
 				if err := add(Edge{owner, Ref{name, i}, "contains", confidence, "receiver_declaration", name, d.Span}); err != nil {
@@ -110,7 +109,7 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 				}
 			}
 			if len(targets) == 0 {
-				issues = append(issues, Issue{name, "unresolved_import", imp.Path, imp.Span})
+				issues = append(issues, Issue{name, "unresolved_import", imp.Path, "imports", imp.Span})
 			}
 			for _, target := range targets {
 				if err := add(Edge{Ref{name, -1}, Ref{target, -1}, "imports", "exact", "module_import", name, imp.Span}); err != nil {
@@ -140,7 +139,7 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 				refname = call.Receiver + "." + call.Name
 			}
 			if call.Blocked {
-				issues = append(issues, Issue{name, "dynamic_call", refname, call.Span})
+				issues = append(issues, Issue{name, "dynamic_call", refname, "calls", call.Span})
 				continue
 			}
 			var candidates []Ref
@@ -177,14 +176,13 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 			}
 			if len(candidates) == 0 {
 				if !call.Builtin {
-					issues = append(issues, Issue{name, "unresolved_call", refname, call.Span})
+					issues = append(issues, Issue{name, "unresolved_call", refname, "calls", call.Span})
 				}
 				continue
 			}
 			confidence := "exact"
 			if len(candidates) > 1 {
 				confidence = "candidate"
-				issues = append(issues, Issue{name, "ambiguous_call", refname, call.Span})
 			}
 			for _, target := range candidates {
 				if err := add(Edge{source, target, "calls", confidence, basis, name, call.Span}); err != nil {

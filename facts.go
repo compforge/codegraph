@@ -105,7 +105,7 @@ func (g *Graph) Extract(ctx context.Context, document Document) (Facts, error) {
 	var facts extract.Facts
 	if extract.Detect(document.Path) == nil {
 		facts = extract.FileOnly(document.Path, bytes.Clone(document.Content))
-		facts.Issues = append(facts.Issues, extract.Issue{Code: "unsupported_language", Message: "no registered grammar for file"})
+		facts.Issues = append(facts.Issues, extract.Issue{Code: "unsupported_language", Message: "no registered grammar for file", Subject: "document", Span: extract.Span{End: len(document.Content)}})
 	} else {
 		if parseObserver != nil {
 			parseObserver(document.Path)
@@ -172,7 +172,7 @@ func projectFacts(f extract.Facts) (Facts, error) {
 		out.Calls = append(out.Calls, FactCall{Name: c.Name, Receiver: c.Receiver, Location: location(f, c.Span), Blocked: c.Blocked, Builtin: c.Builtin})
 	}
 	for _, issue := range f.Issues {
-		out.Issues = append(out.Issues, Diagnostic{Code: issue.Code, Message: issue.Message, Location: location(f, issue.Span)})
+		out.Issues = append(out.Issues, extractionDiagnostic(f, issue))
 	}
 	return out, nil
 }

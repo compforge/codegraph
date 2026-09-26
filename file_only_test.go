@@ -12,7 +12,7 @@ func TestFileOnlyDocumentsEnterGraph(t *testing.T) {
 		{Path: "main.go", Content: []byte("package app\nfunc Entry(){}\n")},
 		{Path: "notes.cg-unrecognized", Content: []byte("plain text notes\n")},
 	}, Options{})
-	if err != nil || r.Complete {
+	if err != nil || (len(r.Diagnostics) == 0) {
 		t.Fatal(r, err)
 	}
 	if !reflect.DeepEqual(r.Files, []string{"main.go", "notes.cg-unrecognized"}) {

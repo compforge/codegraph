@@ -160,7 +160,7 @@ func pythonProgram(f *Facts, tree *gts.Tree) []PythonStatement {
 	}
 	result := statements(tree.RootNode(), 0)
 	if exhausted {
-		f.Issues = append(f.Issues, Issue{Code: "context_limit", Message: "Python context extraction limit reached"})
+		f.Issues = append(f.Issues, Issue{Code: "context_limit", Message: "Python context extraction limit reached", Subject: "context", Span: Span{End: len(f.Source)}})
 	}
 	return result
 }

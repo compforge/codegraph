@@ -37,8 +37,8 @@ outline capabilities on demand; it does not eagerly load every parser. Unknown n
 Python imports use repository-relative module candidates; absolute imports remain `candidate` because
 runtime search paths are unknown. JS/TS imports resolve relative source paths, including index files;
 multiple matching files remain candidates. Package metadata, tsconfig aliases, Python package initialization,
-re-exports as symbol bindings, imported calls, and runtime dispatch are not evaluated. A `Complete` report
-covers extracted facts within these declared limits, not compiler or runtime equivalence.
+re-exports as symbol bindings, imported calls, and runtime dispatch are not evaluated. Returned paths
+describe evidence within these declared limits, not compiler or runtime equivalence.
 
 ## Node kinds
 
@@ -58,8 +58,8 @@ RETURN s, f
 
 `contains` records lexical ownership. Receiver methods also have a `contains` edge from their
 receiver type when it is found in the loaded package, including across files. The relation's `basis`
-distinguishes `declaration` from `receiver_declaration`; unresolved or ambiguous receivers produce
-diagnostics. Anonymous nested types and promoted members are not expanded.
+distinguishes `declaration` from `receiver_declaration`; ambiguous receivers produce candidate edges,
+and unresolved receivers produce diagnostics. Anonymous nested types and promoted members are not expanded.
 
 ## Quick start
 
@@ -81,10 +81,9 @@ g, report, err := codegraph.Build(
 if err != nil {
     return err
 }
-// report.Complete covers only the supplied scope, not the whole repository.
-// Inspect report.Diagnostics before deciding whether to fall back to another analysis method.
-if !report.Complete {
-    return fmt.Errorf("partial code graph: %v", report.Diagnostics)
+// Local gaps accompany the usable graph. Consumers decide their relevance.
+for _, diagnostic := range report.Diagnostics {
+    fmt.Printf("%s: %s (%s)\n", diagnostic.Location.Path, diagnostic.Code, diagnostic.Subject)
 }
 
 rows, err := g.Query(ctx, `
@@ -142,8 +141,8 @@ report, err := g.Wait(ctx)
 if err != nil {
     return err
 }
-if !report.Complete {
-    return fmt.Errorf("partial code graph: %v", report.Diagnostics)
+for _, diagnostic := range report.Diagnostics {
+    fmt.Printf("%s: %s (%s)\n", diagnostic.Location.Path, diagnostic.Code, diagnostic.Subject)
 }
 ```
 
@@ -209,13 +208,24 @@ within the loaded scope, subject to the declared language capabilities. Use `n.i
 identity; Cypher's `id(n)` is an internal engine identifier, not a source identity.
 Source byte ranges are half-open; line numbers and byte columns are 1-based.
 
+Build and Wait return execution failures through `error`. A successful publication may contain
+candidate edges and local information gaps. `BuildReport.Diagnostics` identifies each gap's
+`subject` (document, declarations, relations, context, or resources), source range, and affected
+relation kind when known. Candidate edges retain `confidence` and `basis` without duplicate
+ambiguity diagnostics. Missing targets remain diagnostics; no target node is invented.
+
+Outline omissions expose structured `outline` counters. These count query candidates rather than
+all declarations in the source. The upstream outliner does not provide omitted ranges, so an
+outline counter diagnostic covers the whole document. Duplicate candidates alone do not lose
+information and do not produce a gap. Existing imports and unrelated declarations remain usable.
+
 `Query` converts results to entities, paths, strings, int64, float64, bool, null, lists, and maps.
 Other Cypher-specific value types return an error.
 
 - Queries cannot write or invoke procedures; variable-length paths require an explicit upper bound.
 - `Options.BuildConcurrency` bounds parallel document extraction per graph: `0` uses `min(GOMAXPROCS, 4)`, `1` is serial, and positive values set the worker limit. Negative values are rejected. Separate batches remain serialized; nodes and relations are assembled and published atomically after extraction. When building multiple graphs concurrently, callers should budget their combined worker count.
 - Options provide finite default budgets for file count, source size, node/edge count, parsing/query timeouts, path depth, and result size.
-- Query errors return no partial rows. File-read or parse failures publish a partial graph with diagnostics; budget failures, snapshot conflicts, and cancellation roll back the entire batch.
+- Query errors return no partial rows. Parse failures preserve File identities with document diagnostics; usable facts from other documents are published. Budget failures, snapshot conflicts, and cancellation roll back the entire batch.
 
 ## Local validation
 
