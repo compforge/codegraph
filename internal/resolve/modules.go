@@ -118,6 +118,14 @@ func resolveModule(ctx context.Context, f extract.Facts, files map[string]extrac
 				targets = append(targets, Ref{f.Path, i})
 			}
 		}
+		supplement, err := resolveCallTargets(ctx, f, call, files, "", limit-len(edges))
+		if err != nil {
+			return nil, nil, err
+		}
+		if len(supplement) > 0 {
+			edges = append(edges, supplement...)
+			continue
+		}
 		if call.Imported {
 			imported, _, err := binder.useTargets(f, call.Name, call.Receiver, call.Span)
 			if err != nil {

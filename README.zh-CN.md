@@ -19,7 +19,7 @@ Struct、Interface、Field、Method、Function 等具体类别，关系包括调
 - 支持跨文件、本模块 import、递归、多调用点、按需扩展和重复添加幂等。
 - 支持参数化只读 Cypher，返回 Node、Relation、Path 或普通 Go 值。
 - spec、case、rule、link、doc 从声明注释中提取，保留内容与源码位置。
-- 多个可能目标输出 candidate 关系；无法确定目标、回调、闭包体及接收者调用输出诊断。
+- 接收者方法、Go 函数/方法别名及类构造调用可输出带语法依据的 candidate 关系；未知回调和未建模闭包中的调用保留诊断。
 
 这不是编译器类型检查器：不评估 build tags，不解析第三方模块，不承诺动态分派完整。
 Go/Python/JS/TS 提供带位置与声明归属的标识符引用事实，以及带置信依据的 `references` 边。
