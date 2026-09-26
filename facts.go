@@ -21,8 +21,8 @@ type Facts struct {
 	Calls                   []FactCall
 	References              []FactReference
 	Issues                  []Diagnostic
-	// Exports maps a public alias to its local name for explicit export
-	// aliases. Consumers own any module-resolution use of it.
+	// Exports maps explicit public names to local declarations or imported bindings.
+	// Cross-module re-exports are recorded on Imports.Bindings.
 	Exports map[string]string
 	// Statements preserve execution order and scope with a bounded expression
 	// vocabulary, for consumer-side interpretation; the graph model never
@@ -62,7 +62,15 @@ type FactImport struct {
 	// Names are the imported names before caller aliases; empty means the
 	// whole module is imported.
 	Names    []string
+	Bindings []FactImportBinding
 	Location Location
+}
+
+// FactImportBinding preserves a source name, its local alias and its statement scope.
+type FactImportBinding struct {
+	Name, Local         string
+	Namespace, ReExport bool
+	Location            Location
 }
 
 // FactReference records one identifier use. Owner indexes Declarations, or is
@@ -165,7 +173,11 @@ func projectFacts(f extract.Facts) (Facts, error) {
 	byStart := map[int][]int{}
 	for j, i := range f.Imports {
 		byStart[i.Span.Start] = append(byStart[i.Span.Start], j)
-		imports = append(imports, FactImport{Alias: i.Alias, Path: i.Path, From: i.From, Relative: i.Relative, Binding: i.Binding, Names: append([]string(nil), i.Names...), Location: location(f, i.Span)})
+		bindings := make([]FactImportBinding, 0, len(i.Bindings))
+		for _, b := range i.Bindings {
+			bindings = append(bindings, FactImportBinding{Name: b.Name, Local: b.Local, Namespace: b.Namespace, ReExport: b.ReExport, Location: location(f, b.Span)})
+		}
+		imports = append(imports, FactImport{Bindings: bindings, Alias: i.Alias, Path: i.Path, From: i.From, Relative: i.Relative, Binding: i.Binding, Names: append([]string(nil), i.Names...), Location: location(f, i.Span)})
 	}
 	out.Imports = imports
 	for _, s := range f.Python {

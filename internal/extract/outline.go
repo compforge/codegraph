@@ -128,6 +128,7 @@ func analyzeOutline(ctx context.Context, f Facts, tree *gts.Tree, entry grammars
 	}
 	enrichModuleSyntax(&f, tree)
 	extractModuleReferences(&f, tree)
+	bindModuleUses(&f, tree)
 	if f.Language == "python" {
 		f.Python = pythonProgram(&f, tree)
 	}
@@ -136,6 +137,7 @@ func analyzeOutline(ctx context.Context, f Facts, tree *gts.Tree, entry grammars
 
 func enrichModuleSyntax(f *Facts, tree *gts.Tree) {
 	lang := tree.Language()
+	enrichModuleBindings(f, tree)
 	var comments []Comment
 	wrappers := map[int]int{}
 	walk(tree.RootNode(), func(n *gts.Node) {
@@ -159,6 +161,7 @@ func enrichModuleSyntax(f *Facts, tree *gts.Tree) {
 				addModuleImport(f, src, lang)
 				if len(f.Imports) > start {
 					f.Imports[start].Names = importedNames(n, lang, f.Source)
+					f.Imports[start].Bindings = moduleImportBindings(n, lang, f.Source)
 				}
 			} else if typ == "export_statement" {
 				walk(n, func(child *gts.Node) {
