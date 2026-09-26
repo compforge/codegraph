@@ -127,6 +127,7 @@ func analyzeOutline(ctx context.Context, f Facts, tree *gts.Tree, entry grammars
 		f.Calls = append(f.Calls, call)
 	}
 	enrichModuleSyntax(&f, tree)
+	extractModuleReferences(&f, tree)
 	if f.Language == "python" {
 		f.Python = pythonProgram(&f, tree)
 	}

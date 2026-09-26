@@ -22,7 +22,8 @@ Struct、Interface、Field、Method、Function 等具体类别，关系包括调
 - 多个可能目标输出 candidate 关系；无法确定目标、回调、闭包体及接收者调用输出诊断。
 
 这不是编译器类型检查器：不评估 build tags，不解析第三方模块，不承诺动态分派完整。
-references、extends、implements 的自动提取尚未实现。识别到 grammar 不等于具备完整的语言语义。
+Go/Python/JS/TS 提供带位置与声明归属的标识符引用事实，以及带置信依据的 `references` 边。
+extends、implements 的自动提取尚未实现。识别到 grammar 不等于具备完整的语言语义。
 
 `Language(path)` 识别文件语言，`Languages()` 列出注册的 grammar，`Capabilities()` 返回 Go、Python、
 JS、TS、TSX 的适配能力。`Capabilities("rust", "java")` 按需查看其他语言的声明提取能力，

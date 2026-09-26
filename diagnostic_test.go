@@ -30,6 +30,8 @@ func TestOutlineGapPreservesUsableFacts(t *testing.T) {
 		t.Fatal(err)
 	}
 	report, err := g.Wait(ctx)
+	// Reference coverage is independent of declaration coverage.
+	report.Diagnostics = withoutReferenceDiagnostics(report.Diagnostics)
 	if err != nil || len(report.Diagnostics) != 1 {
 		t.Fatal(report, err)
 	}
@@ -82,6 +84,7 @@ func TestCandidateEvidenceAndUnresolvedLocations(t *testing.T) {
 		{Path: "lib.ts", Content: []byte("export function work() {}")},
 		{Path: "lib.js", Content: []byte("export function work() {}")},
 	}, Options{})
+	report.Diagnostics = withoutReferenceDiagnostics(report.Diagnostics)
 	if err != nil || len(report.Diagnostics) != 2 {
 		t.Fatal(report, err)
 	}
@@ -131,4 +134,14 @@ func TestDuplicateOutlineCandidatesAreNotGaps(t *testing.T) {
 	if err != nil || hasDiagnostic(report, "outline_incomplete") || len(g.Find("app.cgduplicates", Function, "work")) != 1 {
 		t.Fatal(report, err)
 	}
+}
+
+func withoutReferenceDiagnostics(diagnostics []Diagnostic) []Diagnostic {
+	out := make([]Diagnostic, 0, len(diagnostics))
+	for _, d := range diagnostics {
+		if d.Relation != References {
+			out = append(out, d)
+		}
+	}
+	return out
 }
