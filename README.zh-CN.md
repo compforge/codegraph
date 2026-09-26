@@ -12,10 +12,10 @@ Struct、Interface、Field、Method、Function 等具体类别，关系包括调
 无需独立数据库服务，无强制落盘。本仓库尚未首次发布。
 
 ## 能力与边界
-
 - 当前解析 **Go** 的函数、方法、结构体、接口、字段、其他命名类型、类型别名及单名称变量和常量，构建 contains、imports 和静态包函数 calls。
 - 提取 **Python、JavaScript、TypeScript、TSX** 声明、词法包含、本地源码 import、显式模块绑定、未被遮蔽的本地及导入函数调用及声明注释 marker。
 - 其他 gotreesitter 已注册语言使用通用语法/声明适配器；缺少 outline、未知声明类别和未实现的关系解析均输出明确诊断。
+- 沿已绑定的 `extends` 关系查找继承方法调用候选，覆盖 Go 嵌入接口及 Python/JS/TS 基类。同一分支优先当前类型声明的方法，多基类保留候选，不推断运行时 MRO；`implements` 不代表行为继承。
 - 支持跨文件、本模块 import、递归、多调用点、按需扩展和重复添加幂等。
 - 支持参数化只读 Cypher，返回 Node、Relation、Path 或普通 Go 值。
 - spec、case、rule、link、doc 从声明注释中提取，保留内容与源码位置。
