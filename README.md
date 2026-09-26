@@ -15,17 +15,17 @@ No separate database service or mandatory disk persistence. The project has not 
 
 ## Capabilities and limits
 
-- Extracts **Go** functions, methods, structs, interfaces, fields, other named types, type aliases, and single-name variables and constants, with contains, imports, and static package-function calls.
-- Extracts **Python, JavaScript, TypeScript, and TSX** declarations, lexical containment, local source imports, explicit module bindings and unshadowed local/imported function calls, and declaration-comment markers.
+- Extracts **Go** functions, methods, structs, interfaces, fields, other named types, type aliases, and single-name variables and constants, with contains, imports, static package-function calls, and candidate receiver/method-alias calls.
+- Extracts **Python, JavaScript, TypeScript, and TSX** declarations, lexical containment, local source imports, explicit module bindings and unshadowed local/imported function calls, candidate class constructors and receiver methods, and declaration-comment markers.
 - Accepts other gotreesitter-registered languages through a shared syntax/outline adapter. Missing outlines, unsupported declaration categories, and unavailable reference resolution produce explicit diagnostics.
 - Records documents without a registered grammar as file-level nodes without parsing; the coverage gap stays visible as an `unsupported_language` diagnostic.
-- Exposes detached per-document facts (declarations, imports with imported names and scope bindings, calls, export aliases, markers) through `Extract` without publishing graph state; results are cached by content identity so a later `AddDocuments` of the same source never parses twice. A language-neutral `Statements` fact (execution order, scopes, a bounded expression vocabulary) is captured for Python sources today and left empty where capture is not implemented.
+- Exposes detached per-document facts (declarations, imports with imported names and scope bindings, calls with syntax-based target hints, export aliases, markers) through `Extract` without publishing graph state; results are cached by content identity so a later `AddDocuments` of the same source never parses twice. A language-neutral `Statements` fact (execution order, scopes, a bounded expression vocabulary) is captured for Python sources today and left empty where capture is not implemented.
 - Exposes Go/Python/JS/TS identifier-use facts with locations and declaration owners, and `references` edges with binding evidence.
 - Supports cross-file relations, imports within the supplied scope, recursion, multiple call sites, incremental batches, and idempotent additions.
 - Accepts source documents directly from memory, Git snapshots, or any other consumer-owned source.
 - Accepts parameterized, read-only Cypher and returns Node, Relation, Path, or ordinary Go values.
 - Extracts spec, case, rule, link, and doc markers from declaration comments, preserving their contents and source locations.
-- Emits candidate relations for ambiguous targets and diagnostics for unresolved targets, callbacks, calls inside closures, and receiver calls.
+- Emits candidate relations for ambiguous targets and diagnostics for unresolved targets, unknown callbacks and calls inside unmodeled closures.
 
 This is not a compiler type checker: it does not evaluate build tags, resolve third-party modules,
 or guarantee complete dynamic dispatch analysis. Automatic extraction of extends and

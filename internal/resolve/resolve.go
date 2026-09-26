@@ -138,6 +138,14 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 			if call.Receiver != "" {
 				refname = call.Receiver + "." + call.Name
 			}
+			supplement, err := resolveCallTargets(ctx, f, call, files, module, limit-len(edges))
+			if err != nil {
+				return nil, nil, err
+			}
+			if len(supplement) > 0 {
+				edges = append(edges, supplement...)
+				continue
+			}
 			if call.Blocked {
 				issues = append(issues, Issue{name, "dynamic_call", refname, "calls", call.Span})
 				continue

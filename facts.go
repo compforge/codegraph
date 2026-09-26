@@ -81,11 +81,21 @@ type FactReference struct {
 	Owner          int
 }
 
+// FactCallTarget records a syntax-based callable candidate before graph binding.
+// Kind describes the callable form; Constructor candidates bind to Class nodes.
+// Module is a source import qualifier, not a fetched dependency identity.
+type FactCallTarget struct {
+	Name, ReceiverType, Module string
+	Kind                       NodeKind
+	Basis                      string
+}
+
 type FactCall struct {
 	Name, Receiver string
 	Location       Location
-	// Blocked means syntax proves this is not a resolvable static function reference.
+	// Blocked excludes the static-function path; Targets may still carry dispatch candidates.
 	Blocked, Builtin bool
+	Targets          []FactCallTarget
 }
 
 // factCacheEntry keys extracted facts by content identity, so a cache hit
@@ -190,7 +200,18 @@ func projectFacts(f extract.Facts) (Facts, error) {
 		out.Exports[public] = local
 	}
 	for _, c := range f.Calls {
-		out.Calls = append(out.Calls, FactCall{Name: c.Name, Receiver: c.Receiver, Location: location(f, c.Span), Blocked: c.Blocked, Builtin: c.Builtin})
+		targets := make([]FactCallTarget, 0, len(c.Targets))
+		for _, target := range c.Targets {
+			kind := Function
+			if target.Kind == "method" {
+				kind = Method
+			}
+			if target.Kind == "constructor" {
+				kind = Constructor
+			}
+			targets = append(targets, FactCallTarget{Name: target.Name, ReceiverType: target.ReceiverType, Module: target.Module, Kind: kind, Basis: target.Basis})
+		}
+		out.Calls = append(out.Calls, FactCall{Targets: targets, Name: c.Name, Receiver: c.Receiver, Location: location(f, c.Span), Blocked: c.Blocked, Builtin: c.Builtin})
 	}
 	for _, r := range f.References {
 		out.References = append(out.References, FactReference{Name: r.Name, Receiver: r.Receiver, Location: location(f, r.Span), Owner: r.Owner})

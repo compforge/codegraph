@@ -44,13 +44,21 @@ type Import struct {
 	Bindings []ImportBinding
 	Span
 }
+
+// CallTarget is a detached syntax hypothesis, not a runtime dispatch result.
+type CallTarget struct {
+	Name, ReceiverType, Module string
+	Kind, Basis                string
+}
+
 type Call struct {
 	Name, Receiver string
 	Span
-	// Blocked means syntax proves this is not a resolvable static function reference.
+	// Blocked excludes the static-function path; Targets may still carry dispatch candidates.
 	Blocked  bool
 	Builtin  bool
 	Imported bool
+	Targets  []CallTarget
 }
 
 // Reference is a lexical identifier use, independently of whether a target exists.
