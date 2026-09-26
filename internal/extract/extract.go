@@ -70,6 +70,13 @@ type Reference struct {
 	Bound  bool // a lexical binding exists; do not substitute a same-named declaration
 }
 
+// TypeRelation records an explicit base/interface name before scope binding.
+type TypeRelation struct {
+	Owner                     int
+	Name, Module, Kind, Basis string
+	Span
+}
+
 type Facts struct {
 	Path, Package, Language string
 	Source                  []byte
@@ -78,6 +85,7 @@ type Facts struct {
 	Imports                 []Import
 	Calls                   []Call
 	References              []Reference
+	TypeRelations           []TypeRelation
 	Issues                  []Issue
 	// Exports maps a public alias to its local name for explicit export
 	// aliases; extraction records them for consumer-side module resolution.

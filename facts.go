@@ -20,6 +20,7 @@ type Facts struct {
 	Imports                 []FactImport
 	Calls                   []FactCall
 	References              []FactReference
+	TypeRelations           []FactTypeRelation
 	Issues                  []Diagnostic
 	// Exports maps explicit public names to local declarations or imported bindings.
 	// Cross-module re-exports are recorded on Imports.Bindings.
@@ -88,6 +89,16 @@ type FactCallTarget struct {
 	Name, ReceiverType, Module string
 	Kind                       NodeKind
 	Basis                      string
+}
+
+// FactTypeRelation records explicit inheritance/interface syntax. Owner indexes
+// Declarations; Name and Module retain the unbound source spelling.
+type FactTypeRelation struct {
+	Owner        int
+	Name, Module string
+	Kind         RelationKind
+	Basis        string
+	Location     Location
 }
 
 type FactCall struct {
@@ -215,6 +226,9 @@ func projectFacts(f extract.Facts) (Facts, error) {
 	}
 	for _, r := range f.References {
 		out.References = append(out.References, FactReference{Name: r.Name, Receiver: r.Receiver, Location: location(f, r.Span), Owner: r.Owner})
+	}
+	for _, r := range f.TypeRelations {
+		out.TypeRelations = append(out.TypeRelations, FactTypeRelation{Owner: r.Owner, Name: r.Name, Module: r.Module, Kind: RelationKind(r.Kind), Basis: r.Basis, Location: location(f, r.Span)})
 	}
 	for _, issue := range f.Issues {
 		out.Issues = append(out.Issues, extractionDiagnostic(f, issue))

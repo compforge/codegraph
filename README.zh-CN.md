@@ -23,7 +23,9 @@ Struct、Interface、Field、Method、Function 等具体类别，关系包括调
 
 这不是编译器类型检查器：不评估 build tags，不解析第三方模块，不承诺动态分派完整。
 Go/Python/JS/TS 提供带位置与声明归属的标识符引用事实，以及带置信依据的 `references` 边。
-extends、implements 的自动提取尚未实现。识别到 grammar 不等于具备完整的语言语义。
+提取具名基类的 `extends` 及 TS/TSX 显式 `implements`。Go interface 嵌入建立 `extends`；
+同包直接声明的方法名集合生成候选 `implements`，不核验签名、指针方法集及提升方法，
+空接口、嵌入接口和含类型项的接口不参与此推断。struct 嵌入仍以字段及引用表达组合关系。识别到 grammar 不等于具备完整的语言语义。
 
 `Language(path)` 识别文件语言，`Languages()` 列出注册的 grammar，`Capabilities()` 返回 Go、Python、
 JS、TS、TSX 的适配能力。`Capabilities("rust", "java")` 按需查看其他语言的声明提取能力，

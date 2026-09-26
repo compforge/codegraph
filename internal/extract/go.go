@@ -79,6 +79,7 @@ func enrichGo(f *Facts) error {
 	}
 	enrichGoCallTargets(f, file, fset, closures)
 	extractGoReferences(f, file, fset)
+	extractGoTypeRelations(f, file, fset)
 	return nil
 }
 

@@ -163,7 +163,7 @@ func Capabilities(languages ...string) []Capability {
 			continue
 		}
 		if entry.Name == "go" {
-			out = append(out, Capability{Language: "go", Declarations: []NodeKind{Function, Method, Struct, Interface, Field, Type, TypeAlias, Variable, Constant}, Relations: []RelationKind{Contains, Imports, Calls, References}, Markers: []MarkerKind{Spec, Case, Rule, Link, Doc}, Limitations: []string{"static package functions plus candidate receiver methods and syntax-bound callable aliases; no runtime dispatch proof", "references use lexical binding or candidate name matches within Go packages and same-file module declarations", "variables and constants require a single declared name", "members are extracted only from named struct/interface literals; anonymous nested types and promoted members are not expanded", "build tags and compiler type checking are not evaluated", "marker syntax: declaration comments using +kind=payload or +kind:payload"}})
+			out = append(out, Capability{Language: "go", Declarations: []NodeKind{Function, Method, Struct, Interface, Field, Type, TypeAlias, Variable, Constant}, Relations: []RelationKind{Contains, Imports, Calls, References, Extends, Implements}, Markers: []MarkerKind{Spec, Case, Rule, Link, Doc}, Limitations: []string{"static package functions plus candidate receiver methods and syntax-bound callable aliases; no runtime dispatch proof", "references use lexical binding or candidate name matches within Go packages and same-file module declarations", "variables and constants require a single declared name", "members are extracted only from named struct/interface literals; anonymous nested types and promoted members are not expanded", "interface embedding binds extends; same-package direct method names produce candidate implements without signature, pointer-set or promoted-method checking; empty and embedded/type-term interfaces are excluded from inference", "build tags and compiler type checking are not evaluated", "marker syntax: declaration comments using +kind=payload or +kind:payload"}})
 			continue
 		}
 		cap := Capability{Language: entry.Name, Relations: []RelationKind{Contains}, Limitations: []string{"outline is limited to grammar tags; runtime omissions are diagnostics"}}
@@ -171,9 +171,12 @@ func Capabilities(languages ...string) []Capability {
 			cap.Declarations = append(cap.Declarations, NodeKind(kind))
 		}
 		if extract.ModuleLanguage(entry.Name) {
-			cap.Relations = append(cap.Relations, Imports, Calls, References)
+			cap.Relations = append(cap.Relations, Imports, Calls, References, Extends)
+			if entry.Name == "typescript" || entry.Name == "tsx" {
+				cap.Relations = append(cap.Relations, Implements)
+			}
 			cap.Markers = []MarkerKind{Spec, Case, Rule, Link, Doc}
-			cap.Limitations = append(cap.Limitations, "calls resolve to unshadowed local/imported functions; class constructors and receiver methods have syntax-based candidates; arbitrary runtime dispatch remains unresolved", "imports use local source paths and explicit export bindings; dependency configuration, runtime paths and third-party modules are not evaluated; Python absolute imports are candidates")
+			cap.Limitations = append(cap.Limitations, "named base types bind extends; TS/TSX explicit interfaces bind implements; dynamic base expressions and inherited method lookup are not evaluated", "calls resolve to unshadowed local/imported functions; class constructors and receiver methods have syntax-based candidates; arbitrary runtime dispatch remains unresolved", "imports use local source paths and explicit export bindings; dependency configuration, runtime paths and third-party modules are not evaluated; Python absolute imports are candidates")
 		} else {
 			cap.Limitations = append(cap.Limitations, "syntax/outline fallback only; reference resolution and markers are not implemented; builds report partial coverage")
 		}

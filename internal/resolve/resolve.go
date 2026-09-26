@@ -199,6 +199,12 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 			}
 		}
 	}
+	types, typeGaps, err := resolveTypeRelations(ctx, files, names, module, limit-len(edges))
+	if err != nil {
+		return nil, nil, err
+	}
+	edges = append(edges, types...)
+	issues = append(issues, typeGaps...)
 	references, gaps, err := resolveReferences(ctx, files, names, module, limit-len(edges))
 	if err != nil {
 		return nil, nil, err
