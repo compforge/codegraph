@@ -17,6 +17,12 @@ func hasBindingConflict(tree *gts.Tree, call *gts.Node, target Declaration, name
 			return
 		}
 		typ := n.Type(lang)
+		if target.Kind == "import" && (typ == "import_statement" || typ == "import_from_statement") {
+			return
+		}
+		if target.Kind == "import" && int(n.StartByte()) >= target.Start && int(n.EndByte()) <= target.End {
+			return
+		}
 		contains := n.StartByte() <= call.StartByte() && n.EndByte() >= call.EndByte()
 		scope := typ == "function_definition" || typ == "function_declaration" || typ == "method_definition" ||
 			typ == "class_definition" || typ == "class_declaration" || typ == "arrow_function" ||

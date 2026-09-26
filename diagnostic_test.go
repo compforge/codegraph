@@ -47,7 +47,13 @@ func TestOutlineGapPreservesUsableFacts(t *testing.T) {
 		t.Fatal("unrelated declaration disappeared")
 	}
 	edges := g.RelationsFrom(document.ID(), Imports)
-	if len(edges) != 1 || edges[0].Target != FileID("work.ts") || edges[0].Confidence != Exact {
+	moduleEdge := false
+	for _, edge := range edges {
+		if edge.Target == FileID("work.ts") && edge.Confidence == Exact {
+			moduleEdge = true
+		}
+	}
+	if !moduleEdge {
 		t.Fatalf("outline gap discarded or downgraded import: %+v", edges)
 	}
 	if !reflect.DeepEqual(facts.Issues, report.Diagnostics) {

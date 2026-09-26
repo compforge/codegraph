@@ -14,7 +14,7 @@ Struct、Interface、Field、Method、Function 等具体类别，关系包括调
 ## 能力与边界
 
 - 当前解析 **Go** 的函数、方法、结构体、接口、字段、其他命名类型、类型别名及单名称变量和常量，构建 contains、imports 和静态包函数 calls。
-- 提取 **Python、JavaScript、TypeScript、TSX** 声明、词法包含、本地源码 import、同文件中未被遮蔽的模块函数调用及声明注释 marker。
+- 提取 **Python、JavaScript、TypeScript、TSX** 声明、词法包含、本地源码 import、显式模块绑定、未被遮蔽的本地及导入函数调用及声明注释 marker。
 - 其他 gotreesitter 已注册语言使用通用语法/声明适配器；缺少 outline、未知声明类别和未实现的关系解析均输出明确诊断。
 - 支持跨文件、本模块 import、递归、多调用点、按需扩展和重复添加幂等。
 - 支持参数化只读 Cypher，返回 Node、Relation、Path 或普通 Go 值。
@@ -31,7 +31,8 @@ JS、TS、TSX 的适配能力。`Capabilities("rust", "java")` 按需查看其�
 
 Python import 使用仓库相对的模块候选，绝对 import 因运行时搜索路径未知而保留为 `candidate`。
 JS/TS 解析相对源码路径及 index 文件；多个匹配文件保留为候选。不评估包元数据、tsconfig alias、
-Python 包初始化、re-export 的符号绑定、跨文件函数调用和运行时分派。返回路径只描述这些声明边界内
+Python 包初始化和运行时分派。具名/default/namespace import 及显式 re-export 链在已提供的源码间
+解析，符号 import、引用与调用保留绑定置信依据。返回路径只描述这些声明边界内
 的已提取事实，不代表与编译器或运行时等价。
 
 ## 节点类别

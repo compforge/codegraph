@@ -16,7 +16,7 @@ No separate database service or mandatory disk persistence. The project has not 
 ## Capabilities and limits
 
 - Extracts **Go** functions, methods, structs, interfaces, fields, other named types, type aliases, and single-name variables and constants, with contains, imports, and static package-function calls.
-- Extracts **Python, JavaScript, TypeScript, and TSX** declarations, lexical containment, local source imports, unshadowed same-file module-function calls, and declaration-comment markers.
+- Extracts **Python, JavaScript, TypeScript, and TSX** declarations, lexical containment, local source imports, explicit module bindings and unshadowed local/imported function calls, and declaration-comment markers.
 - Accepts other gotreesitter-registered languages through a shared syntax/outline adapter. Missing outlines, unsupported declaration categories, and unavailable reference resolution produce explicit diagnostics.
 - Records documents without a registered grammar as file-level nodes without parsing; the coverage gap stays visible as an `unsupported_language` diagnostic.
 - Exposes detached per-document facts (declarations, imports with imported names and scope bindings, calls, export aliases, markers) through `Extract` without publishing graph state; results are cached by content identity so a later `AddDocuments` of the same source never parses twice. A language-neutral `Statements` fact (execution order, scopes, a bounded expression vocabulary) is captured for Python sources today and left empty where capture is not implemented.
@@ -38,7 +38,8 @@ outline capabilities on demand; it does not eagerly load every parser. Unknown n
 Python imports use repository-relative module candidates; absolute imports remain `candidate` because
 runtime search paths are unknown. JS/TS imports resolve relative source paths, including index files;
 multiple matching files remain candidates. Package metadata, tsconfig aliases, Python package initialization,
-re-exports as symbol bindings, imported calls, and runtime dispatch are not evaluated. Returned paths
+and runtime dispatch are not evaluated. Named/default/namespace imports and explicit re-export chains
+resolve against supplied sources; symbol imports, references, and calls retain binding confidence. Returned paths
 describe evidence within these declared limits, not compiler or runtime equivalence.
 
 ## Node kinds

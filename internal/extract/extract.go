@@ -24,6 +24,14 @@ type Comment struct {
 	Kind, Text string
 	Span
 }
+
+// ImportBinding distinguishes imported names from the local names they bind.
+type ImportBinding struct {
+	Name, Local         string
+	Namespace, ReExport bool
+	Span                // complete statement, for lexical scope and shadow checks
+}
+
 type Import struct {
 	Alias, Path string
 	From        string
@@ -31,16 +39,18 @@ type Import struct {
 	// Binding is the name the import introduces in this lexical scope.
 	Binding string
 	// Names are the imported names before caller aliases; empty means the whole
-	// module is imported. Extraction records them; resolution stays unchanged.
-	Names []string
+	// module is imported. Bindings retain per-name aliases for resolution.
+	Names    []string
+	Bindings []ImportBinding
 	Span
 }
 type Call struct {
 	Name, Receiver string
 	Span
 	// Blocked means syntax proves this is not a resolvable static function reference.
-	Blocked bool
-	Builtin bool
+	Blocked  bool
+	Builtin  bool
+	Imported bool
 }
 
 // Reference is a lexical identifier use, independently of whether a target exists.

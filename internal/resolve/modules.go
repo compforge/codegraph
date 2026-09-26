@@ -95,6 +95,13 @@ func resolveModule(ctx context.Context, f extract.Facts, files map[string]extrac
 			}
 		}
 	}
+	binder := moduleBinder{ctx, files, limit - len(edges)}
+	symbolEdges, gaps, err := binder.importEdges(f)
+	if err != nil {
+		return nil, nil, err
+	}
+	edges = append(edges, symbolEdges...)
+	issues = append(issues, gaps...)
 	for _, call := range f.Calls {
 		if err := ctx.Err(); err != nil {
 			return nil, nil, err
@@ -110,6 +117,26 @@ func resolveModule(ctx context.Context, f extract.Facts, files map[string]extrac
 			if d.Parent == -1 && d.Kind == "function" && d.Name == call.Name {
 				targets = append(targets, Ref{f.Path, i})
 			}
+		}
+		if call.Imported {
+			imported, _, err := binder.useTargets(f, call.Name, call.Receiver, call.Span)
+			if err != nil {
+				return nil, nil, err
+			}
+			found := false
+			for _, target := range imported {
+				if files[target.Path].Declarations[target.Declaration].Kind != "function" {
+					continue
+				}
+				found = true
+				if err := add(Edge{source, target.Ref, "calls", target.Confidence, "imported_binding", f.Path, call.Span}); err != nil {
+					return nil, nil, err
+				}
+			}
+			if !found {
+				issues = append(issues, Issue{f.Path, "unresolved_call", call.Name, "calls", call.Span})
+			}
+			continue
 		}
 		if call.Blocked || call.Receiver != "" {
 			issues = append(issues, Issue{f.Path, "dynamic_call", call.Name, "calls", call.Span})

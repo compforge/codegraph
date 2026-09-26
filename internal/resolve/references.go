@@ -13,6 +13,7 @@ func resolveReferences(ctx context.Context, files map[string]extract.Facts, name
 	var issues []Issue
 	for _, name := range names {
 		f := files[name]
+		binder := moduleBinder{ctx, files, limit - len(edges)}
 		for _, r := range f.References {
 			if err := ctx.Err(); err != nil {
 				return nil, nil, err
@@ -23,6 +24,23 @@ func resolveReferences(ctx context.Context, files map[string]extract.Facts, name
 				if r.Target >= 0 {
 					targets = append(targets, Ref{name, r.Target})
 					confidence, basis = "exact", "lexical_binding"
+				}
+			} else if extract.ModuleLanguage(f.Language) {
+				imported, matched, err := binder.useTargets(f, r.Name, r.Receiver, r.Span)
+				if err != nil {
+					return nil, nil, err
+				}
+				if matched {
+					for _, target := range imported {
+						if len(edges) >= limit {
+							return nil, nil, ErrEdgeLimit
+						}
+						edges = append(edges, Edge{Ref{name, r.Owner}, target.Ref, "references", target.Confidence, "imported_binding", name, r.Span})
+					}
+					if len(imported) == 0 {
+						issues = append(issues, Issue{name, "unresolved_reference", r.Name, "references", r.Span})
+					}
+					continue
 				}
 			} else if r.Receiver != "" && f.Language == "go" {
 				for _, imp := range f.Imports {
