@@ -16,13 +16,13 @@ import (
 // +spec=`Candidate relations and local gaps remain usable analysis results`
 type BuildReport struct {
 	Snapshot         string       `json:"snapshot"`
-	Files            []string     `json:"files"`
+	Documents        []string     `json:"documents"`
 	Diagnostics      []Diagnostic `json:"diagnostics"`
 	Nodes, Relations int
 }
 
 func cloneReport(r BuildReport) BuildReport {
-	r.Files = append([]string(nil), r.Files...)
+	r.Documents = append([]string(nil), r.Documents...)
 	r.Diagnostics = cloneDiagnostics(r.Diagnostics)
 	return r
 }
@@ -59,9 +59,9 @@ func (g *Graph) addPrepared(ctx context.Context, parseFailures map[string]error,
 			return g.Report(), fmt.Errorf("invalid source path %q", document.Path)
 		}
 	}
-	staged := make(map[string]extract.Facts, len(g.files))
+	staged := make(map[string]extract.Facts, len(g.documents))
 	var total int64
-	for p, f := range g.files {
+	for p, f := range g.documents {
 		staged[p] = f
 		total += int64(len(f.Source))
 	}
@@ -86,7 +86,7 @@ func (g *Graph) addPrepared(ctx context.Context, parseFailures map[string]error,
 	// Publish only after the complete batch, including all edge properties, exists.
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	g.files, g.failures, g.nodes, g.relations, g.store, g.report = staged, failures, nodes, relations, store, report
+	g.documents, g.failures, g.nodes, g.relations, g.store, g.report = staged, failures, nodes, relations, store, report
 	return cloneReport(report), nil
 }
 

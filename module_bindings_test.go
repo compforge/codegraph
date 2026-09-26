@@ -30,7 +30,7 @@ func TestModuleSymbolBindings(t *testing.T) {
 				}
 			}
 			if tc.name != "ts_namespace" && tc.name != "py_namespace" {
-				rows := query(t, g, `MATCH (:File)-[r:imports]->(:Function {name:'work'}) RETURN r`, nil)
+				rows := query(t, g, `MATCH (:Document)-[r:imports]->(:Function {name:'work'}) RETURN r`, nil)
 				if len(rows) != 1 || rows[0]["r"].(Relation).Confidence != tc.confidence {
 					t.Fatal(rows)
 				}
@@ -167,7 +167,7 @@ func TestExplicitExportOverridesStarAndPreservesNamespace(t *testing.T) {
 	if len(rows) != 1 || rows[0]["target"].(Node).Location.Path != "barrel.ts" || rows[0]["r"].(Relation).Confidence != Exact {
 		t.Fatal(rows)
 	}
-	rows = query(t, g, `MATCH (:Function {name:'entry'})-[:references]->(target:File) RETURN target`, nil)
+	rows = query(t, g, `MATCH (:Function {name:'entry'})-[:references]->(target:Document) RETURN target`, nil)
 	if len(rows) != 1 || rows[0]["target"].(Node).Location.Path != "barrel.ts" {
 		t.Fatal(rows)
 	}

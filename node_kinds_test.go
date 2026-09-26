@@ -50,7 +50,7 @@ func (u *User) Save(){ Work() }
 	}
 	got := map[string]NodeKind{}
 	for _, n := range g.Nodes() {
-		if n.Kind != File {
+		if n.Kind != DocumentKind {
 			got[n.QualifiedName] = n.Kind
 		}
 	}
@@ -96,7 +96,7 @@ func (u *User) Save(){ Work() }
 	if len(rows) != 1 || rows[0]["m"].(Node).QualifiedName != "Reader.Read" {
 		t.Fatal("interface method ownership/marker", rows)
 	}
-	if len(query(t, g, `MATCH (:File)-[:contains]->(:Field) RETURN 1`, nil)) != 0 {
+	if len(query(t, g, `MATCH (:Document)-[:contains]->(:Field) RETURN 1`, nil)) != 0 {
 		t.Fatal("fields must be contained by their declaring type")
 	}
 	if len(query(t, g, `MATCH (:Struct {name:'User'})-[:contains]->(:Method {name:'Save'})-[:calls]->(:Function {name:'Work'}) RETURN 1`, nil)) != 1 {
@@ -147,9 +147,9 @@ func Local(){ type Box struct{} }
 	if len(query(t, g, `MATCH (:Function {name:'Local'})-[:contains]->(:Struct {qualifiedName:'Local.Box'}) RETURN 1`, nil)) != 1 {
 		t.Fatal("nested declaration ownership missing")
 	}
-	// File ownership and receiver ownership are distinct evidence, not inferred
+	// Document ownership and receiver ownership are distinct evidence, not inferred
 	// from the physical location of the receiver's type declaration.
-	if len(query(t, g, `MATCH (:File {path:'methods.go'})-[:contains]->(:Method) RETURN 1`, nil)) != 1 {
+	if len(query(t, g, `MATCH (:Document {path:'methods.go'})-[:contains]->(:Method) RETURN 1`, nil)) != 1 {
 		t.Fatal("method's lexical file owner missing")
 	}
 	nodes, edges := g.Nodes(), g.Relations()

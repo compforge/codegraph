@@ -29,7 +29,7 @@ func TestAsyncDocumentAndSymbolWithoutWait(t *testing.T) {
 		t.Fatal(err)
 	}
 	doc := Document{Path: "main.go", Content: []byte("package demo\nfunc Entry(){}\n")}
-	if doc.ID() != FileID(doc.Path) {
+	if doc.ID() != DocumentID(doc.Path) {
 		t.Fatalf("document ID = %q", doc.ID())
 	}
 	if err := g.AddDocuments(ctx, doc); err != nil {
@@ -64,7 +64,7 @@ func TestAsyncDocumentAndSymbolWithoutWait(t *testing.T) {
 	if err != nil || len(report.Diagnostics) != 0 {
 		t.Fatalf("report = %+v, %v", report, err)
 	}
-	if file, ok := g.Node(doc.ID()); !ok || file.Kind != File {
+	if file, ok := g.Node(doc.ID()); !ok || file.Kind != DocumentKind {
 		t.Fatalf("file node = %+v, %v", file, ok)
 	}
 	if got, ok := g.Node(symbols[0].ID); !ok || !reflect.DeepEqual(got, symbols[0]) {
@@ -115,7 +115,7 @@ func TestWaitCancellationDoesNotCancelBuild(t *testing.T) {
 		t.Fatalf("canceled wait = %v", err)
 	}
 	close(release)
-	if report := waitBackgroundBuild(t, g); len(report.Files) != 1 {
+	if report := waitBackgroundBuild(t, g); len(report.Documents) != 1 {
 		t.Fatalf("background build after canceled wait = %+v", report)
 	}
 	if _, ok := g.Node(doc.ID()); !ok {
@@ -172,7 +172,7 @@ func TestAsyncBatchAdmissionIsAtomic(t *testing.T) {
 	if _, err := g.GetDocument(valid.ID()); !errors.Is(err, ErrDocumentNotFound) {
 		t.Fatalf("partial batch was queued: %v", err)
 	}
-	if report, err := g.Wait(context.Background()); err != nil || len(report.Files) != 0 {
+	if report, err := g.Wait(context.Background()); err != nil || len(report.Documents) != 0 {
 		t.Fatalf("report = %+v, %v", report, err)
 	}
 	if _, err := g.AddDocument(context.Background(), invalid).Wait(); err == nil {
@@ -207,7 +207,7 @@ func TestAsyncParseFailureIsNotRetriedByWait(t *testing.T) {
 	if err != nil || !hasDiagnostic(report, "parse_error") || count != 1 {
 		t.Fatalf("report = %+v, count=%d, err=%v", report, count, err)
 	}
-	if node, ok := g.Node(doc.ID()); !ok || node.Kind != File || node.Location.EndByte != len(doc.Content) {
+	if node, ok := g.Node(doc.ID()); !ok || node.Kind != DocumentKind || node.Location.EndByte != len(doc.Content) {
 		t.Fatal("failed parser erased the supplied file identity", node)
 	}
 	if len(g.Find(doc.Path, "", "")) != 0 || len(g.RelationsFrom(doc.ID())) != 0 {
@@ -222,7 +222,7 @@ func TestAsyncParseFailureIsNotRetriedByWait(t *testing.T) {
 }
 
 func TestBackgroundBuildFailureCanBeRetried(t *testing.T) {
-	g, err := New("rev", Options{MaxFiles: 1})
+	g, err := New("rev", Options{MaxDocuments: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +237,7 @@ func TestBackgroundBuildFailureCanBeRetried(t *testing.T) {
 	if err := g.AddDocuments(context.Background(), first); err != nil {
 		t.Fatal(err)
 	}
-	if report, err := g.Wait(context.Background()); err != nil || len(report.Files) != 1 {
+	if report, err := g.Wait(context.Background()); err != nil || len(report.Documents) != 1 {
 		t.Fatalf("retry report = %+v, %v", report, err)
 	}
 }

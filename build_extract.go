@@ -28,14 +28,14 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 			name, data := document.Path, document.Content
 			issue := func(code, message string) {
 				failures[name] = Diagnostic{Code: code, Message: message, Subject: DocumentSubject,
-					Location: location(extract.FileOnly(name, data), extract.Span{End: len(data)})}
+					Location: location(extract.DocumentOnly(name, data), extract.Span{End: len(data)})}
 			}
 			if !g.allowed(name) {
 				issue("out_of_scope", "file is outside allowed scope")
 				next++
 				continue
 			}
-			if int64(len(data)) > g.opts.MaxFileBytes {
+			if int64(len(data)) > g.opts.MaxDocumentBytes {
 				return fmt.Errorf("%w: file %s exceeds byte limit", ErrBuildBudget, name)
 			}
 			if old, exists := staged[name]; exists {
@@ -52,8 +52,8 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 				continue
 			}
 			var budgetErr error
-			if len(staged)+len(batch) >= g.opts.MaxFiles {
-				budgetErr = fmt.Errorf("%w: file limit %d", ErrBuildBudget, g.opts.MaxFiles)
+			if len(staged)+len(batch) >= g.opts.MaxDocuments {
+				budgetErr = fmt.Errorf("%w: file limit %d", ErrBuildBudget, g.opts.MaxDocuments)
 			} else if int64(len(data)) > g.opts.MaxSourceBytes-total-reserved {
 				budgetErr = fmt.Errorf("%w: source byte limit", ErrBuildBudget)
 			}
@@ -73,7 +73,7 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 				continue
 			}
 			if extract.Detect(name) == nil {
-				facts := extract.FileOnly(name, bytes.Clone(data))
+				facts := extract.DocumentOnly(name, bytes.Clone(data))
 				facts.Issues = append(facts.Issues, extract.Issue{Code: "unsupported_language", Message: "no registered grammar for file", Subject: "document", Span: extract.Span{End: len(data)}})
 				staged[name] = facts
 				total += int64(len(data))
@@ -94,7 +94,7 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 			name := batch[i].Path
 			if result.err != nil {
 				failures[name] = Diagnostic{Code: "parse_error", Message: result.err.Error(), Subject: DocumentSubject,
-					Location: location(extract.FileOnly(name, batch[i].Content), extract.Span{End: len(batch[i].Content)})}
+					Location: location(extract.DocumentOnly(name, batch[i].Content), extract.Span{End: len(batch[i].Content)})}
 				continue
 			}
 			staged[name] = result.facts

@@ -14,7 +14,8 @@ import (
 	"github.com/compforge/codegraph/internal/resolve"
 )
 
-func FileID(name string) string { return "file:" + name }
+// DocumentID identifies a document node by its snapshot-relative logical path.
+func DocumentID(name string) string { return "document:" + name }
 
 // declarationID is shared by early detached results and published nodes.
 func declarationID(path string, kind NodeKind, qualifiedName string, start int) string {
@@ -40,14 +41,14 @@ func (g *Graph) assemble(ctx context.Context, files map[string]extract.Facts, fa
 	nodes := map[string]Node{}
 	relations := map[string]Relation{}
 	ids := map[resolve.Ref]string{}
-	report := BuildReport{Snapshot: g.snapshot, Files: sortedFiles(files)}
+	report := BuildReport{Snapshot: g.snapshot, Documents: sortedFiles(files)}
 	for _, d := range failures {
 		report.Diagnostics = append(report.Diagnostics, d)
 		// A failed parser cannot erase the identity of a supplied document.
-		// Keep only the File node; no declarations or relations are inferred.
+		// Keep only the Document node; no declarations or relations are inferred.
 		if d.Code == "parse_error" {
-			id := FileID(d.Location.Path)
-			nodes[id] = Node{ID: id, Kind: File, Name: path.Base(d.Location.Path),
+			id := DocumentID(d.Location.Path)
+			nodes[id] = Node{ID: id, Kind: DocumentKind, Name: path.Base(d.Location.Path),
 				Language: Language(d.Location.Path), Location: d.Location}
 		}
 	}
@@ -55,7 +56,7 @@ func (g *Graph) assemble(ctx context.Context, files map[string]extract.Facts, fa
 		id := identity(source, target, kind, loc.Path, loc.StartByte, loc.EndByte)
 		relations[id] = Relation{ID: id, Source: source, Target: target, Kind: kind, Confidence: confidence, Basis: basis, Location: loc}
 	}
-	for _, p := range report.Files {
+	for _, p := range report.Documents {
 		if err := ctx.Err(); err != nil {
 			return nil, nil, report, err
 		}
@@ -66,9 +67,9 @@ func (g *Graph) assemble(ctx context.Context, files map[string]extract.Facts, fa
 		if len(nodes)+1+len(f.Declarations) > g.opts.MaxNodes || len(relations)+len(f.Declarations) > g.opts.MaxRelations {
 			return nil, nil, report, fmt.Errorf("%w: declaration graph size", ErrBuildBudget)
 		}
-		fid := FileID(p)
+		fid := DocumentID(p)
 		ids[resolve.Ref{Path: p, Declaration: -1}] = fid
-		nodes[fid] = Node{ID: fid, Kind: File, Name: path.Base(p), Language: f.Language, Location: location(f, extract.Span{Start: 0, End: len(f.Source)})}
+		nodes[fid] = Node{ID: fid, Kind: DocumentKind, Name: path.Base(p), Language: f.Language, Location: location(f, extract.Span{Start: 0, End: len(f.Source)})}
 		for i, d := range f.Declarations {
 			kind, err := declarationKind(d.Kind)
 			if err != nil {

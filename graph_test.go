@@ -53,7 +53,7 @@ func query(t *testing.T, g *Graph, q string, params map[string]any) []map[string
 
 func TestSourceGraph(t *testing.T) {
 	g := built(t, Options{})
-	rows := query(t, g, `MATCH (f:File)-[:contains]->(a:Function {name:'Entry'})-[r:calls]->(b:Function {name:'Work'}) RETURN f,r,b`, nil)
+	rows := query(t, g, `MATCH (f:Document)-[:contains]->(a:Function {name:'Entry'})-[r:calls]->(b:Function {name:'Work'}) RETURN f,r,b`, nil)
 	if len(rows) != 2 {
 		t.Fatalf("calls=%v", rows)
 	}
@@ -64,10 +64,10 @@ func TestSourceGraph(t *testing.T) {
 	if a.Confidence != Exact || a.Basis != "imported_function" {
 		t.Fatal(a)
 	}
-	if rows[0]["f"].(Node).Kind != File || rows[0]["b"].(Node).Name != "Work" {
+	if rows[0]["f"].(Node).Kind != DocumentKind || rows[0]["b"].(Node).Name != "Work" {
 		t.Fatal(rows)
 	}
-	properties := query(t, g, `MATCH (:File)-[:contains]->(a:Function {name:'Entry'})-[r:calls]->(b:Function {name:'Work'}) RETURN r.id AS id, r.confidence AS confidence, properties(r) AS props`, nil)
+	properties := query(t, g, `MATCH (:Document)-[:contains]->(a:Function {name:'Entry'})-[r:calls]->(b:Function {name:'Work'}) RETURN r.id AS id, r.confidence AS confidence, properties(r) AS props`, nil)
 	for _, row := range properties {
 		if row["confidence"] != "exact" || row["id"] == nil {
 			t.Fatal(row)
@@ -90,7 +90,7 @@ func TestSourceGraph(t *testing.T) {
 	if len(cycles) != 1 {
 		t.Fatal(cycles)
 	}
-	imports := query(t, g, `MATCH (f:File {path:'main.go'})-[r:imports]->(d:File) RETURN d.path AS path`, nil)
+	imports := query(t, g, `MATCH (f:Document {path:'main.go'})-[r:imports]->(d:Document) RETURN d.path AS path`, nil)
 	if len(imports) != 1 || imports[0]["path"] != "lib/work.go" {
 		t.Fatal(imports)
 	}
@@ -179,7 +179,7 @@ func TestExpansionAndScope(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(r.Files) != tc.files || (len(r.Diagnostics) == 0) != tc.complete {
+			if len(r.Documents) != tc.files || (len(r.Diagnostics) == 0) != tc.complete {
 				t.Fatal(r)
 			}
 			if len(g.Nodes()) == 0 {
@@ -203,7 +203,7 @@ func TestBuildFailuresAndBudget(t *testing.T) {
 	if _, err := g.addDocumentsSync(ctx, Document{Path: "../outside.go", Content: []byte("package p")}); err == nil {
 		t.Fatal("path traversal accepted")
 	}
-	g2, err := New("rev", Options{MaxFiles: 1})
+	g2, err := New("rev", Options{MaxDocuments: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,13 +301,13 @@ func TestOptions(t *testing.T) {
 	if _, err := New("", Options{}); err == nil {
 		t.Fatal("empty snapshot accepted")
 	}
-	if _, err := New("x", Options{MaxFiles: -1}); err == nil {
+	if _, err := New("x", Options{MaxDocuments: -1}); err == nil {
 		t.Fatal("negative limit accepted")
 	}
 	if _, err := New("x", Options{Scope: []string{"../"}}); err == nil {
 		t.Fatal("invalid scope accepted")
 	}
-	if !fs.ValidPath("main.go") || !strings.HasPrefix(FileID("main.go"), "file:") {
+	if !fs.ValidPath("main.go") || !strings.HasPrefix(DocumentID("main.go"), "document:") {
 		t.Fatal("file identity")
 	}
 }
@@ -319,7 +319,7 @@ func TestAllBuildBudgetsRollback(t *testing.T) {
 		"b/b.go":  {Data: []byte("package b\nfunc End(){}")},
 	}
 	for _, opts := range []Options{
-		{MaxFileBytes: 10}, {MaxSourceBytes: 10}, {MaxNodes: 1}, {MaxRelations: 1},
+		{MaxDocumentBytes: 10}, {MaxSourceBytes: 10}, {MaxNodes: 1}, {MaxRelations: 1},
 	} {
 		g, err := New("rev", opts)
 		if err != nil {

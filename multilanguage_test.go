@@ -80,7 +80,7 @@ func TestModuleImportExpansion(t *testing.T) {
 			if err != nil || len(r.Diagnostics) != 0 {
 				t.Fatal(r, err)
 			}
-			rows := query(t, g, `MATCH (a:File)-[r:imports]->(b:File) RETURN a,r,b`, nil)
+			rows := query(t, g, `MATCH (a:Document)-[r:imports]->(b:Document) RETURN a,r,b`, nil)
 			if len(rows) != 1 || rows[0]["b"].(Node).Location.Path != tc.target || rows[0]["r"].(Relation).Confidence != Exact {
 				t.Fatal(rows)
 			}
@@ -154,7 +154,7 @@ func TestModuleDeclarationsAndMarkers(t *testing.T) {
 			}
 			got := map[string]NodeKind{}
 			for _, n := range g.Nodes() {
-				if n.Kind != File {
+				if n.Kind != DocumentKind {
 					got[n.QualifiedName] = n.Kind
 				}
 				if n.QualifiedName == tc.marked && (len(n.Markers) != 1 || n.Markers[0].Kind != Rule) {
@@ -237,7 +237,7 @@ func TestLanguageDiscoveryAndCapabilities(t *testing.T) {
 
 func TestMultilanguageExpansionBudget(t *testing.T) {
 	fs := fstest.MapFS{"a.js": {Data: []byte("import './b.js';")}, "b.js": {Data: []byte("import './c.js';")}, "c.js": {Data: []byte("function work(){}")}}
-	for _, opts := range []Options{{MaxFiles: 2}, {MaxRelations: 1}} {
+	for _, opts := range []Options{{MaxDocuments: 2}, {MaxRelations: 1}} {
 		g, err := New("rev", opts)
 		if err != nil {
 			t.Fatal(err)

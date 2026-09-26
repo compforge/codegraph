@@ -11,8 +11,20 @@ CodeGraph 在进程内直接依赖 gotreesitter 与 GoGraph。gotreesitter 提�
 
 ### Graph、Node 与 Relation
 
+Graph、Node、Relation 是通用图结构；CodeGraph 的代码领域语义由节点类别、关系类别及其属性表达。
+因此，理解 CodeGraph 既要看图如何组织，也要看节点代表什么代码对象、关系表达什么代码事实。
+
+在 Node 层面，Document 表达源码材料，symbol（代码声明）包括 Class、Struct、Interface、
+Function、Method 等具体对象。Document 输入对象提供路径和内容，入图后具有对应的 Document 节点；
+symbol 是代码声明的统称，各声明以具体 Node.Kind 入图。Go API 使用 DocumentKind 常量表示
+Document 节点类别，其值与 Cypher 标签均为 "Document"。
+
+在 Relation 层面，代码领域赋予边具体含义：imports 表达导入依赖，implements 表达接口实现，
+extends 表达类型继承，calls 表达调用，references 表达引用，contains 表达声明归属。
+这些关系及其来源位置、confidence 和 basis，让通用图结构成为可查询、可解释的代码关系证据。
+
 - Graph 对应一个源码快照下已构建的局部图。范围外的文件不等于不存在关系。
-- Node.Kind 直接表达 File、Struct、Interface、Field、Method、Function、Type、TypeAlias 等具体类别。
+- Node.Kind 直接表达 Document、Struct、Interface、Field、Method、Function、Type、TypeAlias 等具体类别。
 - Relation 即有向 Edge，Kind 包括 contains、imports、calls、references、extends、implements。
 - Relation 有独立身份，允许递归自环，以及相同端点之间不同关系或不同调用位置的多条边。
 - Path 与 Subgraph 沿用图的概念，保留参与查询的节点、关系及其证据，不只返回文件名集合。
@@ -26,15 +38,14 @@ Document 表达提供给图的一份源码材料，由快照内的逻辑路径�
 Git revision 或内存；获取材料与选择材料由消费者负责，提取代码事实和解析关系由 CodeGraph 负责。
 路径提供稳定身份、语言识别和相对 import 上下文，不要求实际文件存在。快照身份统一归 Graph 所有。
 
-Document 属于构图输入，File 与具体声明类别属于图节点。读取一个 Document 后，图可以包含对应的
-File、Function、Struct 等节点及其关系；输入材料本身不增加一个 Document 节点类别。review unit、
-候选测试、changed 等消费策略不进入 Document。
+每份输入材料对应一个 Document 节点，解析出的 Function、Struct 等声明通过 contains 归属到它。
+review unit、候选测试、changed 等消费策略不进入 Document。
 
 `AddDocuments` 将显式批次入队并启动后台构图，`AddDocument` 返回单文件事实的 ResultTask。
-调用方可按 Document.ID 获取任务，或按路径和限定名提前查声明；Document.ID 与其 File 节点 ID 相同。
+调用方可按 Document.ID 获取任务，或按路径和限定名提前查声明；Document.ID 与其 Document 节点 ID 相同。
 后台构建在这些材料与已加载事实之间解析关系并原子发布。`Wait` 只等待调用前提交的工作并返回结果。
 缺少依赖时保留覆盖诊断，补充材料后重新解析。源码读取、Git 版本选择与依赖枚举属于消费者的
-输入准备职责，CodeGraph 不隐式扫描文件系统或获取依赖。没有注册 grammar 的 Document 仍进入图：只产生对应的 File 节点，不触发解析、
+输入准备职责，CodeGraph 不隐式扫描文件系统或获取依赖。没有注册 grammar 的 Document 仍进入图：只产生对应的 Document 节点，不触发解析、
 不产生声明与关系，覆盖缺口以 `unsupported_language` 诊断保留在构建报告中；消费者不能将"没有符号"
 误解为"文件不存在"。材料选择（是否纳入纯文本、图片等非代码文件）仍是消费者职责。
 
@@ -98,7 +109,7 @@ outline 的结构化计数描述查询产生的候选，不能证明源码中的
 上游只提供遗漏计数时，诊断使用完整文档范围；已有的精确位置则原样保留。
 重复候选的去重不丢失声明，不作为信息缺口。局部缺口不删除其余已提取的声明和导入，
 也不降低无关关系的证据强度或自动触发消费者的全量回退。
-解析失败的输入保留 File 身份和文档诊断；没有源码证据时不补造声明与关系。
+解析失败的输入保留 Document 身份和文档诊断；没有源码证据时不补造声明与关系。
 是否扩大探索范围、如何沿路径传播影响以及是否运行测试，由消费者决定。
 
 ## 代码结构
@@ -135,7 +146,7 @@ codegraph/
 │       ├── store.go
 │       └── policy.go          # 使用上游 AST 检查路径边界
 ├── graph_test.go              # 真实解析/查询的内存源码夹具与契约测试
-├── file_only_test.go          # 无 grammar Document 的 File 节点与身份/预算契约
+├── file_only_test.go          # 无 grammar Document 的 Document 节点与身份/预算契约
 ├── node_kinds_test.go         # 具体类别、成员与跨文件归属契约
 ├── example_test.go            # 可执行使用示例
 ├── Makefile                   # 格式、静态检查、race 测试和编译入口
@@ -279,7 +290,7 @@ Python、JavaScript、TypeScript、TSX 提取 outline 声明、局部函数调�
 - Go API 建图接 Cypher 查询、只读拒绝写入、预取消请求及结果行数上限。
 - 跨文件真实语法提取、重复构建幂等、补充文件后重解析、源码快照冲突和预算回滚。
 - Document 与文件输入的混合语言等价性、跨入口身份与关系解析、输入字节所有权及失败批次回滚。
-- 无 grammar Document 的 File 节点入库、零声明、unsupported_language 诊断，及与解析文件一致的
+- 无 grammar Document 的 Document 节点入库、零声明、unsupported_language 诊断，及与解析文件一致的
   幂等、内容冲突、所有权与预算契约。
 - Extract 事实投影的内容与位置、不发布图状态、缓存单次解析、内容身份失配重解析、
   已加载 Document 免解析投影及并发安全；import 名称（具名/整模块/通配）与 export 别名映射。
@@ -298,7 +309,7 @@ Cypher 支持范围以所锁定版本及契约测试为准，不承诺完整 Neo
 
 Go、Python、JS/TS 保留标识符使用位置及其最内层声明归属；声明名、注释和字符串内容不作为引用。
 `Facts.References` 保留尚未找到目标的使用，消费方可以按名称计数或读取使用位置。
-`references` 从所属声明（无声明时为 File）指向候选目标，重复使用保留独立关系位置。
+`references` 从所属声明（无声明时为 Document）指向候选目标，重复使用保留独立关系位置。
 语法证明的同文件词法绑定使用 exact；Go 同包跨文件和 import 名称匹配使用 candidate。
 局部绑定遮蔽已知目标时不连接同名声明；尚无目标的引用以局部 unresolved_reference 诊断保留。
 Python 与 JS/TS 的引用通过同文件词法绑定或显式模块绑定定位目标；动态属性解析保持未解析。
@@ -307,7 +318,7 @@ Python 与 JS/TS 的引用通过同文件词法绑定或显式模块绑定定位
 ### 模块符号绑定
 
 文件级 imports 保留模块依赖，具名导入及显式转导出另生成指向最终声明的 imports 关系，
-来源是导入所在 File 或最内层声明。引用和函数调用共用同一绑定解析，关系位置保留各自的使用证据。
+来源是导入所在 Document 或最内层声明。引用和函数调用共用同一绑定解析，关系位置保留各自的使用证据。
 JS/TS 通过显式公开名称、default、namespace 和 re-export 链定位声明；显式导出优先于星号转导出，
 星号转导出不传播 default。Python from-import 与模块 alias 使用加载范围内的模块候选，
 函数内部 import 的作用域不泄漏到其他函数。语法识别到的局部遮蔽阻止同名绑定。

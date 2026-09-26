@@ -4,7 +4,7 @@
 
 用 Go 编写、可内嵌的多语言代码属性图库，供代码评审、影响分析等工具查询关联文件、符号及关系证据。
 
-CodeGraph 使用 gotreesitter 解析源码，以 GoGraph 承载内存属性图与 Cypher 查询。节点使用 File、
+CodeGraph 使用 gotreesitter 解析源码，以 GoGraph 承载内存属性图与 Cypher 查询。节点使用 Document、
 Struct、Interface、Field、Method、Function 等具体类别，关系包括调用、导入和包含等；
 声明节点保存 spec、case、rule、link、doc 等结构化意图标记。
 
@@ -39,11 +39,12 @@ Python 包初始化和运行时分派。具名/default/namespace import 及显�
 
 ## 节点类别
 
-`Node.Kind` 同时是节点的 Cypher 标签：`File`、`Struct`、`Interface`、`Field`、`Method`、
+`Node.Kind` 同时是节点的 Cypher 标签：`Document`、`Struct`、`Interface`、`Field`、`Method`、
 `Function`、`Type`、`TypeAlias`、`Class`、`Variable`、`Enum` 等具体声明类别。各语言实际覆盖见
 `Capabilities(language)`。`Type` 表达 `type ID int` 等其他命名类型；`TypeAlias`
 表达 `type Alias = ID` 等显式别名。分类描述声明本身，不推断底层类型。symbol（符号）只是代码声明的
 统称，不是图中的类别或标签。
+Go API 中使用 `DocumentKind` 常量表示文档节点类别，`Document` 类型提供输入路径和内容。
 
 字段和接口中显式声明的方法均为独立节点，有自己的位置和 marker。可以直接查询成员：
 
@@ -137,7 +138,7 @@ for _, diagnostic := range report.Diagnostics {
 ```
 
 - 路径使用符合 `fs.ValidPath` 的快照相对路径，以 `/` 分隔，不是绝对路径或 URL。
-- `Document.ID()` 是当前 Graph 快照中对应的 File 节点 ID，即 `FileID(Path)`。
+- `Document.ID()` 是当前 Graph 快照中对应的 Document 节点 ID，即 `DocumentID(Path)`。
 - `AddDocuments` 批量入队但不返回逐文件任务；需提前读取时按 ID 调用 `GetDocument`，或用 `FindAsync`
   取得声明。未提交的 ID 会使 `GetDocument` 返回 `ErrDocumentNotFound`；`AddDocument` 则直接返回任务。
 - 后台构建在已提交材料和已加载源码之间解析关系、检查预算并原子发布，不会隐式获取依赖。
@@ -198,7 +199,7 @@ confidence 为 `exact` 或 `candidate`，不是概率。`exact` 指已加载范�
 解析关系并原子发布。调用方同时构建多张图时，应控制合计 worker 数量。
 
 Options 为文件数、源码体积、节点/边数量、解析/查询超时、路径深度和结果体积提供有限默认预算。
-查询错误时不返回部分行。解析失败仍保留 File 身份和文档诊断，其他文档的可用事实正常发布；
+查询错误时不返回部分行。解析失败仍保留 Document 身份和文档诊断，其他文档的可用事实正常发布；
 预算、快照冲突和取消则回滚整个批次。
 
 Build 和 Wait 通过 error 表达执行失败。成功发布的图可以包含候选关系和局部信息缺口。
