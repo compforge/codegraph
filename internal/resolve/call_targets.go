@@ -9,7 +9,7 @@ import (
 )
 
 // +why=`Syntax-based receiver and alias hints are candidates even when only one loaded target matches`
-func resolveCallTargets(ctx context.Context, f extract.Facts, call extract.Call, files map[string]extract.Facts, module string, limit int) ([]Edge, error) {
+func resolveCallTargets(ctx context.Context, f extract.Facts, call extract.Call, files map[string]extract.Facts, module string, methods *methodIndex, limit int) ([]Edge, error) {
 	var edges []Edge
 	source := Ref{f.Path, enclosingDeclaration(f, call.Span)}
 	seen := map[Ref]bool{}
@@ -18,6 +18,7 @@ func resolveCallTargets(ctx context.Context, f extract.Facts, call extract.Call,
 			return nil, err
 		}
 		var targets []Ref
+		inherited := map[Ref]bool{}
 		if f.Language == "go" {
 			dir := path.Dir(f.Path)
 			if hint.Module != "" {
@@ -60,6 +61,24 @@ func resolveCallTargets(ctx context.Context, f extract.Facts, call extract.Call,
 					}
 				}
 			}
+
+			if hint.Kind == "method" && hint.ReceiverType != "" {
+				var roots []Ref
+				for _, target := range goTypeTargets(f, hint.ReceiverType, hint.Module, files, methods.names, module) {
+					roots = append(roots, target.Ref)
+				}
+				found, err := methods.lookup(ctx, roots, hint.Name, strings.HasSuffix(f.Path, "_test.go"), limit-len(edges))
+				if err != nil {
+					return nil, err
+				}
+				for _, target := range found {
+					if hint.Module != "" && !exported(hint.Name) {
+						continue
+					}
+					targets = append(targets, target.Ref)
+					inherited[target.Ref] = target.Inherited
+				}
+			}
 		} else {
 			binder := moduleBinder{ctx, files, limit - len(edges)}
 			typeName := hint.ReceiverType
@@ -68,8 +87,20 @@ func resolveCallTargets(ctx context.Context, f extract.Facts, call extract.Call,
 			}
 			var classes []Ref
 			if typeName != "" {
+				// self/this denotes its lexical class, including nested classes that do
+				// not bind as a top-level name in this module.
+				if hint.Basis == "lexical_receiver" {
+					for owner := enclosingDeclaration(f, call.Span); owner >= 0; owner = f.Declarations[owner].Parent {
+						d := f.Declarations[owner]
+						if d.Kind == "class" && d.Name == typeName {
+							classes = append(classes, Ref{f.Path, owner})
+							break
+						}
+					}
+				}
+				lexicalClass := len(classes) > 0
 				for i, d := range f.Declarations {
-					if hint.Module == "" && d.Parent == -1 && d.Name == typeName && d.Kind == "class" {
+					if !lexicalClass && hint.Module == "" && d.Parent == -1 && d.Name == typeName && d.Kind == "class" {
 						classes = append(classes, Ref{f.Path, i})
 					}
 				}
@@ -86,12 +117,13 @@ func resolveCallTargets(ctx context.Context, f extract.Facts, call extract.Call,
 			if hint.Kind == "constructor" {
 				targets = append(targets, classes...)
 			} else if len(classes) > 0 {
-				for _, class := range classes {
-					for i, d := range files[class.Path].Declarations {
-						if d.Kind == "method" && d.Name == hint.Name && d.Parent == class.Declaration {
-							targets = append(targets, Ref{class.Path, i})
-						}
-					}
+				found, err := methods.lookup(ctx, classes, hint.Name, false, limit-len(edges))
+				if err != nil {
+					return nil, err
+				}
+				for _, target := range found {
+					targets = append(targets, target.Ref)
+					inherited[target.Ref] = target.Inherited
 				}
 			} else if hint.ReceiverType == "" {
 				for i, d := range f.Declarations {
@@ -109,7 +141,11 @@ func resolveCallTargets(ctx context.Context, f extract.Facts, call extract.Call,
 				return nil, ErrEdgeLimit
 			}
 			seen[target] = true
-			edges = append(edges, Edge{source, target, "calls", "candidate", hint.Basis, f.Path, call.Span})
+			basis := hint.Basis
+			if inherited[target] {
+				basis = "inherited_method"
+			}
+			edges = append(edges, Edge{source, target, "calls", "candidate", basis, f.Path, call.Span})
 		}
 	}
 	return edges, nil

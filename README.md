@@ -21,6 +21,7 @@ No separate database service or mandatory disk persistence. The project has not 
 - Records documents without a registered grammar as file-level nodes without parsing; the coverage gap stays visible as an `unsupported_language` diagnostic.
 - Exposes detached per-document facts (declarations, imports with imported names and scope bindings, calls with syntax-based target hints, export aliases, explicit type relations, markers) through `Extract` without publishing graph state; results are cached by content identity so a later `AddDocuments` of the same source never parses twice. A language-neutral `Statements` fact (execution order, scopes, a bounded expression vocabulary) is captured for Python sources today and left empty where capture is not implemented.
 - Exposes Go/Python/JS/TS identifier-use facts with locations and declaration owners, and `references` edges with binding evidence.
+- Resolves candidate inherited method calls along bound `extends` edges, including Go embedded interfaces and Python/JS/TS base classes. Direct methods stop lookup on their branch; multiple bases remain candidates without runtime method-resolution-order proof. `implements` does not imply inherited behavior.
 - Supports cross-file relations, imports within the supplied scope, recursion, multiple call sites, incremental batches, and idempotent additions.
 - Accepts source documents directly from memory, Git snapshots, or any other consumer-owned source.
 - Accepts parameterized, read-only Cypher and returns Node, Relation, Path, or ordinary Go values.

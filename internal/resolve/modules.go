@@ -60,7 +60,7 @@ func ImportPaths(f extract.Facts, imp extract.Import) []string {
 	return valid
 }
 
-func resolveModule(ctx context.Context, f extract.Facts, files map[string]extract.Facts, limit int) ([]Edge, []Issue, error) {
+func resolveModule(ctx context.Context, f extract.Facts, files map[string]extract.Facts, methods *methodIndex, limit int) ([]Edge, []Issue, error) {
 	var edges []Edge
 	var issues []Issue
 	if !extract.ModuleLanguage(f.Language) {
@@ -118,7 +118,7 @@ func resolveModule(ctx context.Context, f extract.Facts, files map[string]extrac
 				targets = append(targets, Ref{f.Path, i})
 			}
 		}
-		supplement, err := resolveCallTargets(ctx, f, call, files, "", limit-len(edges))
+		supplement, err := resolveCallTargets(ctx, f, call, files, "", methods, limit-len(edges))
 		if err != nil {
 			return nil, nil, err
 		}

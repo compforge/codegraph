@@ -51,8 +51,18 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 	}
 	sort.Strings(names)
 	owners := receiverIndex(files, names)
-	var edges []Edge
-	var issues []Issue
+
+	// Calls depend on bound base types, including bases supplied in later batches.
+	// Resolve type evidence once before lookup, without publishing intermediate state.
+	edges, issues, err := resolveTypeRelations(ctx, files, names, module, limit)
+	if err != nil {
+		return nil, nil, err
+	}
+	methods, err := newMethodIndex(ctx, files, names, edges)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	add := func(e Edge) error {
 		if len(edges) >= limit {
 			return ErrEdgeLimit
@@ -66,7 +76,7 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 		}
 		f := files[name]
 		if f.Language != "go" {
-			found, gaps, err := resolveModule(ctx, f, files, limit-len(edges))
+			found, gaps, err := resolveModule(ctx, f, files, methods, limit-len(edges))
 			if err != nil {
 				return nil, nil, err
 			}
@@ -138,7 +148,7 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 			if call.Receiver != "" {
 				refname = call.Receiver + "." + call.Name
 			}
-			supplement, err := resolveCallTargets(ctx, f, call, files, module, limit-len(edges))
+			supplement, err := resolveCallTargets(ctx, f, call, files, module, methods, limit-len(edges))
 			if err != nil {
 				return nil, nil, err
 			}
@@ -199,12 +209,6 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 			}
 		}
 	}
-	types, typeGaps, err := resolveTypeRelations(ctx, files, names, module, limit-len(edges))
-	if err != nil {
-		return nil, nil, err
-	}
-	edges = append(edges, types...)
-	issues = append(issues, typeGaps...)
 	references, gaps, err := resolveReferences(ctx, files, names, module, limit-len(edges))
 	if err != nil {
 		return nil, nil, err
