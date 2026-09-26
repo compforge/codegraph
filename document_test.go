@@ -45,7 +45,7 @@ func TestDocumentsResolveAcrossBatchesAndInputForms(t *testing.T) {
 	}
 	main := Document{Path: "main.go", Content: source["main.go"].Data}
 	r, err := g.addDocumentsSync(ctx, main, main)
-	if err != nil || (len(r.Diagnostics) == 0) || !reflect.DeepEqual(r.Files, []string{"main.go"}) {
+	if err != nil || (len(r.Diagnostics) == 0) || !reflect.DeepEqual(r.Documents, []string{"main.go"}) {
 		t.Fatalf("explicit batch must not discover dependencies: %+v, %v", r, err)
 	}
 	r, err = g.addDocumentsSync(ctx, Document{Path: "lib/work.go", Content: source["lib/work.go"].Data})
@@ -117,8 +117,8 @@ func TestDocumentsRollback(t *testing.T) {
 	}{
 		{name: "changed path", documents: []Document{added, {Path: seed.Path, Content: added.Content}}, wantErr: ErrSnapshotChanged},
 		{name: "conflicting duplicates", documents: []Document{added, {Path: added.Path, Content: seed.Content}}, wantErr: ErrSnapshotChanged},
-		{name: "file count", opts: Options{MaxFiles: 1}, documents: []Document{added}, wantErr: ErrBuildBudget},
-		{name: "file bytes", opts: Options{MaxFileBytes: int64(len(seed.Content))}, documents: []Document{added}, wantErr: ErrBuildBudget},
+		{name: "file count", opts: Options{MaxDocuments: 1}, documents: []Document{added}, wantErr: ErrBuildBudget},
+		{name: "file bytes", opts: Options{MaxDocumentBytes: int64(len(seed.Content))}, documents: []Document{added}, wantErr: ErrBuildBudget},
 		{name: "source bytes", opts: Options{MaxSourceBytes: int64(len(seed.Content) + len(added.Content) - 1)}, documents: []Document{added}, wantErr: ErrBuildBudget},
 		{name: "node count", opts: Options{MaxNodes: 2}, documents: []Document{added}, wantErr: ErrBuildBudget},
 		{name: "invalid path", documents: []Document{added, {Path: "../escape.go", Content: seed.Content}}},
@@ -160,7 +160,7 @@ func TestDocumentsPartialCoverage(t *testing.T) {
 		Document{Path: "src/unknown.codegraph-unknown", Content: []byte("unknown")},
 		Document{Path: "outside.go", Content: []byte("package app")},
 	)
-	if err != nil || (len(r.Diagnostics) == 0) || !reflect.DeepEqual(r.Files, []string{"src/good.go", "src/unknown.codegraph-unknown"}) {
+	if err != nil || (len(r.Diagnostics) == 0) || !reflect.DeepEqual(r.Documents, []string{"src/good.go", "src/unknown.codegraph-unknown"}) {
 		t.Fatal(r, err)
 	}
 	codes := map[string]string{}

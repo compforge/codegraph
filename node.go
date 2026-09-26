@@ -11,12 +11,13 @@ import (
 type NodeKind string
 
 const (
-	File      NodeKind = "File"
-	Struct    NodeKind = "Struct"
-	Interface NodeKind = "Interface"
-	Field     NodeKind = "Field"
-	Method    NodeKind = "Method"
-	Function  NodeKind = "Function"
+	// DocumentKind represents the source material itself, including unparsed inputs.
+	DocumentKind NodeKind = "Document"
+	Struct       NodeKind = "Struct"
+	Interface    NodeKind = "Interface"
+	Field        NodeKind = "Field"
+	Method       NodeKind = "Method"
+	Function     NodeKind = "Function"
 	// Type represents a named type whose declaration is not a struct or interface
 	// literal (for example, type ID int); it does not infer an underlying type.
 	Type        NodeKind = "Type"

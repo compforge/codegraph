@@ -3,7 +3,7 @@ package codegraph
 import "sort"
 
 // Find returns declaration nodes in source order. An empty kind matches every
-// declaration kind; an empty qualifiedName matches every name. File nodes are
+// declaration kind; an empty qualifiedName matches every name. Document nodes are
 // excluded because their name is a basename rather than a declaration name.
 // The returned nodes are detached values and can be safely modified.
 func (g *Graph) Find(path string, kind NodeKind, qualifiedName string) []Node {
@@ -11,7 +11,7 @@ func (g *Graph) Find(path string, kind NodeKind, qualifiedName string) []Node {
 	defer g.mu.RUnlock()
 	out := make([]Node, 0)
 	for _, node := range g.nodes {
-		if node.Kind == File || node.Location.Path != path {
+		if node.Kind == DocumentKind || node.Location.Path != path {
 			continue
 		}
 		if kind != "" && node.Kind != kind {

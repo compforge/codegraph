@@ -22,14 +22,14 @@ import (
 type Options struct {
 	// BuildConcurrency bounds parallel document extraction within a batch.
 	// Zero selects min(GOMAXPROCS, 4); one extracts serially.
-	BuildConcurrency                 int
-	ModulePath                       string
-	Scope                            []string
-	MaxFiles, MaxNodes, MaxRelations int
-	MaxFileBytes, MaxSourceBytes     int64
-	ParseTimeout, QueryTimeout       time.Duration
-	MaxQueryHops, MaxResultRows      int
-	MaxResultBytes                   int64
+	BuildConcurrency                     int
+	ModulePath                           string
+	Scope                                []string
+	MaxDocuments, MaxNodes, MaxRelations int
+	MaxDocumentBytes, MaxSourceBytes     int64
+	ParseTimeout, QueryTimeout           time.Duration
+	MaxQueryHops, MaxResultRows          int
+	MaxResultBytes                       int64
 }
 
 // Graph owns one immutable source snapshot, extended through atomic build batches.
@@ -48,7 +48,7 @@ type Graph struct {
 	documentTasks  map[string]documentTask
 	snapshot       string
 	opts           Options
-	files          map[string]extract.Facts
+	documents      map[string]extract.Facts
 	failures       map[string]Diagnostic
 	nodes          map[string]Node
 	relations      map[string]Relation
@@ -65,10 +65,10 @@ func New(snapshot string, opts Options) (*Graph, error) {
 	if err := defaults(&opts); err != nil {
 		return nil, err
 	}
-	g := &Graph{snapshot: snapshot, opts: opts, files: map[string]extract.Facts{}, failures: map[string]Diagnostic{}, nodes: map[string]Node{}, relations: map[string]Relation{}, factCache: map[string]factCacheEntry{}}
+	g := &Graph{snapshot: snapshot, opts: opts, documents: map[string]extract.Facts{}, failures: map[string]Diagnostic{}, nodes: map[string]Node{}, relations: map[string]Relation{}, factCache: map[string]factCacheEntry{}}
 	g.documentTasks = map[string]documentTask{}
 	g.store = graphstore.New(g.limits())
-	g.report = BuildReport{Snapshot: snapshot, Files: []string{}}
+	g.report = BuildReport{Snapshot: snapshot, Documents: []string{}}
 	return g, nil
 }
 
@@ -76,7 +76,7 @@ func defaults(o *Options) error {
 	for _, pair := range []struct {
 		v   *int
 		def int
-	}{{&o.BuildConcurrency, min(runtime.GOMAXPROCS(0), 4)}, {&o.MaxFiles, 256}, {&o.MaxNodes, 50000}, {&o.MaxRelations, 100000}, {&o.MaxQueryHops, 8}, {&o.MaxResultRows, 1000}} {
+	}{{&o.BuildConcurrency, min(runtime.GOMAXPROCS(0), 4)}, {&o.MaxDocuments, 256}, {&o.MaxNodes, 50000}, {&o.MaxRelations, 100000}, {&o.MaxQueryHops, 8}, {&o.MaxResultRows, 1000}} {
 		if *pair.v < 0 {
 			return errors.New("limits must not be negative")
 		}
@@ -87,7 +87,7 @@ func defaults(o *Options) error {
 	for _, pair := range []struct {
 		v   *int64
 		def int64
-	}{{&o.MaxFileBytes, 2 << 20}, {&o.MaxSourceBytes, 32 << 20}, {&o.MaxResultBytes, 8 << 20}} {
+	}{{&o.MaxDocumentBytes, 2 << 20}, {&o.MaxSourceBytes, 32 << 20}, {&o.MaxResultBytes, 8 << 20}} {
 		if *pair.v < 0 {
 			return errors.New("limits must not be negative")
 		}

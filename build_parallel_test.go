@@ -53,9 +53,9 @@ func TestParallelFailedParseReleasesBudget(t *testing.T) {
 		{Path: "a.go", Content: good}, {Path: "b.go", Content: good}}
 	for _, concurrency := range []int{1, 4} {
 		g, report, err := Build(context.Background(), "rev", docs, Options{
-			BuildConcurrency: concurrency, MaxFiles: 2, MaxSourceBytes: int64(2 * len(good)),
+			BuildConcurrency: concurrency, MaxDocuments: 2, MaxSourceBytes: int64(2 * len(good)),
 		})
-		if err != nil || len(report.Files) != 2 || len(report.Diagnostics) != 1 || report.Diagnostics[0].Code != "parse_error" {
+		if err != nil || len(report.Documents) != 2 || len(report.Diagnostics) != 1 || report.Diagnostics[0].Code != "parse_error" {
 			t.Fatalf("concurrency %d: %+v, %v", concurrency, report, err)
 		}
 		nodes, relations := g.Nodes(), g.Relations()
@@ -144,7 +144,7 @@ func TestParallelExtractionBoundAndAtomicPublication(t *testing.T) {
 				if !errors.Is(err, context.Canceled) || !reflect.DeepEqual(nodes, g.Nodes()) || !reflect.DeepEqual(report, g.Report()) {
 					t.Fatalf("canceled batch changed graph: %v", err)
 				}
-			} else if err != nil || len(g.Report().Files) != 8 {
+			} else if err != nil || len(g.Report().Documents) != 8 {
 				t.Fatalf("batch did not publish: %+v, %v", g.Report(), err)
 			}
 		})

@@ -6,7 +6,7 @@ An embeddable, multilingual code property graph library written in Go. Code revi
 to query related files, symbols, and the evidence behind their relationships.
 
 CodeGraph parses source code with gotreesitter and uses GoGraph for an in-memory property graph
-and Cypher queries. Nodes use concrete kinds such as File, Struct, Interface, Field, Method, and
+and Cypher queries. Nodes use concrete kinds such as Document, Struct, Interface, Field, Method, and
 Function; relations include calls, imports, and containment. Declaration nodes carry structured
 intent markers: spec, case, rule, link, and doc.
 
@@ -47,8 +47,9 @@ describe evidence within these declared limits, not compiler or runtime equivale
 
 ## Node kinds
 
-`Node.Kind` is also the node's Cypher label: `File`, `Struct`, `Interface`, `Field`, `Method`,
+`Node.Kind` is also the node's Cypher label: `Document`, `Struct`, `Interface`, `Field`, `Method`,
 `Function`, `Type`, `TypeAlias`, `Class`, `Variable`, `Enum`, and other concrete declaration categories.
+Use `DocumentKind` for the document node category in Go; `Document` is the input struct.
 Available categories vary by language; consult `Capabilities(language)`. `Type` covers other named types such as `type ID int`;
 `TypeAlias` represents explicit aliases such as `type Alias = ID`. Categories describe declarations,
 not inferred underlying types. “Symbol” is a term for code declarations, not a graph kind or label.
@@ -124,7 +125,7 @@ The same `Build`/`AddDocuments` entrypoints accept mixed-language documents, suc
 
 A `Document` is one source input: a logical `Path` and its complete `Content`. The path need not
 exist on disk; it identifies the source within the graph snapshot and determines language detection,
-relative-import context, and source locations. Documents are inputs, not a `Node.Kind`.
+relative-import context, and source locations. Inputs are represented in the graph by nodes with kind `DocumentKind` and label `Document`.
 
 Use documents when source bytes already come from memory or a Git revision:
 
@@ -152,7 +153,7 @@ for _, diagnostic := range report.Diagnostics {
 ```
 
 - Paths use slash-separated, snapshot-relative names valid under `fs.ValidPath`, not absolute paths or URLs.
-- `Document.ID()` is the corresponding File node ID (`FileID(Path)`) within the Graph snapshot.
+- `Document.ID()` is the corresponding Document node ID (`DocumentID(Path)`) within the Graph snapshot.
 - `AddDocuments` queues documents without returning one task per document. Use `GetDocument(ID)` for early
   facts or `FindAsync` for detached declarations. `GetDocument` returns `ErrDocumentNotFound` for an ID that
   has not been submitted. `AddDocument` returns its task directly.
@@ -230,7 +231,7 @@ Other Cypher-specific value types return an error.
 - Queries cannot write or invoke procedures; variable-length paths require an explicit upper bound.
 - `Options.BuildConcurrency` bounds parallel document extraction per graph: `0` uses `min(GOMAXPROCS, 4)`, `1` is serial, and positive values set the worker limit. Negative values are rejected. Separate batches remain serialized; nodes and relations are assembled and published atomically after extraction. When building multiple graphs concurrently, callers should budget their combined worker count.
 - Options provide finite default budgets for file count, source size, node/edge count, parsing/query timeouts, path depth, and result size.
-- Query errors return no partial rows. Parse failures preserve File identities with document diagnostics; usable facts from other documents are published. Budget failures, snapshot conflicts, and cancellation roll back the entire batch.
+- Query errors return no partial rows. Parse failures preserve Document identities with document diagnostics; usable facts from other documents are published. Budget failures, snapshot conflicts, and cancellation roll back the entire batch.
 
 ## Local validation
 

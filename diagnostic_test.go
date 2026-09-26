@@ -49,7 +49,7 @@ func TestOutlineGapPreservesUsableFacts(t *testing.T) {
 	edges := g.RelationsFrom(document.ID(), Imports)
 	moduleEdge := false
 	for _, edge := range edges {
-		if edge.Target == FileID("work.ts") && edge.Confidence == Exact {
+		if edge.Target == DocumentID("work.ts") && edge.Confidence == Exact {
 			moduleEdge = true
 		}
 	}
@@ -111,7 +111,7 @@ func TestCandidateEvidenceAndUnresolvedLocations(t *testing.T) {
 			t.Fatalf("candidate edges must not also become coverage gaps: %+v", d)
 		}
 	}
-	imports := g.RelationsFrom(FileID("app.ts"), Imports)
+	imports := g.RelationsFrom(DocumentID("app.ts"), Imports)
 	if len(imports) != 2 {
 		t.Fatal(imports)
 	}

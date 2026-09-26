@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestFileOnlyDocumentsEnterGraph(t *testing.T) {
+func TestDocumentOnlyDocumentsEnterGraph(t *testing.T) {
 	g, r, err := Build(context.Background(), "rev", []Document{
 		{Path: "main.go", Content: []byte("package app\nfunc Entry(){}\n")},
 		{Path: "notes.cg-unrecognized", Content: []byte("plain text notes\n")},
@@ -15,32 +15,32 @@ func TestFileOnlyDocumentsEnterGraph(t *testing.T) {
 	if err != nil || (len(r.Diagnostics) == 0) {
 		t.Fatal(r, err)
 	}
-	if !reflect.DeepEqual(r.Files, []string{"main.go", "notes.cg-unrecognized"}) {
-		t.Fatalf("file-only document missing from coverage: %v", r.Files)
+	if !reflect.DeepEqual(r.Documents, []string{"main.go", "notes.cg-unrecognized"}) {
+		t.Fatalf("file-only document missing from coverage: %v", r.Documents)
 	}
 	if !hasDiagnostic(r, "unsupported_language") {
 		t.Fatalf("coverage gap not diagnosable: %+v", r.Diagnostics)
 	}
-	rows := query(t, g, `MATCH (f:File {path:'notes.cg-unrecognized'}) RETURN f`, nil)
+	rows := query(t, g, `MATCH (f:Document {path:'notes.cg-unrecognized'}) RETURN f`, nil)
 	if len(rows) != 1 {
 		t.Fatalf("file node = %v", rows)
 	}
 	f := rows[0]["f"].(Node)
-	if f.Kind != File || f.Language != "" || f.Name != "notes.cg-unrecognized" {
+	if f.Kind != DocumentKind || f.Language != "" || f.Name != "notes.cg-unrecognized" {
 		t.Fatalf("file-only node = %+v", f)
 	}
-	if got := query(t, g, `MATCH (:File {path:'notes.cg-unrecognized'})-[:contains]->(n) RETURN n`, nil); len(got) != 0 {
+	if got := query(t, g, `MATCH (:Document {path:'notes.cg-unrecognized'})-[:contains]->(n) RETURN n`, nil); len(got) != 0 {
 		t.Fatalf("file-only document parsed declarations: %v", got)
 	}
-	if got := query(t, g, `MATCH (f:File) RETURN f`, nil); len(got) != 2 {
+	if got := query(t, g, `MATCH (f:Document) RETURN f`, nil); len(got) != 2 {
 		t.Fatalf("mixed batch file nodes = %v", got)
 	}
-	if got := query(t, g, `MATCH (:File {path:'main.go'})-[:contains]->(n:Function {name:'Entry'}) RETURN n`, nil); len(got) != 1 {
+	if got := query(t, g, `MATCH (:Document {path:'main.go'})-[:contains]->(n:Function {name:'Entry'}) RETURN n`, nil); len(got) != 1 {
 		t.Fatalf("grammar-backed document lost extraction: %v", got)
 	}
 }
 
-func TestFileOnlyDocumentsIdentity(t *testing.T) {
+func TestDocumentOnlyDocumentsIdentity(t *testing.T) {
 	ctx := context.Background()
 	g, err := New("rev", Options{})
 	if err != nil {
@@ -65,7 +65,7 @@ func TestFileOnlyDocumentsIdentity(t *testing.T) {
 	}
 }
 
-func TestFileOnlyDocumentsOwnContent(t *testing.T) {
+func TestDocumentOnlyDocumentsOwnContent(t *testing.T) {
 	ctx := context.Background()
 	content := []byte("original notes")
 	g, err := New("rev", Options{})
@@ -86,15 +86,15 @@ func TestFileOnlyDocumentsOwnContent(t *testing.T) {
 	}
 }
 
-func TestFileOnlyDocumentsBudget(t *testing.T) {
+func TestDocumentOnlyDocumentsBudget(t *testing.T) {
 	seed := Document{Path: "seed.go", Content: []byte("package app\nfunc Seed(){}\n")}
 	notes := Document{Path: "notes.cg-unrecognized", Content: []byte("plain text notes longer than the seed file")}
 	for _, tc := range []struct {
 		name string
 		opts Options
 	}{
-		{"file count", Options{MaxFiles: 1}},
-		{"file bytes", Options{MaxFileBytes: int64(len(seed.Content))}},
+		{"file count", Options{MaxDocuments: 1}},
+		{"file bytes", Options{MaxDocumentBytes: int64(len(seed.Content))}},
 		{"source bytes", Options{MaxSourceBytes: int64(len(seed.Content) + len(notes.Content) - 1)}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

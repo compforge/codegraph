@@ -135,14 +135,14 @@ func (g *Graph) Extract(ctx context.Context, document Document) (Facts, error) {
 		return projectFacts(entry.facts)
 	}
 	g.mu.RLock()
-	staged, loaded := g.files[document.Path]
+	staged, loaded := g.documents[document.Path]
 	g.mu.RUnlock()
 	if loaded && sha256.Sum256(staged.Source) == hash {
 		return projectFacts(staged)
 	}
 	var facts extract.Facts
 	if extract.Detect(document.Path) == nil {
-		facts = extract.FileOnly(document.Path, bytes.Clone(document.Content))
+		facts = extract.DocumentOnly(document.Path, bytes.Clone(document.Content))
 		facts.Issues = append(facts.Issues, extract.Issue{Code: "unsupported_language", Message: "no registered grammar for file", Subject: "document", Span: extract.Span{End: len(document.Content)}})
 	} else {
 		if parseObserver != nil {

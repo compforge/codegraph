@@ -128,11 +128,11 @@ func lineStarts(source []byte) []int {
 	return starts
 }
 
-// FileOnly records a document that has no registered grammar. The file still
+// DocumentOnly records a document that has no registered grammar. The file still
 // enters the graph as a file-level fact — without parsing, so no declarations,
 // imports, or calls — mirroring how reference code-graph indexers track
 // file-level-only languages (stored file record, zero symbol nodes).
-func FileOnly(name string, source []byte) Facts {
+func DocumentOnly(name string, source []byte) Facts {
 	return Facts{Path: name, Source: source, LineStarts: lineStarts(source)}
 }
 

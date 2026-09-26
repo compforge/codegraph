@@ -85,7 +85,7 @@ func (g *Graph) GetDocument(id string) (pond.ResultTask[Facts], error) {
 // as its extraction completes. These detached nodes do not imply that cross-
 // document relations or the queryable graph have been published.
 func (g *Graph) FindAsync(path string, kind NodeKind, qualifiedName string) (pond.ResultTask[[]Node], bool) {
-	task, err := g.GetDocument(FileID(path))
+	task, err := g.GetDocument(DocumentID(path))
 	if err != nil {
 		return nil, false
 	}
@@ -128,7 +128,7 @@ func (g *Graph) enqueueDocuments(ctx context.Context, documents ...Document) ([]
 			g.mu.RUnlock()
 			return nil, fmt.Errorf("%w: %s", ErrSnapshotChanged, document.Path)
 		}
-		if old, ok := g.files[document.Path]; ok && !bytes.Equal(old.Source, document.Content) {
+		if old, ok := g.documents[document.Path]; ok && !bytes.Equal(old.Source, document.Content) {
 			g.mu.RUnlock()
 			return nil, fmt.Errorf("%w: %s", ErrSnapshotChanged, document.Path)
 		}
@@ -254,7 +254,7 @@ func (g *Graph) buildAvailable() (BuildReport, error, []*buildWork) {
 		workers.Wait()
 		// A steady producer must not postpone publication indefinitely.
 		// Never split one AddDocuments admission across publications.
-		if len(documents) >= g.opts.MaxFiles {
+		if len(documents) >= g.opts.MaxDocuments {
 			break
 		}
 	}
@@ -315,7 +315,7 @@ func (g *Graph) markFailedPaths(failures map[string]error) {
 	g.asyncMu.Lock()
 	defer g.asyncMu.Unlock()
 	for path := range failures {
-		id := FileID(path)
+		id := DocumentID(path)
 		entry := g.documentTasks[id]
 		entry.failed = true
 		g.documentTasks[id] = entry

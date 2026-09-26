@@ -42,7 +42,7 @@ func TestExtractReturnsDetachedFacts(t *testing.T) {
 	if len(facts.Issues) != 0 {
 		t.Fatalf("issues = %+v", facts.Issues)
 	}
-	if len(g.Nodes()) != 0 || len(g.Report().Files) != 0 {
+	if len(g.Nodes()) != 0 || len(g.Report().Documents) != 0 {
 		t.Fatal("Extract published graph state")
 	}
 }
@@ -67,7 +67,7 @@ func TestExtractThenAddParsesOnce(t *testing.T) {
 	if parsed["main.go"] != 1 || parsed["helper.go"] != 1 {
 		t.Fatalf("batch parses = %v, main.go must reuse the Extract facts", parsed)
 	}
-	if got := query(t, g, `MATCH (:File {path:'main.go'})-[:contains]->(f:Function {name:'Entry'}) RETURN f`, nil); len(got) != 1 {
+	if got := query(t, g, `MATCH (:Document {path:'main.go'})-[:contains]->(f:Function {name:'Entry'}) RETURN f`, nil); len(got) != 1 {
 		t.Fatalf("cached facts lost declarations: %v", got)
 	}
 	// The cache entry was consumed on staging; re-adding identical content must
@@ -130,7 +130,7 @@ func TestExtractProjectsLoadedDocuments(t *testing.T) {
 	}
 }
 
-func TestExtractFileOnlyDocument(t *testing.T) {
+func TestExtractDocumentOnlyDocument(t *testing.T) {
 	ctx := context.Background()
 	g, err := New("rev", Options{})
 	if err != nil {
@@ -152,10 +152,10 @@ func TestExtractFileOnlyDocument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(r.Files, []string{"notes.cg-unrecognized"}) || !hasDiagnostic(r, "unsupported_language") {
+	if !reflect.DeepEqual(r.Documents, []string{"notes.cg-unrecognized"}) || !hasDiagnostic(r, "unsupported_language") {
 		t.Fatalf("report = %+v", r)
 	}
-	if got := query(t, g, `MATCH (f:File {path:'notes.cg-unrecognized'}) RETURN f`, nil); len(got) != 1 {
+	if got := query(t, g, `MATCH (f:Document {path:'notes.cg-unrecognized'}) RETURN f`, nil); len(got) != 1 {
 		t.Fatalf("file node = %v", got)
 	}
 }

@@ -9,7 +9,8 @@ import (
 // Path is a slash-separated, snapshot-relative logical path (fs.ValidPath).
 // It supplies identity, language detection, relative-import context, and source
 // locations. Content is the complete source at that path, with offsets from zero.
-// Snapshot identity belongs to Graph. A Document is input, not a node kind.
+// Snapshot identity belongs to Graph. Each input is represented by a DocumentKind
+// node whose ID matches this document.
 // +spec=`The same logical path identifies the same source unit across input batches`
 type Document struct {
 	Path    string
@@ -21,8 +22,8 @@ type Identifiable interface {
 	ID() string
 }
 
-// ID is the File node identity for this source document.
-func (d Document) ID() string { return FileID(d.Path) }
+// ID is the Document node identity for this source document.
+func (d Document) ID() string { return DocumentID(d.Path) }
 
 // AddDocuments admits an explicit batch and starts background graph construction.
 // The batch is validated before any document is admitted. It returns after
