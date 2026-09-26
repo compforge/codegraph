@@ -130,6 +130,7 @@ func analyzeOutline(ctx context.Context, f Facts, tree *gts.Tree, entry grammars
 	extractModuleReferences(&f, tree)
 	bindModuleUses(&f, tree)
 	enrichModuleCallTargets(&f, tree)
+	extractModuleTypeRelations(&f, tree)
 	if f.Language == "python" {
 		f.Python = pythonProgram(&f, tree)
 	}
