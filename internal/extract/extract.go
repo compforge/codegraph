@@ -42,6 +42,16 @@ type Call struct {
 	Blocked bool
 	Builtin bool
 }
+
+// Reference is a lexical identifier use, independently of whether a target exists.
+type Reference struct {
+	Name, Receiver string
+	Span
+	Owner  int  // enclosing declaration, -1 for the file
+	Target int  // same-file declaration when syntax proves binding, -1 otherwise
+	Bound  bool // a lexical binding exists; do not substitute a same-named declaration
+}
+
 type Facts struct {
 	Path, Package, Language string
 	Source                  []byte
@@ -49,6 +59,7 @@ type Facts struct {
 	Declarations            []Declaration
 	Imports                 []Import
 	Calls                   []Call
+	References              []Reference
 	Issues                  []Issue
 	// Exports maps a public alias to its local name for explicit export
 	// aliases; extraction records them for consumer-side module resolution.

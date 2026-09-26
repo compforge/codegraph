@@ -42,7 +42,7 @@ File、Function、Struct 等节点及其关系；输入材料本身不增加一�
 输入内容在入队时复制，避免后续批次重建受到调用方内存修改影响。逻辑路径相同且内容相同的
 输入幂等；已加载路径或同一显式批次内的内容冲突阻止该次提交。
 
-`Extract` 提供不入图的事实提取：返回与 `AddDocuments` 消费的同一份声明、import、调用与诊断事实，
+`Extract` 提供不入图的事实提取：返回与 `AddDocuments` 消费的同一份声明、import、调用、标识符引用与诊断事实，
 供消费者在决定构图范围前探索依赖。结果按路径与内容身份缓存，后续同内容 `AddDocuments` 直接复用，
 同一份源码在探索与构图之间不会解析两次；已加载 Document 的事实由图保留，投影不再需要解析。
 import 事实记录被导入的名称（from-import、JS/TS 具名导入与 re-export，空表示整模块），export 别名
@@ -255,7 +255,7 @@ Go 使用包和接收者规则；Python 与 JS/TS 使用模块路径候选及局
 接收者、回调和闭包体中的调用保留未解析诊断；第三方模块、build tags 和类型检查不在当前能力范围。
 Python、JavaScript、TypeScript、TSX 提取 outline 声明、局部函数调用、源码 import 和前置注释 marker。
 其他注册语言使用通用 outline 并报告引用解析未覆盖；Java、Rust、C/C++、Ruby 有真实源码声明契约测试。
-references / extends / implements 自动提取尚未实现，枚举声明不表示具备提取能力。
+extends / implements 自动提取尚未实现，枚举声明不表示具备提取能力。
 
 契约测试覆盖：
 
@@ -278,3 +278,13 @@ references / extends / implements 自动提取尚未实现，枚举声明不表�
 
 GoGraph 当前模块要求 Go 1.26；消费者接入前需统一工具链并锁定验证过的依赖版本。
 Cypher 支持范围以所锁定版本及契约测试为准，不承诺完整 Neo4j 兼容。
+
+### 标识符引用
+
+Go、Python、JS/TS 保留标识符使用位置及其最内层声明归属；声明名、注释和字符串内容不作为引用。
+`Facts.References` 保留尚未找到目标的使用，消费方可以按名称计数或读取使用位置。
+`references` 从所属声明（无声明时为 File）指向候选目标，重复使用保留独立关系位置。
+语法证明的同文件词法绑定使用 exact；Go 同包跨文件和 import 名称匹配使用 candidate。
+局部绑定遮蔽已知目标时不连接同名声明；尚无目标的引用以局部 unresolved_reference 诊断保留。
+Python 与 JS/TS 的引用目标当前限于同文件模块级声明，跨文件模块绑定和动态属性解析不在该能力范围。
+置信度表达绑定证据，引用是否传播改动影响以及多跳衰减由消费者决定。

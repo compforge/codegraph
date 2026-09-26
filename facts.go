@@ -19,6 +19,7 @@ type Facts struct {
 	Declarations            []FactDeclaration
 	Imports                 []FactImport
 	Calls                   []FactCall
+	References              []FactReference
 	Issues                  []Diagnostic
 	// Exports maps a public alias to its local name for explicit export
 	// aliases. Consumers own any module-resolution use of it.
@@ -62,6 +63,14 @@ type FactImport struct {
 	// whole module is imported.
 	Names    []string
 	Location Location
+}
+
+// FactReference records one identifier use. Owner indexes Declarations, or is
+// -1 for file scope. A missing target does not discard the lexical fact.
+type FactReference struct {
+	Name, Receiver string
+	Location       Location
+	Owner          int
 }
 
 type FactCall struct {
@@ -170,6 +179,9 @@ func projectFacts(f extract.Facts) (Facts, error) {
 	}
 	for _, c := range f.Calls {
 		out.Calls = append(out.Calls, FactCall{Name: c.Name, Receiver: c.Receiver, Location: location(f, c.Span), Blocked: c.Blocked, Builtin: c.Builtin})
+	}
+	for _, r := range f.References {
+		out.References = append(out.References, FactReference{Name: r.Name, Receiver: r.Receiver, Location: location(f, r.Span), Owner: r.Owner})
 	}
 	for _, issue := range f.Issues {
 		out.Issues = append(out.Issues, extractionDiagnostic(f, issue))

@@ -77,6 +77,7 @@ func enrichGo(f *Facts) error {
 			c.Blocked = true
 		}
 	}
+	extractGoReferences(f, file, fset)
 	return nil
 }
 

@@ -191,6 +191,12 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 			}
 		}
 	}
+	references, gaps, err := resolveReferences(ctx, files, names, module, limit-len(edges))
+	if err != nil {
+		return nil, nil, err
+	}
+	edges = append(edges, references...)
+	issues = append(issues, gaps...)
 	return edges, issues, nil
 }
 

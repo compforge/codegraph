@@ -163,7 +163,7 @@ func Capabilities(languages ...string) []Capability {
 			continue
 		}
 		if entry.Name == "go" {
-			out = append(out, Capability{Language: "go", Declarations: []NodeKind{Function, Method, Struct, Interface, Field, Type, TypeAlias, Variable, Constant}, Relations: []RelationKind{Contains, Imports, Calls}, Markers: []MarkerKind{Spec, Case, Rule, Link, Doc}, Limitations: []string{"static package functions only; receiver and callback dispatch remain unresolved", "variables and constants require a single declared name", "members are extracted only from named struct/interface literals; anonymous nested types and promoted members are not expanded", "build tags and compiler type checking are not evaluated", "marker syntax: declaration comments using +kind=payload or +kind:payload"}})
+			out = append(out, Capability{Language: "go", Declarations: []NodeKind{Function, Method, Struct, Interface, Field, Type, TypeAlias, Variable, Constant}, Relations: []RelationKind{Contains, Imports, Calls, References}, Markers: []MarkerKind{Spec, Case, Rule, Link, Doc}, Limitations: []string{"static package functions only; receiver and callback dispatch remain unresolved", "references use lexical binding or candidate name matches within Go packages and same-file module declarations", "variables and constants require a single declared name", "members are extracted only from named struct/interface literals; anonymous nested types and promoted members are not expanded", "build tags and compiler type checking are not evaluated", "marker syntax: declaration comments using +kind=payload or +kind:payload"}})
 			continue
 		}
 		cap := Capability{Language: entry.Name, Relations: []RelationKind{Contains}, Limitations: []string{"outline is limited to grammar tags; runtime omissions are diagnostics"}}
@@ -171,7 +171,7 @@ func Capabilities(languages ...string) []Capability {
 			cap.Declarations = append(cap.Declarations, NodeKind(kind))
 		}
 		if extract.ModuleLanguage(entry.Name) {
-			cap.Relations = append(cap.Relations, Imports, Calls)
+			cap.Relations = append(cap.Relations, Imports, Calls, References)
 			cap.Markers = []MarkerKind{Spec, Case, Rule, Link, Doc}
 			cap.Limitations = append(cap.Limitations, "calls resolve only to unshadowed module-level functions in the same file; imported calls and dynamic dispatch remain unresolved", "imports use local source paths only; dependency configuration, exports, runtime paths and third-party modules are not evaluated; Python absolute imports are candidates")
 		} else {

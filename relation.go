@@ -16,7 +16,7 @@ type Confidence string
 
 const (
 	Exact     Confidence = "exact"     // syntactically owned or uniquely bound within the supplied scope
-	Candidate Confidence = "candidate" // multiple plausible declarations remain
+	Candidate Confidence = "candidate" // a possible target without sufficient binding evidence
 )
 
 // Relation identifies one relation at one source location, including parallel calls.
