@@ -246,3 +246,8 @@ make lint test build
 Tests cover multilingual outlines and bindings, grammar extensions, cross-file imports/calls, parallel edges, marker round trips, path confidence
 filters, read-only queries and budgets, batch rollback, and concurrent queries.
 See the [kernel design](docs/kernel.md) (in Chinese) for source structure and design rationale.
+
+`make test-corpus` evaluates pinned go-stdx, agentgo and repocli snapshots against an independent
+Go compiler oracle. It downloads source/dependencies and writes coverage measurements, unknowns
+and binding differences to `.corpus-results/`. See [corpus evaluation](docs/corpus.md) for scope,
+evidence and regression gates. The normal test target runs the evaluator's local contracts only.

@@ -221,3 +221,7 @@ make lint test build
 
 测试覆盖多语言声明与绑定、grammar 扩展、跨文件调用和 import、多重边、marker 往返、路径置信过滤、查询只读/预算、
 批次回滚及并发查询。源码结构与设计依据见 [内核设计](docs/kernel.md)。
+
+`make test-corpus` 对固定的 go-stdx、agentgo、repocli 快照执行独立 Go 编译器参照评测。
+该入口下载源码和依赖，将覆盖测量、未评估范围与绑定差异写入 `.corpus-results/`。
+范围、证据及回归门禁见 [真实仓库评测](docs/corpus.md)；普通 test 只执行评测器的本地契约。

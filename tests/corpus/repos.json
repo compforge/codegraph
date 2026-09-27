@@ -1,0 +1,20 @@
+[
+  {
+    "name": "go-stdx",
+    "repository": "https://github.com/compforge/go-stdx",
+    "commit": "9b29fc85e463be1d97a6706bd41a8bd2b41b03f0",
+    "archiveSHA256": "d059840485ffbb9d453b1681b59260eb67a54a4bc93fe4c81d32978a6cdd1d11"
+  },
+  {
+    "name": "agentgo",
+    "repository": "https://github.com/compforge/agentgo",
+    "commit": "26733f9a1676e3a67d0e721e7c28903422bf3fb3",
+    "archiveSHA256": "19a32a2ae918c218095a41c1ef4e61570e707276baaf92dc2ff5b103c9e9dbca"
+  },
+  {
+    "name": "repocli",
+    "repository": "https://github.com/compforge/repocli",
+    "commit": "5eaedb2a39bcc4d02eb2a198d560dd6830c40e06",
+    "archiveSHA256": "3c20eaa2944262ac487d180e96fd6eb088321221fd08de19413fb08f90e7f689"
+  }
+]
