@@ -6,7 +6,10 @@ An embeddable, multilingual code property graph library written in Go. Code revi
 to query related files, symbols, and the evidence behind their relationships.
 
 CodeGraph parses source code with gotreesitter and uses GoGraph for an in-memory property graph
-and Cypher queries. Nodes use concrete kinds such as Document, Struct, Interface, Field, Method, and
+and Cypher queries, with bounded asynchronous work scheduled by pond. Callers supply repository
+materials as Documents and query code through a graph API; CodeGraph connects these existing
+capabilities with code identities, relationship evidence, and consistent snapshot publication.
+Repository discovery, Git reads, and web viewers belong to callers. Nodes use concrete kinds such as Document, Struct, Interface, Field, Method, and
 Function; relations include calls, imports, and containment. Declaration nodes carry structured
 intent markers: spec, case, rule, link, and doc.
 

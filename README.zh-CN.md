@@ -4,7 +4,9 @@
 
 用 Go 编写、可内嵌的多语言代码属性图库，供代码评审、影响分析等工具查询关联文件、符号及关系证据。
 
-CodeGraph 使用 gotreesitter 解析源码，以 GoGraph 承载内存属性图与 Cypher 查询。节点使用 Document、
+CodeGraph 组合 gotreesitter 的解析与事实提取、GoGraph 的属性图与 Cypher 查询、pond 的有界异步调度。
+调用方提供仓库材料，便可通过图 API 获取代码信息；CodeGraph 负责代码身份、关系证据与一致的快照发布。
+仓库发现、Git 读取和 Web viewer 由调用方提供。节点使用 Document、
 Struct、Interface、Field、Method、Function 等具体类别，关系包括调用、导入和包含等；
 声明节点保存 spec、case、rule、link、doc 等结构化意图标记。
 

@@ -6,8 +6,15 @@ CodeGraph 是可内嵌的代码属性图 Go 库：从调用方提供的源码快
 提供携带来源位置、置信依据和局部覆盖信息的图查询能力，供代码评审、影响分析等消费者使用。
 CodeGraph 负责代码语义与关系证据；消费者将这些信息解释为受影响文件、评审范围或检查计划。
 
-CodeGraph 在进程内直接依赖 gotreesitter 与 GoGraph。gotreesitter 提供语法解析与可用的
-事实提取能力，GoGraph 提供内存属性图及 Cypher 执行能力；代码语义由 CodeGraph 拥有。
+CodeGraph 组合成熟基础能力，让调用方以 Graph、Node、Relation、Path 和 Cypher 获取仓库的代码信息：
+GoGraph 承担属性图存储和查询，gotreesitter 承担语法解析及已有事实提取，pond 承担有界异步任务调度。
+CodeGraph 自身负责这几层之间的代码语义契约：Document 与声明身份、跨材料关系绑定、来源位置、
+confidence / basis、局部诊断，以及同一快照下的事实发布。优先复用依赖已有能力；语言绑定和
+证据语义的缺口在对应适配层补齐，不能把 grammar 可用等同于语义完整。
+
+调用方选择并提供仓库材料，CodeGraph 将它们变为可查询的代码图；仓库发现、Git 读取、
+HTTP 服务和可视化页面归调用方。比如 repocli view 捕获当前工作区、构图并展示结果，
+共享库仍只接受显式 Document。图的可视化布局和影响分析策略都不改变原始关系证据。
 
 ### Graph、Node 与 Relation
 
