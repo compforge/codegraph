@@ -8,7 +8,7 @@ CodeGraph 使用 gotreesitter 解析源码，以 GoGraph 承载内存属性图�
 Struct、Interface、Field、Method、Function 等具体类别，关系包括调用、导入和包含等；
 声明节点保存 spec、case、rule、link、doc 等结构化意图标记。
 
-直接依赖 gotreesitter `v0.52.0`、GoGraph `v0.15.0`，要求 Go 1.26 或更高版本。
+直接依赖 gotreesitter `v0.55.0`、GoGraph `v0.15.0`，要求 Go 1.26 或更高版本。
 无需独立数据库服务，无强制落盘。本仓库尚未首次发布。
 
 ## 能力与边界
