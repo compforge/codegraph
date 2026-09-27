@@ -10,7 +10,7 @@ and Cypher queries. Nodes use concrete kinds such as Document, Struct, Interface
 Function; relations include calls, imports, and containment. Declaration nodes carry structured
 intent markers: spec, case, rule, link, and doc.
 
-Direct dependencies: gotreesitter `v0.52.0` and GoGraph `v0.15.0`. Requires Go 1.26 or later.
+Direct dependencies: gotreesitter `v0.55.0` and GoGraph `v0.15.0`. Requires Go 1.26 or later.
 No separate database service or mandatory disk persistence. The project has not had its first release yet.
 
 ## Capabilities and limits
