@@ -20,6 +20,26 @@ func resolveReferences(ctx context.Context, files map[string]extract.Facts, name
 			}
 			targets := []Ref{}
 			confidence, basis := "candidate", "lexical_name"
+			if r.Key != nil {
+				var ordinary bool
+				var err error
+				targets, ordinary, err = goCompositeKeyTargets(ctx, f, r, files, names, module, limit-len(edges))
+				if err != nil {
+					return nil, nil, err
+				}
+				if !ordinary {
+					for _, target := range targets {
+						if len(edges) >= limit {
+							return nil, nil, ErrEdgeLimit
+						}
+						edges = append(edges, Edge{Ref{name, r.Owner}, target, "references", "candidate", "composite_field", name, r.Span})
+					}
+					if len(targets) == 0 {
+						issues = append(issues, Issue{name, "unresolved_reference", r.Name, "references", r.Span})
+					}
+					continue
+				}
+			}
 			if r.Bound {
 				if r.Target >= 0 {
 					targets = append(targets, Ref{name, r.Target})
