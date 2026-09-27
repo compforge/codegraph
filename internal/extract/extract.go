@@ -17,6 +17,8 @@ type Declaration struct {
 	Parent int
 	// Receiver is the explicit Go receiver base name, resolved across loaded files.
 	Receiver string
+	// GoType retains the underlying composite shape for literal-key binding.
+	GoType *GoCompositeType
 	Span
 	Comments []Comment
 }
@@ -61,9 +63,19 @@ type Call struct {
 	Targets  []CallTarget
 }
 
+// GoCompositeType is the detached syntax needed to distinguish field keys from
+// map/array index expressions. A named type may resolve after more files load.
+type GoCompositeType struct {
+	Kind, Name, Module string
+	Target             int  // same-file type declaration, -1 when not represented
+	Bound              bool // a lexical type shadows package-level names
+}
+
 // Reference is a lexical identifier use, independently of whether a target exists.
 type Reference struct {
 	Name, Receiver string
+	// Key overrides lexical identifier binding until the literal type is known.
+	Key *GoCompositeType
 	Span
 	Owner  int  // enclosing declaration, -1 for the file
 	Target int  // same-file declaration when syntax proves binding, -1 otherwise

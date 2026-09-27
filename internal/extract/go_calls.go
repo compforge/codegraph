@@ -2,7 +2,6 @@ package extract
 
 import (
 	"go/ast"
-	"go/token"
 )
 
 func goTypeHint(e ast.Expr) (string, string) {
@@ -121,8 +120,7 @@ func goCallableTargets(expr ast.Expr, basis string, seen map[*ast.Object]bool, a
 	return nil
 }
 
-func enrichGoCallTargets(f *Facts, file *ast.File, fset *token.FileSet, closures []Span) {
-	nodes := map[int]*ast.CallExpr{}
+func enrichGoCallTargets(f *Facts, file *ast.File, nodes map[Span]*ast.CallExpr, closures []Span) {
 	assignments := map[*ast.Object][]ast.Expr{}
 	ast.Inspect(file, func(n ast.Node) bool {
 		switch n := n.(type) {
@@ -139,9 +137,6 @@ func enrichGoCallTargets(f *Facts, file *ast.File, fset *token.FileSet, closures
 				}
 			}
 		}
-		if call, ok := n.(*ast.CallExpr); ok {
-			nodes[fset.Position(call.Pos()).Offset] = call
-		}
 		return true
 	})
 	for i := range f.Calls {
@@ -155,7 +150,7 @@ func enrichGoCallTargets(f *Facts, file *ast.File, fset *token.FileSet, closures
 		if hidden || call.Builtin {
 			continue
 		}
-		node := nodes[call.Start]
+		node := nodes[call.Span]
 		if node == nil {
 			continue
 		}

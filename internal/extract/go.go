@@ -19,14 +19,15 @@ func enrichGo(f *Facts) error {
 	enrichGoDeclarations(f, file, fset)
 	// File scope variables shadow package functions in Go. Keep them blocked,
 	// rather than connecting a callback invocation to a same-named function.
-	byStart := map[int]*ast.CallExpr{}
+	// Nested calls may share a start offset; their full spans identify them.
+	callNodes := map[Span]*ast.CallExpr{}
 	var closures []Span
 	ast.Inspect(file, func(n ast.Node) bool {
 		if fn, ok := n.(*ast.FuncLit); ok {
 			closures = append(closures, Span{offset(fn.Pos()), offset(fn.End())})
 		}
 		if c, ok := n.(*ast.CallExpr); ok {
-			byStart[offset(c.Pos())] = c
+			callNodes[Span{offset(c.Pos()), offset(c.End())}] = c
 		}
 		return true
 	})
@@ -42,7 +43,7 @@ func enrichGo(f *Facts) error {
 		if c.Blocked {
 			continue
 		}
-		n := byStart[c.Start]
+		n := callNodes[c.Span]
 		if n == nil {
 			c.Blocked = true
 			continue
@@ -77,7 +78,7 @@ func enrichGo(f *Facts) error {
 			c.Blocked = true
 		}
 	}
-	enrichGoCallTargets(f, file, fset, closures)
+	enrichGoCallTargets(f, file, callNodes, closures)
 	extractGoReferences(f, file, fset)
 	extractGoTypeRelations(f, file, fset)
 	return nil

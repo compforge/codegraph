@@ -53,3 +53,5 @@ agentgo 与 repocli 未通过，因此 `make test-corpus` 返回非零。这不�
 
 原始运行产物在 `.corpus-results/<repo>/`：summary.md、report.json、oracle.json、graph.json。
 大体积产物不提交 Git，可按固定快照重新生成；本记录用于保留首轮观察，**不是自动接受的回归基线**。
+
+后续修复及同口径对比见 [Go 绑定修复复测](binding-fixes.md)。

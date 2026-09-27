@@ -20,6 +20,7 @@ func referenceOwner(f *Facts, span Span) int {
 }
 
 func extractGoReferences(f *Facts, file *ast.File, fset *token.FileSet) {
+	keys := goCompositeKeys(f, file, fset)
 	excluded := map[*ast.Ident]bool{file.Name: true}
 	receivers := map[*ast.Ident]string{}
 	localSelectors := map[*ast.Ident]bool{}
@@ -64,11 +65,11 @@ func extractGoReferences(f *Facts, file *ast.File, fset *token.FileSet) {
 	})
 	ast.Inspect(file, func(n ast.Node) bool {
 		id, ok := n.(*ast.Ident)
-		if !ok || excluded[id] || id.Name == "_" || types.Universe.Lookup(id.Name) != nil && id.Obj == nil || id.Obj != nil && id.Obj.Pos() == id.Pos() {
+		if !ok || excluded[id] || id.Name == "_" || types.Universe.Lookup(id.Name) != nil && id.Obj == nil && keys[id] == nil || id.Obj != nil && id.Obj.Pos() == id.Pos() {
 			return true
 		}
 		span := Span{fset.Position(id.Pos()).Offset, fset.Position(id.End()).Offset}
-		ref := Reference{Name: id.Name, Receiver: receivers[id], Span: span, Owner: referenceOwner(f, span), Target: -1}
+		ref := Reference{Name: id.Name, Receiver: receivers[id], Key: keys[id], Span: span, Owner: referenceOwner(f, span), Target: -1}
 		if localSelectors[id] {
 			ref.Bound = true
 		}
