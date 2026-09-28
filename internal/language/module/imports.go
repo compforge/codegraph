@@ -28,7 +28,7 @@ func bindImports(ctx context.Context, f analysis.Facts, files map[string]analysi
 			confidence = "candidate"
 		}
 		for _, target := range targets {
-			if err := add(Edge{Source: analysis.SourceRef(f.Path, -1), Target: methods.namespaces.ModuleRef(target), Kind: "imports", Confidence: confidence, Basis: "source_module", Path: f.Path, Span: imp.Span}); err != nil {
+			if err := add(Edge{Source: analysis.SourceRef(f.Path, -1), Target: methods.namespaces.Roots[target], Kind: "imports", Confidence: confidence, Basis: "source_module", Path: f.Path, Span: imp.Span}); err != nil {
 				return nil, nil, err
 			}
 		}

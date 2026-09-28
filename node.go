@@ -3,7 +3,7 @@ package codegraph
 import (
 	"fmt"
 
-	"github.com/compforge/codegraph/internal/language/syntax"
+	"github.com/compforge/codegraph/internal/analysis"
 )
 
 // NodeKind is the concrete code category used both by Node.Kind and Cypher labels.
@@ -49,9 +49,10 @@ type Location struct {
 	EndColumn int    `json:"endColumn"`
 }
 
-// Node is a source document, language organization or declaration in one snapshot.
-// Location is nil for organizations assembled across source contributions;
-// declares relations retain each contributing source location.
+// Node is an entity in one snapshot, labeled by its concrete code kind.
+// Symbol and Namespace describe overlapping roles of that same entity.
+// Location is absent when no single source occurrence owns the entity;
+// declares relations retain its contributing source locations.
 type Node struct {
 	ID            string    `json:"id"`
 	Kind          NodeKind  `json:"kind"`
@@ -72,7 +73,7 @@ func cloneNode(n Node) Node {
 }
 
 func declarationKind(kind string) (NodeKind, error) {
-	if concrete := syntax.ConcreteKind(kind); concrete != "" {
+	if concrete := analysis.ConcreteKind(kind); concrete != "" {
 		return NodeKind(concrete), nil
 	}
 	return "", fmt.Errorf("unsupported declaration kind %q", kind)

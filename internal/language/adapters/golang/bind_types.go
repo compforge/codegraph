@@ -28,15 +28,15 @@ func goTypeTargets(f analysis.Facts, name, qualifier string, files map[string]an
 	for _, p := range paths {
 		allowed[p] = true
 	}
-	seen := map[string]bool{}
+	seen := map[analysis.Ref]bool{}
 	var out []bindingTarget
 	for _, p := range paths {
-		key := namespaces.ByDocument[p]
+		key := namespaces.Roots[p]
 		if seen[key] {
 			continue
 		}
 		seen[key] = true
-		for _, ref := range namespaces.Members[analysis.OrganizationRef(key)][name] {
+		for _, ref := range namespaces.Namespace(key).Members(name) {
 			if !allowed[ref.Path] || qualifier != "" && !exported(name) {
 				continue
 			}

@@ -1,24 +1,13 @@
 package syntax
 
 import (
+	"github.com/compforge/codegraph/internal/analysis"
 	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/odvcencio/gotreesitter/grammars"
 )
-
-func ConcreteKind(kind string) string {
-	switch kind {
-	case "function", "method", "struct", "interface", "field", "type", "class",
-		"constructor", "constant", "variable", "module", "enum", "record",
-		"namespace", "property", "trait", "macro", "union":
-		return strings.ToUpper(kind[:1]) + kind[1:]
-	case "type_alias":
-		return "TypeAlias"
-	}
-	return ""
-}
 
 var definitionCapture = regexp.MustCompile(`@definition\.([a-z_]+)`)
 
@@ -27,7 +16,7 @@ var definitionCapture = regexp.MustCompile(`@definition\.([a-z_]+)`)
 func DeclarationKinds(entry grammars.LangEntry) []string {
 	seen := map[string]bool{}
 	for _, match := range definitionCapture.FindAllStringSubmatch(entry.TagsQuery, -1) {
-		if kind := ConcreteKind(match[1]); kind != "" {
+		if kind := analysis.ConcreteKind(match[1]); kind != "" {
 			seen[kind] = true
 		}
 	}

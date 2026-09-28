@@ -57,6 +57,7 @@ RETURN s, f
 
 `declares` 从 Document 指向源码声明及包/模块贡献；`contains` 表达直接语义归属，支持 Namespace 嵌套。
 Go Package 跨文件组织声明，目录嵌套不代表包嵌套；Python 支持普通 Package 与文件 Module 的组织层级。
+JS/TS 文件贡献 Module 节点并组织顶层声明；整模块导入和模块名引用指向 Module，沿入向 `declares` 查源码 Document。
 接收者方法从已加载包内的接收者类型建立 `contains` 边，支持跨文件；
 关系的 `basis` 用 `declaration` 与 `receiver_declaration` 区分两种依据。接收者有多个候选时输出
 candidate 边，无法确定目标时保留诊断。不展开匿名嵌套类型或提升成员。

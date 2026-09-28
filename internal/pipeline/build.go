@@ -15,6 +15,9 @@ type Lookup func(string) analysis.Adapter
 // +why=`A later document or language batch may supply a base type needed by inherited member lookup`
 func Build(ctx context.Context, scope analysis.Scope, nodeLimit, edgeLimit int, lookup Lookup) (*analysis.Index, []analysis.Gap, error) {
 	index := analysis.NewIndex(scope.Files)
+	if err := index.AddSources(ctx, scope.Names); err != nil {
+		return nil, nil, err
+	}
 	groups := map[string]analysis.Scope{}
 	for _, p := range scope.Names {
 		f := scope.Files[p]
@@ -38,6 +41,7 @@ func Build(ctx context.Context, scope analysis.Scope, nodeLimit, edgeLimit int, 
 		return nil
 	}
 	adapters := map[string]analysis.Adapter{}
+	var organizationEdges []analysis.Edge
 	for _, name := range names {
 		if err := check(); err != nil {
 			return nil, nil, err
@@ -47,20 +51,22 @@ func Build(ctx context.Context, scope analysis.Scope, nodeLimit, edgeLimit int, 
 		if a.Organizer == nil {
 			continue
 		}
-		units, edges, err := a.Organizer.Organize(ctx, groups[name])
+		organization, err := a.Organizer.Organize(ctx, groups[name])
 		if err != nil {
 			return nil, nil, fmt.Errorf("organize %s: %w", name, err)
 		}
-		index.Register(units, edges)
+		index.RegisterEntities(organization)
+		organizationEdges = append(organizationEdges, organization.Edges...)
 	}
-	nodes := len(scope.Files) + len(index.Units)
-	for _, f := range scope.Files {
-		nodes += len(f.Declarations)
+	// All endpoints must exist before contains is indexed by the target name.
+	for _, e := range organizationEdges {
+		index.Add(e)
 	}
+	nodes := len(index.Entities)
 	if nodes > nodeLimit {
 		return nil, nil, ErrNodeLimit
 	}
-	if err := index.AddDeclarations(ctx, scope.Names); err != nil {
+	if err := index.AttachDeclarations(ctx, scope.Names); err != nil {
 		return nil, nil, err
 	}
 	if err := check(); err != nil {

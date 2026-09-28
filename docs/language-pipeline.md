@@ -6,8 +6,10 @@ CodeGraph 从同一快照的 Document 提取事实，由语言规则建立组织
 Document 表达材料来源，Symbol 表达代码实体，Namespace 表达名称与成员的组织；后两者可以重叠。
 图中使用具体 Kind，源码贡献使用 declares，直接语义归属使用 contains。
 
-公共分析层拥有实体引用、源码贡献与直接成员索引。合成 Package/Module 与显式 Namespace、Class
-的成员使用相同索引；跨文件接收者归属在绑定后补入。继承查找在直接成员之上遍历已绑定的 extends。
+公共分析层以 Entity 统一登记 Document、源码声明及合成实体，并使用同一条物化路径。
+Ref 表达身份来源，与实体是否组织成员无关。Namespace 是同一 Entity 的成员组织视图，
+Package/Module、显式 Namespace 和 Class 通过相同视图查成员与源码贡献；跨文件接收者归属
+在绑定后补入。继承查找在直接成员之上遍历已绑定的 extends。
 词法作用域、名称遮蔽和导出规则由语言实现解释，不由 contains 自动推导。
 
 ## 阶段与数据流
@@ -15,7 +17,7 @@ Document 表达材料来源，Symbol 表达代码实体，Namespace 表达名称
 | 阶段 | Core 责任 | 语言接口与产物 |
 |---|---|---|
 | Extract | 有界调度、parser/AST 生命周期、取消 | Extractor 返回脱离 AST 的单 Document 事实 |
-| Organize | 登记身份、来源及声明直接成员 | Organizer 返回语言组织及有证据的组织关系 |
+| Organize | 登记全部实体后统一建立成员索引 | Organizer 返回实体、Document 的语义根及关系证据 |
 | Bind | 汇总绑定结果，补齐成员和类型关系 | Binder 返回导入、类型、接收者关系及本轮 Resolver |
 | Resolve | 汇总关系证据和局部缺口 | RelationResolver 使用完成绑定的索引解析引用与调用 |
 | Finalize | 端点校验、预算、物化和原子发布 | 由 Core 执行 |

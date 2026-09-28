@@ -49,7 +49,8 @@ func TestOutlineGapPreservesUsableFacts(t *testing.T) {
 	edges := g.RelationsFrom(document.ID(), Imports)
 	moduleEdge := false
 	for _, edge := range edges {
-		if edge.Target == DocumentID("work.ts") && edge.Confidence == Exact {
+		target, ok := g.Node(edge.Target)
+		if ok && target.Kind == Module && target.QualifiedName == "work" && edge.Confidence == Exact {
 			moduleEdge = true
 		}
 	}

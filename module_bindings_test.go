@@ -167,8 +167,8 @@ func TestExplicitExportOverridesStarAndPreservesNamespace(t *testing.T) {
 	if len(rows) != 1 || rows[0]["target"].(Node).Location.Path != "barrel.ts" || rows[0]["r"].(Relation).Confidence != Exact {
 		t.Fatal(rows)
 	}
-	rows = query(t, g, `MATCH (:Function {name:'entry'})-[:references]->(target:Document) RETURN target`, nil)
-	if len(rows) != 1 || rows[0]["target"].(Node).Location.Path != "barrel.ts" {
+	rows = query(t, g, `MATCH (:Function {name:'entry'})-[:references]->(target:Module)<-[:declares]-(:Document {path:'barrel.ts'}) RETURN target`, nil)
+	if len(rows) != 1 || rows[0]["target"].(Node).Location != nil {
 		t.Fatal(rows)
 	}
 }

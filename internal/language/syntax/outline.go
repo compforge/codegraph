@@ -2,6 +2,7 @@ package syntax
 
 import (
 	"context"
+	"github.com/compforge/codegraph/internal/analysis"
 
 	gts "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
@@ -41,7 +42,7 @@ func Outline(ctx context.Context, f Facts, tree *gts.Tree, entry grammars.LangEn
 					kind = "method"
 				}
 				span := Span{Start: int(item.Range.StartByte), End: int(item.Range.EndByte)}
-				if ConcreteKind(kind) == "" {
+				if analysis.ConcreteKind(kind) == "" {
 					f.Issues = append(f.Issues, Issue{Code: "unsupported_declaration", Message: kind, Subject: "declarations", Span: span})
 					flatten(item.Children, parent)
 					continue

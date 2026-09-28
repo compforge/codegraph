@@ -25,7 +25,7 @@ func goCompositeKeyTargets(ctx context.Context, f analysis.Facts, ref analysis.R
 			return true, nil
 		case "struct":
 			if owner != nil && (source.Package == f.Package && path.Dir(source.Path) == path.Dir(f.Path) || exported(ref.Name)) {
-				for _, target := range namespaces.Members[*owner][ref.Name] {
+				for _, target := range namespaces.Namespace(*owner).Members(ref.Name) {
 					d := files[target.Path].Declarations[target.Declaration]
 					if d.Parent == owner.Declaration && d.Kind == "field" && d.Name == ref.Name {
 						if !unique[target] {

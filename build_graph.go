@@ -63,38 +63,34 @@ func (g *Graph) assemble(ctx context.Context, files map[string]analysis.Facts, f
 		}
 		return nil, nil, report, err
 	}
-	for key, unit := range index.Units {
-		id := "namespace:" + identity(key)
-		ids[analysis.OrganizationRef(key)] = id
-		nodes[id] = Node{ID: id, Kind: NodeKind(unit.Kind), Name: unit.Name, QualifiedName: unit.QualifiedName, Language: unit.Language}
-	}
 
-	for _, p := range report.Documents {
+	for ref, e := range index.Entities {
 		if err := ctx.Err(); err != nil {
 			return nil, nil, report, err
 		}
+		var id string
+		switch {
+		case ref.IsDocument():
+			id = DocumentID(ref.Path)
+		case ref.IsDeclaration():
+			id = declarationID(ref.Path, NodeKind(e.Kind), e.QualifiedName, e.Location.Start)
+		default:
+			id = "node:" + identity(ref.SyntheticKey())
+		}
+		n := Node{ID: id, Kind: NodeKind(e.Kind), Name: e.Name, QualifiedName: e.QualifiedName, Language: e.Language}
+		if e.Location != nil {
+			f := files[e.Location.Path]
+			n.Location = locationPtr(f, e.Location.Span)
+			for _, m := range e.Comments {
+				n.Markers = append(n.Markers, Marker{Kind: MarkerKind(m.Kind), Text: m.Text, Location: location(f, m.Span)})
+			}
+		}
+		ids[ref], nodes[id] = id, n
+	}
+	for _, p := range report.Documents {
 		f := files[p]
 		for _, issue := range f.Issues {
 			report.Diagnostics = append(report.Diagnostics, extractionDiagnostic(f, issue))
-		}
-		if len(nodes)+1+len(f.Declarations) > g.opts.MaxNodes || len(relations)+len(f.Declarations) > g.opts.MaxRelations {
-			return nil, nil, report, fmt.Errorf("%w: declaration graph size", ErrBuildBudget)
-		}
-		fid := DocumentID(p)
-		ids[analysis.SourceRef(p, -1)] = fid
-		nodes[fid] = Node{ID: fid, Kind: DocumentKind, Name: path.Base(p), Language: f.Language, Location: locationPtr(f, analysis.Span{Start: 0, End: len(f.Source)})}
-		for i, d := range f.Declarations {
-			kind, err := declarationKind(d.Kind)
-			if err != nil {
-				return nil, nil, report, fmt.Errorf("%s: %w", p, err)
-			}
-			id := declarationID(p, kind, d.QualifiedName, d.Start)
-			ids[analysis.SourceRef(p, i)] = id
-			n := Node{ID: id, Kind: kind, Name: d.Name, QualifiedName: d.QualifiedName, Language: f.Language, Location: locationPtr(f, d.Span)}
-			for _, m := range d.Comments {
-				n.Markers = append(n.Markers, Marker{Kind: MarkerKind(m.Kind), Text: m.Text, Location: location(f, m.Span)})
-			}
-			nodes[id] = n
 		}
 	}
 	edges := index.Edges

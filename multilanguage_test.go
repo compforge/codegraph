@@ -80,10 +80,7 @@ func TestModuleImportExpansion(t *testing.T) {
 			if err != nil || len(r.Diagnostics) != 0 {
 				t.Fatal(r, err)
 			}
-			q := `MATCH (a:Document)-[r:imports]->(b:Document) RETURN a,r,b`
-			if Language(tc.entry) == "python" {
-				q = `MATCH (a:Document)-[r:imports]->(b:Module)<-[:declares]-(:Document {path:$path}) RETURN a,r,b`
-			}
+			q := `MATCH (a:Document)-[r:imports]->(b:Module)<-[:declares]-(:Document {path:$path}) RETURN a,r,b`
 			rows := query(t, g, q, map[string]any{"path": tc.target})
 			if len(rows) != 1 || rows[0]["r"].(Relation).Confidence != Exact {
 				t.Fatal(rows)
@@ -195,7 +192,7 @@ func TestImportCandidatesAndScope(t *testing.T) {
 		}
 	}
 	g, r, err = Build(context.Background(), "rev", documents(fs, "src/app.ts", "src/lib.ts", "src/lib.js"), Options{Scope: []string{"src/app.ts"}})
-	if err != nil || (len(r.Diagnostics) == 0) || len(g.Nodes()) != 1 || !hasDiagnostic(r, "out_of_scope") {
+	if err != nil || (len(r.Diagnostics) == 0) || len(g.Nodes()) != 2 || !hasDiagnostic(r, "out_of_scope") {
 		t.Fatal(r, err)
 	}
 }

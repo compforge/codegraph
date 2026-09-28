@@ -166,7 +166,7 @@ func TestTypeRelationsGenericsNamespaceAndShadowing(t *testing.T) {
 }
 
 func TestTypeRelationBudgetRollback(t *testing.T) {
-	g, _, err := Build(context.Background(), "budget", []Document{{Path: "base.ts", Content: []byte("export class Base {}")}}, Options{MaxRelations: 2})
+	g, _, err := Build(context.Background(), "budget", []Document{{Path: "base.ts", Content: []byte("export class Base {}")}}, Options{MaxRelations: 3})
 	if err != nil {
 		t.Fatal(err)
 	}
