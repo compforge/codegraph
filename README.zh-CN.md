@@ -16,7 +16,6 @@
 
 CodeGraph 提供已加载范围内的静态证据，不执行编译器类型检查，也不保证完整的运行时分派分析。
 仓库发现、Git 读取、依赖获取、影响判定及测试选择由调用方负责。
-具体绑定能力与限制见 [语言能力](docs/language-support.md)。
 
 ## 核心概念
 
@@ -77,16 +76,4 @@ func main() {
 输出为 `Entry`。构建成功仍可能伴随局部分析缺口，由调用方判断其与当前任务的关系。
 更多可执行示例见 [example_test.go](example_test.go)。
 
-## 深入阅读
-
-| 目的 | 文档 |
-|---|---|
-| 构建、补料、定位和查询图 | [使用指南](docs/usage.md) |
-| 提供源码或 gitlink 材料 | [Document 契约](docs/document.md) |
-| 了解各语言的覆盖与限制 | [语言能力](docs/language-support.md) |
-| 查询包、模块和成员组织 | [命名空间组织](docs/namespaces.md) |
-| 理解核心模型与设计理由 | [内核设计](docs/kernel.md) |
-| 实现语言适配器 | [语言构建流程](docs/language-pipeline.md) |
-| 修改与验证本库 | [维护约定](AGENTS.md)、[真实仓库评测](docs/corpus.md) |
-
-公共类型与方法契约见 [Go API](graph.go) 及对应源码注释。
+分批构建与更多查询用法见 [使用指南](docs/usage.md)。

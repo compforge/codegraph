@@ -19,7 +19,6 @@ It runs in your process, without a separate database service or mandatory disk p
 CodeGraph provides static evidence within the supplied scope. It does not perform compiler type
 checking or guarantee complete runtime dispatch analysis. Repository discovery, Git reads, dependency
 acquisition, and decisions about change impact or test selection belong to the caller.
-See [language support](docs/language-support.md) for the supported bindings and limits.
 
 ## Core concepts
 
@@ -81,18 +80,4 @@ func main() {
 Output: `Entry`. Successful construction may still report local analysis gaps; callers decide
 which gaps matter to their task. More executable examples are in [example_test.go](example_test.go).
 
-## Further reading
-
-Detailed guides are maintained in Chinese:
-
-| Goal | Guide |
-|---|---|
-| Build, extend, navigate, and query a graph | [Usage](docs/usage.md) |
-| Supply source or gitlink material | [Document contract](docs/document.md) |
-| Understand language coverage and limitations | [Language support](docs/language-support.md) |
-| Navigate packages, modules, and members | [Namespace organization](docs/namespaces.md) |
-| Understand the model and design decisions | [Kernel](docs/kernel.md) |
-| Implement a language adapter | [Language pipeline](docs/language-pipeline.md) |
-| Change and validate the library | [Contributor guidance](AGENTS.md), [corpus evaluation](docs/corpus.md) |
-
-Public types and method contracts are documented beside the [Go API](graph.go).
+See the [usage guide](docs/usage.md) (in Chinese) for batch construction and more queries.
