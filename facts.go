@@ -7,7 +7,11 @@ import (
 	"fmt"
 	"io/fs"
 
-	"github.com/compforge/codegraph/internal/extract"
+	"github.com/compforge/codegraph/internal/language"
+
+	"github.com/compforge/codegraph/internal/pipeline"
+
+	"github.com/compforge/codegraph/internal/analysis"
 )
 
 // Facts is the detached extraction result for one source document, projected
@@ -113,7 +117,7 @@ type FactCall struct {
 // cannot confuse two different sources sharing one logical path.
 type factCacheEntry struct {
 	hash  [32]byte
-	facts extract.Facts
+	facts analysis.Facts
 }
 
 // Extract returns detached source facts for one document without publishing
@@ -140,16 +144,16 @@ func (g *Graph) Extract(ctx context.Context, document Document) (Facts, error) {
 	if loaded && sha256.Sum256(staged.Source) == hash {
 		return projectFacts(staged)
 	}
-	var facts extract.Facts
-	if extract.Detect(document.Path) == nil {
-		facts = extract.DocumentOnly(document.Path, bytes.Clone(document.Content))
-		facts.Issues = append(facts.Issues, extract.Issue{Code: "unsupported_language", Message: "no registered grammar for file", Subject: "document", Span: extract.Span{End: len(document.Content)}})
+	var facts analysis.Facts
+	if language.Detect(document.Path) == nil {
+		facts = pipeline.DocumentOnly(document.Path, bytes.Clone(document.Content))
+		facts.Issues = append(facts.Issues, analysis.Issue{Code: "unsupported_language", Message: "no registered grammar for file", Subject: "document", Span: analysis.Span{End: len(document.Content)}})
 	} else {
 		if parseObserver != nil {
 			parseObserver(document.Path)
 		}
 		var err error
-		facts, err = extract.Analyze(ctx, document.Path, bytes.Clone(document.Content), g.opts.ParseTimeout)
+		facts, err = pipeline.Analyze(ctx, document.Path, bytes.Clone(document.Content), g.opts.ParseTimeout)
 		if err != nil {
 			return Facts{}, err
 		}
@@ -166,18 +170,18 @@ func (g *Graph) Extract(ctx context.Context, document Document) (Facts, error) {
 // cachedFacts returns a cached extraction for identical content and consumes
 // the entry: once staged, the graph's retained facts become the authoritative
 // copy, so the cache stays bounded to explored-but-not-yet-added documents.
-func (g *Graph) cachedFacts(name string, data []byte) (extract.Facts, bool) {
+func (g *Graph) cachedFacts(name string, data []byte) (analysis.Facts, bool) {
 	g.factCacheMu.Lock()
 	defer g.factCacheMu.Unlock()
 	entry, ok := g.factCache[name]
 	if !ok || entry.hash != sha256.Sum256(data) {
-		return extract.Facts{}, false
+		return analysis.Facts{}, false
 	}
 	delete(g.factCache, name)
 	return entry.facts, true
 }
 
-func projectFacts(f extract.Facts) (Facts, error) {
+func projectFacts(f analysis.Facts) (Facts, error) {
 	out := Facts{Path: f.Path, Package: f.Package, Language: f.Language}
 	for _, d := range f.Declarations {
 		kind, err := declarationKind(d.Kind)
@@ -201,7 +205,7 @@ func projectFacts(f extract.Facts) (Facts, error) {
 		imports = append(imports, FactImport{Bindings: bindings, Alias: i.Alias, Path: i.Path, From: i.From, Relative: i.Relative, Binding: i.Binding, Names: append([]string(nil), i.Names...), Location: location(f, i.Span)})
 	}
 	out.Imports = imports
-	for _, s := range f.Python {
+	for _, s := range f.Statements {
 		out.Statements = append(out.Statements, projectStatement(s, imports, byStart))
 	}
 	for public, local := range f.Exports {
@@ -236,7 +240,7 @@ func projectFacts(f extract.Facts) (Facts, error) {
 	return out, nil
 }
 
-func projectExpression(e extract.PythonExpression) Expression {
+func projectExpression(e analysis.Expression) Expression {
 	out := Expression{Kind: e.Kind, Text: e.Text}
 	for _, child := range e.Children {
 		out.Children = append(out.Children, projectExpression(child))
@@ -244,7 +248,7 @@ func projectExpression(e extract.PythonExpression) Expression {
 	return out
 }
 
-func projectStatement(s extract.PythonStatement, imports []FactImport, byStart map[int][]int) Statement {
+func projectStatement(s analysis.Statement, imports []FactImport, byStart map[int][]int) Statement {
 	out := Statement{Kind: s.Kind, Name: s.Name, Line: s.Line, Target: projectExpression(s.Target), Value: projectExpression(s.Value)}
 	// One statement can hold several imports sharing its start offset; attach
 	// each projected import once.

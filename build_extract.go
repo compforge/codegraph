@@ -6,7 +6,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/compforge/codegraph/internal/extract"
+	"github.com/compforge/codegraph/internal/language"
+
+	"github.com/compforge/codegraph/internal/pipeline"
+
+	"github.com/compforge/codegraph/internal/analysis"
 )
 
 // stageDocuments reserves capacity for each extraction window before starting
@@ -16,7 +20,7 @@ import (
 // parsing; the file still enters the graph and the coverage gap stays visible
 // as an unsupported_language issue on that file.
 // +spec=`Workers own independent extraction results and never mutate graph maps`
-func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged map[string]extract.Facts, failures map[string]Diagnostic, total int64, parseFailures map[string]error) error {
+func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged map[string]analysis.Facts, failures map[string]Diagnostic, total int64, parseFailures map[string]error) error {
 	for next := 0; next < len(documents); {
 		batch := make([]Document, 0, min(g.opts.BuildConcurrency, len(documents)-next))
 		var reserved int64
@@ -28,7 +32,7 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 			name, data := document.Path, document.Content
 			issue := func(code, message string) {
 				failures[name] = Diagnostic{Code: code, Message: message, Subject: DocumentSubject,
-					Location: location(extract.DocumentOnly(name, data), extract.Span{End: len(data)})}
+					Location: location(pipeline.DocumentOnly(name, data), analysis.Span{End: len(data)})}
 			}
 			if !g.allowed(name) {
 				issue("out_of_scope", "file is outside allowed scope")
@@ -72,9 +76,9 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 				next++
 				continue
 			}
-			if extract.Detect(name) == nil {
-				facts := extract.DocumentOnly(name, bytes.Clone(data))
-				facts.Issues = append(facts.Issues, extract.Issue{Code: "unsupported_language", Message: "no registered grammar for file", Subject: "document", Span: extract.Span{End: len(data)}})
+			if language.Detect(name) == nil {
+				facts := pipeline.DocumentOnly(name, bytes.Clone(data))
+				facts.Issues = append(facts.Issues, analysis.Issue{Code: "unsupported_language", Message: "no registered grammar for file", Subject: "document", Span: analysis.Span{End: len(data)}})
 				staged[name] = facts
 				total += int64(len(data))
 				next++
@@ -94,7 +98,7 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 			name := batch[i].Path
 			if result.err != nil {
 				failures[name] = Diagnostic{Code: "parse_error", Message: result.err.Error(), Subject: DocumentSubject,
-					Location: location(extract.DocumentOnly(name, batch[i].Content), extract.Span{End: len(batch[i].Content)})}
+					Location: location(pipeline.DocumentOnly(name, batch[i].Content), analysis.Span{End: len(batch[i].Content)})}
 				continue
 			}
 			staged[name] = result.facts
@@ -106,7 +110,7 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 }
 
 type extractionResult struct {
-	facts extract.Facts
+	facts analysis.Facts
 	err   error
 }
 
@@ -125,7 +129,7 @@ func (g *Graph) extractBatch(ctx context.Context, documents []Document) []extrac
 		if parseObserver != nil {
 			parseObserver(document.Path)
 		}
-		results[i].facts, results[i].err = extract.Analyze(ctx, document.Path, bytes.Clone(document.Content), g.opts.ParseTimeout)
+		results[i].facts, results[i].err = pipeline.Analyze(ctx, document.Path, bytes.Clone(document.Content), g.opts.ParseTimeout)
 	}
 	if len(documents) == 1 {
 		run(0)

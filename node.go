@@ -3,7 +3,7 @@ package codegraph
 import (
 	"fmt"
 
-	"github.com/compforge/codegraph/internal/extract"
+	"github.com/compforge/codegraph/internal/language/syntax"
 )
 
 // NodeKind is the concrete code category used both by Node.Kind and Cypher labels.
@@ -72,7 +72,7 @@ func cloneNode(n Node) Node {
 }
 
 func declarationKind(kind string) (NodeKind, error) {
-	if concrete := extract.ConcreteKind(kind); concrete != "" {
+	if concrete := syntax.ConcreteKind(kind); concrete != "" {
 		return NodeKind(concrete), nil
 	}
 	return "", fmt.Errorf("unsupported declaration kind %q", kind)
