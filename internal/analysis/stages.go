@@ -12,7 +12,7 @@ type Extractor interface {
 	Extract(context.Context, Facts, *gts.Tree, grammars.LangEntry) (Facts, error)
 }
 type Organizer interface {
-	Organize(context.Context, Scope) ([]Organization, []Edge, error)
+	Organize(context.Context, Scope) (Organization, error)
 }
 
 // Binder completes names, types and receiver ownership before any resolver runs.

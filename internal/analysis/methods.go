@@ -46,7 +46,7 @@ func (index *MethodIndex) Lookup(ctx context.Context, roots []Ref, name string, 
 		seen[item.owner] = true
 
 		found := false
-		for _, target := range index.index.Members[item.owner][name] {
+		for _, target := range index.index.Namespace(item.owner).Members(name) {
 			if !target.IsDeclaration() || index.index.Files[target.Path].Declarations[target.Declaration].Kind != "method" || !eligible(target) {
 				continue
 			}

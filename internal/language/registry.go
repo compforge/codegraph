@@ -29,7 +29,7 @@ var registrations = []registration{
 }
 
 func ecmascriptAdapter() analysis.Adapter {
-	return analysis.Adapter{Extractor: ecmascript.Adapter{}, Binder: ecmascript.Adapter{}, Describe: ecmascript.Describe}
+	return analysis.Adapter{Extractor: ecmascript.Adapter{}, Organizer: ecmascript.Adapter{}, Binder: ecmascript.Adapter{}, Describe: ecmascript.Describe}
 }
 func Lookup(name string) analysis.Adapter {
 	for _, r := range registrations {

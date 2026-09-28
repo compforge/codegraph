@@ -38,7 +38,7 @@ func bind(ctx context.Context, scope analysis.Scope, index *analysis.Index, limi
 				continue
 			}
 			var targets []Ref
-			for _, target := range namespaces.Members[analysis.OrganizationRef(namespaces.ByDocument[name])][d.Receiver] {
+			for _, target := range namespaces.Namespace(namespaces.Roots[name]).Members(d.Receiver) {
 				if !target.IsDeclaration() {
 					continue
 				}
@@ -73,11 +73,11 @@ func bind(ctx context.Context, scope analysis.Scope, index *analysis.Index, limi
 			if namespaces.PackageCount(targets) > 1 {
 				confidence = "candidate"
 			}
-			seenPackages := map[string]bool{}
+			seenPackages := map[analysis.Ref]bool{}
 			for _, target := range targets {
-				key := namespaces.ByDocument[target]
+				key := namespaces.Roots[target]
 				if !seenPackages[key] {
-					if err := add(Edge{Source: analysis.SourceRef(name, -1), Target: analysis.OrganizationRef(key), Kind: "imports", Confidence: confidence, Basis: "package_import", Path: name, Span: imp.Span}); err != nil {
+					if err := add(Edge{Source: analysis.SourceRef(name, -1), Target: key, Kind: "imports", Confidence: confidence, Basis: "package_import", Path: name, Span: imp.Span}); err != nil {
 						return nil, nil, err
 					}
 					seenPackages[key] = true

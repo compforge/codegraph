@@ -9,9 +9,9 @@ import (
 	"github.com/compforge/codegraph/internal/analysis"
 )
 
-type organizerFunc func(context.Context, analysis.Scope) ([]analysis.Organization, []analysis.Edge, error)
+type organizerFunc func(context.Context, analysis.Scope) (analysis.Organization, error)
 
-func (f organizerFunc) Organize(c context.Context, s analysis.Scope) ([]analysis.Organization, []analysis.Edge, error) {
+func (f organizerFunc) Organize(c context.Context, s analysis.Scope) (analysis.Organization, error) {
 	return f(c, s)
 }
 
@@ -42,20 +42,20 @@ func TestLanguageStagesAndSharedMembership(t *testing.T) {
 	var events []string
 	lookup := func(name string) analysis.Adapter {
 		return analysis.Adapter{
-			Organizer: organizerFunc(func(ctx context.Context, s analysis.Scope) ([]analysis.Organization, []analysis.Edge, error) {
+			Organizer: organizerFunc(func(ctx context.Context, s analysis.Scope) (analysis.Organization, error) {
 				events = append(events, "organize:"+name)
 				p := s.Names[0]
 				key := "package:" + name
-				return []analysis.Organization{{Key: key, Kind: "Package", Name: name, Language: name, Documents: []string{p}}}, []analysis.Edge{{Source: analysis.DocumentRef(p), Target: analysis.OrganizationRef(key), Kind: "declares", Path: p}}, nil
+				return analysis.Organization{Entities: []analysis.Entity{{Ref: analysis.SyntheticRef(key), Kind: "Package", Name: name, Language: name}}, Roots: map[string]analysis.Ref{p: analysis.SyntheticRef(key)}, Edges: []analysis.Edge{{Source: analysis.DocumentRef(p), Target: analysis.SyntheticRef(key), Kind: "declares", Path: p}}}, nil
 			}),
 			Binder: binderFunc(func(ctx context.Context, s analysis.Scope, index *analysis.Index, limit int) (analysis.Binding, error) {
 				events = append(events, "bind:"+name)
-				if len(index.Units) != 2 {
+				if len(index.Roots) != 2 {
 					t.Fatal("bind ran before all organizations were available")
 				}
 				result := analysis.Binding{Resolver: resolverFunc(func(ctx context.Context, index *analysis.Index, limit int) ([]analysis.Edge, []analysis.Gap, error) {
 					events = append(events, "resolve:"+name)
-					if got := index.Members[owner]["run"]; !reflect.DeepEqual(got, []analysis.Ref{member}) {
+					if got := index.Namespace(owner).Members("run"); !reflect.DeepEqual(got, []analysis.Ref{member}) {
 						t.Fatalf("receiver member unavailable: %v", got)
 					}
 					if name == "alpha" {
@@ -79,13 +79,13 @@ func TestLanguageStagesAndSharedMembership(t *testing.T) {
 		t.Fatalf("phase barriers: %v", events)
 	}
 	ns := analysis.DeclarationRef("a.probe", 0)
-	if got := index.Members[analysis.OrganizationRef("package:alpha")]["N"]; !reflect.DeepEqual(got, []analysis.Ref{ns}) {
+	if got := index.Namespace(analysis.SyntheticRef("package:alpha")).Members("N"); !reflect.DeepEqual(got, []analysis.Ref{ns}) {
 		t.Fatalf("declared namespace membership: %v", got)
 	}
-	if got := index.Members[ns]["C"]; !reflect.DeepEqual(got, []analysis.Ref{owner}) {
+	if got := index.Namespace(ns).Members("C"); !reflect.DeepEqual(got, []analysis.Ref{owner}) {
 		t.Fatalf("class membership: %v", got)
 	}
-	if len(index.Members[analysis.DocumentRef("a.probe")]) != 0 {
+	if len(index.Namespace(analysis.DocumentRef("a.probe")).Members("N")) != 0 {
 		t.Fatal("source ownership became semantic containment")
 	}
 	methods := analysis.NewMethodIndex(index)
@@ -118,11 +118,11 @@ func TestStageFailureAndBudgetReturnNoIndex(t *testing.T) {
 			}
 			lookup := func(string) analysis.Adapter {
 				return analysis.Adapter{
-					Organizer: organizerFunc(func(context.Context, analysis.Scope) ([]analysis.Organization, []analysis.Edge, error) {
+					Organizer: organizerFunc(func(context.Context, analysis.Scope) (analysis.Organization, error) {
 						if phase == "organize" {
-							return nil, nil, failure
+							return analysis.Organization{}, failure
 						}
-						return nil, nil, nil
+						return analysis.Organization{}, nil
 					}),
 					Binder: binderFunc(func(context.Context, analysis.Scope, *analysis.Index, int) (analysis.Binding, error) {
 						if phase == "bind" {
@@ -142,5 +142,54 @@ func TestStageFailureAndBudgetReturnNoIndex(t *testing.T) {
 				t.Fatalf("index=%v error=%v want=%v", index, err, expected)
 			}
 		})
+	}
+}
+
+// +case=`A declared namespace may be the semantic root; its members can be registered by a later language batch`
+func TestDeclaredNamespaceRootAndLaterOrganization(t *testing.T) {
+	files := map[string]analysis.Facts{
+		"a.probe": {Path: "a.probe", Language: "alpha", Declarations: []analysis.Declaration{
+			{Name: "N", Kind: "namespace", Parent: -1},
+			{Name: "C", Kind: "class", Parent: -1},
+		}},
+		"b.probe": {Path: "b.probe", Language: "beta"},
+	}
+	root, child := analysis.DeclarationRef("a.probe", 0), analysis.SyntheticRef("module:b")
+	lookup := func(name string) analysis.Adapter {
+		return analysis.Adapter{Organizer: organizerFunc(func(context.Context, analysis.Scope) (analysis.Organization, error) {
+			if name == "alpha" {
+				return analysis.Organization{Roots: map[string]analysis.Ref{"a.probe": root}, Edges: []analysis.Edge{
+					{Source: root, Target: child, Kind: "contains", Path: "a.probe"},
+				}}, nil
+			}
+			return analysis.Organization{Entities: []analysis.Entity{{Ref: child, Kind: "Module", Name: "B", Language: name}}, Roots: map[string]analysis.Ref{"b.probe": child}, Edges: []analysis.Edge{
+				{Source: analysis.DocumentRef("b.probe"), Target: child, Kind: "declares", Path: "b.probe"},
+			}}, nil
+		})}
+	}
+	index, _, err := Build(context.Background(), analysis.NewScope(files, ""), 5, 5, lookup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(index.Entities) != 5 {
+		t.Fatalf("namespace view duplicated entities: %v", index.Entities)
+	}
+	ns := index.Namespace(root)
+	if !reflect.DeepEqual(ns.Members("C"), []analysis.Ref{analysis.DeclarationRef("a.probe", 1)}) || !reflect.DeepEqual(ns.Members("B"), []analysis.Ref{child}) {
+		t.Fatalf("declared and synthetic members diverged: %v %v", ns.Members("C"), ns.Members("B"))
+	}
+	if len(ns.Members("N")) != 0 {
+		t.Fatal("semantic root contains itself")
+	}
+	if contributions := ns.Contributions(); len(contributions) != 1 || contributions[0].Path != "a.probe" {
+		t.Fatalf("lost declared namespace provenance: %v", contributions)
+	}
+	if len(index.Namespace(child).Contributions()) != 1 || len(index.Namespace(child).Members("C")) != 0 {
+		t.Fatal("empty module inherited ancestor members")
+	}
+	for _, e := range index.Edges {
+		if e.Kind == "contains" && e.Source.IsDocument() {
+			t.Fatal("source material became a member owner")
+		}
 	}
 }

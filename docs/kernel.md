@@ -25,6 +25,8 @@ Graph、Node、Relation 是通用图结构；CodeGraph 的代码领域语义由�
 语言单元。Symbol 与 Namespace 是可重叠的逻辑概念，各对象以 Package、Module、Class、Function 等
 具体 Node.Kind 入图；不增加上位标签或三分类字段。具体 Namespace Kind 仅表示语言自身的 namespace
 声明。Go API 使用 DocumentKind 常量表示 Document 节点类别，其值与 Cypher 标签均为 "Document"。
+内部以 Entity 统一登记各类实体；Namespace 是 Entity 的成员组织视图，源码贡献与直接成员
+分别由 declares 和 contains 投影。身份来源决定如何寻址，不决定逻辑角色。
 组织层级与身份规则见[命名空间组织](namespaces.md)。
 
 在 Relation 层面，代码领域赋予边具体含义：imports 表达导入依赖，implements 表达接口实现，
@@ -139,7 +141,7 @@ outline 的结构化计数描述查询产生的候选，不能证明源码中的
 1. 消费者提供源码快照标识、Document 批次、允许范围及预算。diff 是入口来源之一，
    不是图必须认识的业务对象，也不是唯一构图方式。
 2. Extract 在有界 worker 中通过语言提取器保留脱离 AST 的事实，Core 随后释放语法树。
-3. Organize 登记组织身份与源码贡献，并把声明内嵌套和已知组织成员汇入统一直接成员索引。
+3. Organize 汇总语言实体、Document 的语义根及关系证据；全部实体登记后，将嵌套与根成员关系汇入 Namespace 视图。
 4. Bind 解析导入、类型及接收者归属。所有语言完成绑定后，Resolve 才解析引用与调用，
    复用完整的直接成员和类型关系；候选与局部诊断随阶段结果返回。
 5. Core 校验端点与预算，组装具体类别节点和带来源的关系，物化到 GoGraph 后原子发布。
@@ -313,7 +315,7 @@ Lambda 默认值中的调用属于创建函数时的表达式，函数体调用�
 
 ### 模块符号绑定
 
-Go 文件 imports 指向 Package，Python 文件 imports 指向 Module / Package；JS/TS 的模块依赖仍指向 Document。
+Go 文件 imports 指向 Package，Python 文件 imports 指向 Module / Package，JS/TS 文件 imports 指向 Module。
 具名导入及显式转导出另生成指向最终声明的 imports 关系，
 来源是导入所在 Document 或最内层声明。引用和函数调用共用同一绑定解析，关系位置保留各自的使用证据。
 JS/TS 通过显式公开名称、default、namespace 和 re-export 链定位声明；显式导出优先于星号转导出，

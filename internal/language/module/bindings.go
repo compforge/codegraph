@@ -58,18 +58,11 @@ func (b moduleBinder) exportTargets(p, name string, seen map[exportKey]bool) ([]
 		}
 	}
 	if explicit {
-		if key := b.namespaces.ByDocument[p]; key != "" {
-			for _, ref := range b.namespaces.Members[analysis.OrganizationRef(key)][local] {
-				out = append(out, bindingTarget{Ref: ref, Confidence: "exact"})
-			}
-		} else {
-			for i, d := range f.Declarations {
-				if d.Parent == -1 && d.Name == local {
-					out = append(out, bindingTarget{Ref: analysis.SourceRef(p, i), Confidence: "exact"})
-				}
-			}
+		for _, ref := range b.namespaces.Namespace(b.namespaces.Roots[p]).Members(local) {
+			out = append(out, bindingTarget{Ref: ref, Confidence: "exact"})
 		}
 	}
+
 	for _, imp := range f.Imports {
 		for _, binding := range imp.Bindings {
 			wanted := ""
@@ -122,7 +115,7 @@ func (b moduleBinder) useTargets(f analysis.Facts, name, receiver string, span a
 				var modules []bindingTarget
 				for _, p := range paths {
 					if target, ok := b.files[p]; ok && b.namespaces.policy.Compatible(target.Language) {
-						modules = append(modules, bindingTarget{Ref: b.namespaces.ModuleRef(p), Confidence: "exact"})
+						modules = append(modules, bindingTarget{Ref: b.namespaces.Roots[p], Confidence: "exact"})
 					}
 				}
 				if b.namespaces.policy.ImportConfidence(imp, len(modules)) == "candidate" {

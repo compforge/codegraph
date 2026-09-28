@@ -9,14 +9,16 @@ import (
 	"github.com/compforge/codegraph/internal/analysis"
 )
 
-func (Adapter) Organize(ctx context.Context, scope analysis.Scope) ([]analysis.Organization, []analysis.Edge, error) {
+func (Adapter) Organize(ctx context.Context, scope analysis.Scope) (analysis.Organization, error) {
 	files := scope.Files
-	x := analysis.NewIndex(files)
+	units := map[string]analysis.Entity{}
+	roots := map[string]string{}
+	var edges []analysis.Edge
 	names := scope.Names
 	pythonPackages := map[string][]string{}
 	for _, p := range names {
 		if err := ctx.Err(); err != nil {
-			return nil, nil, err
+			return analysis.Organization{}, err
 		}
 		f := files[p]
 		kind, name, anchor, qualified := "", "", "", ""
@@ -28,14 +30,13 @@ func (Adapter) Organize(ctx context.Context, scope analysis.Scope) ([]analysis.O
 		qualified = name
 		data, _ := json.Marshal([]string{f.Language, kind, anchor, name})
 		key := string(data)
-		unit := x.Units[key]
-		if unit.Key == "" {
-			unit = analysis.Organization{Key: key, Kind: kind, Name: name, QualifiedName: qualified, Language: f.Language}
+		unit := units[key]
+		if unit.Kind == "" {
+			unit = analysis.Entity{Ref: analysis.SyntheticRef(key), Kind: kind, Name: name, QualifiedName: qualified, Language: f.Language}
 		}
-		unit.Documents = append(unit.Documents, p)
-		x.Units[key] = unit
-		x.ByDocument[p] = key
-		x.Edges = append(x.Edges, analysis.Edge{Source: analysis.SourceRef(p, -1), Target: analysis.OrganizationRef(key), Kind: "declares", Confidence: "exact", Basis: "source_namespace", Path: p, Span: span})
+		units[key] = unit
+		roots[p] = key
+		edges = append(edges, analysis.Edge{Source: analysis.SourceRef(p, -1), Target: analysis.SyntheticRef(key), Kind: "declares", Confidence: "exact", Basis: "source_namespace", Path: p, Span: span})
 		if f.Language == "python" && kind == "Package" {
 			pythonPackages[path.Dir(p)] = append(pythonPackages[path.Dir(p)], key)
 		}
@@ -44,15 +45,15 @@ func (Adapter) Organize(ctx context.Context, scope analysis.Scope) ([]analysis.O
 	// nesting. .py/.pyi remain separate source candidates until a typing policy exists.
 	for _, p := range names {
 		if err := ctx.Err(); err != nil {
-			return nil, nil, err
+			return analysis.Organization{}, err
 		}
 		f := files[p]
-		key := x.ByDocument[p]
+		key := roots[p]
 		if key == "" || f.Language != "python" {
 			continue
 		}
 		dir := path.Dir(p)
-		if x.Units[key].Kind == "Package" {
+		if units[key].Kind == "Package" {
 			if dir == "." {
 				continue
 			}
@@ -64,22 +65,24 @@ func (Adapter) Organize(ctx context.Context, scope analysis.Scope) ([]analysis.O
 			if len(parents) > 1 {
 				confidence = "candidate"
 			}
-			x.Edges = append(x.Edges, analysis.Edge{Source: analysis.OrganizationRef(parent), Target: analysis.OrganizationRef(key), Kind: "contains", Confidence: confidence, Basis: "package_child", Path: p, Span: analysis.Span{End: len(f.Source)}})
+			edges = append(edges, analysis.Edge{Source: analysis.SyntheticRef(parent), Target: analysis.SyntheticRef(key), Kind: "contains", Confidence: confidence, Basis: "package_child", Path: p, Span: analysis.Span{End: len(f.Source)}})
 		}
 		// QualifiedName is display context, not identity. Loading a parent may enrich
 		// it while the module ID and all existing declaration IDs remain stable.
-		parts := []string{x.Units[key].Name}
+		parts := []string{units[key].Name}
 		for dir != "." && len(pythonPackages[dir]) > 0 {
 			parts = append([]string{path.Base(dir)}, parts...)
 			dir = path.Dir(dir)
 		}
-		unit := x.Units[key]
+		unit := units[key]
 		unit.QualifiedName = strings.Join(parts, ".")
-		x.Units[key] = unit
+		units[key] = unit
 	}
-	units := make([]analysis.Organization, 0, len(x.Units))
+	result := analysis.Organization{Roots: map[string]analysis.Ref{}, Edges: edges}
 	for _, p := range names {
-		units = append(units, x.Units[x.ByDocument[p]])
+		unit := units[roots[p]]
+		result.Entities = append(result.Entities, unit)
+		result.Roots[p] = unit.Ref
 	}
-	return units, x.Edges, nil
+	return result, nil
 }

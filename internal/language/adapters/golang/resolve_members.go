@@ -72,7 +72,7 @@ func goMemberReferenceTargets(ctx context.Context, f analysis.Facts, ref analysi
 			if (path.Dir(typ.Path) != path.Dir(f.Path) || typ.Package != f.Package) && !exported(ref.Name) {
 				continue
 			}
-			for _, member := range methods.namespaces.Members[root][ref.Name] {
+			for _, member := range methods.namespaces.Namespace(root).Members(ref.Name) {
 				if member.IsDeclaration() && files[member.Path].Declarations[member.Declaration].Kind == "field" {
 					if err := add(member); err != nil {
 						return err

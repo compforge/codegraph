@@ -70,6 +70,8 @@ RETURN s, f
 `declares` connects a Document to its source declarations and package/module contributions.
 `contains` connects semantic owners to direct members, including nested Python packages/modules.
 Go packages span multiple files; their directory hierarchy does not imply package nesting.
+JS/TS files contribute Module nodes that own top-level declarations. Whole-module imports and namespace
+references target these Module nodes; use incoming `declares` edges to locate their source Documents.
 Receiver methods have a `contains` edge from their
 receiver type when it is found in the loaded package, including across files. The relation's `basis`
 distinguishes `declaration` from `receiver_declaration`; ambiguous receivers produce candidate edges,
