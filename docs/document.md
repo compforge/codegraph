@@ -54,7 +54,7 @@ Extract 返回带 Gitlink 的事实；入图后仍是 Document，可通过 Node.
 向 gitlink Document 建立 imports。每个导入位置保留独立证据，Basis 为 gitlink_boundary。
 
 - JS/TS/TSX 相对路径支持直接指向边界或其内部路径。
-- Python 使用模块路径规则：显式相对导入可为 exact，绝对导入仍为 candidate。
+- Python 使用模块路径规则：显式相对导入可为 exact，绝对导入仍为 scoped。
 - Go 使用调用方提供的 ModulePath 将模块内导入换算为路径。
 
 路径前缀按目录段匹配，sdk-extra 不属于 sdk。@example/sdk 等包名不能从 commit 推断，

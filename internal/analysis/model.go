@@ -2,6 +2,17 @@ package analysis
 
 import (
 	"errors"
+
+	"github.com/compforge/codegraph/internal/confidence"
+)
+
+type Confidence = confidence.Level
+
+const (
+	Exact     = confidence.Exact
+	Scoped    = confidence.Scoped
+	NameOnly  = confidence.NameOnly
+	Heuristic = confidence.Heuristic
 )
 
 var ErrEvidenceLimit = errors.New("evidence limit reached")
@@ -43,18 +54,20 @@ func (r Ref) IsDocument() bool     { return r.kind == documentEntity }
 func (r Ref) SyntheticKey() string { return r.key }
 
 type Evidence struct {
-	Basis, Confidence string
-	Location          *SourceLocation
+	Basis      string
+	Confidence Confidence
+	Location   *SourceLocation
 }
 
 // Edge is one occurrence; producers supply a single derivation via Basis/Confidence.
 // Index canonicalizes these contributions into Evidence.
 type Edge struct {
-	Evidence                []Evidence
-	Source, Target          Ref
-	Kind, Confidence, Basis string
-	Path                    string
-	Span                    Span
+	Evidence       []Evidence
+	Source, Target Ref
+	Kind, Basis    string
+	Confidence     Confidence
+	Path           string
+	Span           Span
 }
 type Gap struct {
 	Path, Code, Reference, Relation string
@@ -73,5 +86,5 @@ func EnclosingDeclaration(f Facts, span Span) int {
 
 type BindingTarget struct {
 	Ref
-	Confidence string
+	Confidence Confidence
 }

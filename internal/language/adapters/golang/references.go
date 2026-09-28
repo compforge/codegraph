@@ -18,7 +18,7 @@ func resolveReferences(ctx context.Context, files map[string]analysis.Facts, nam
 				return nil, nil, err
 			}
 			targets := []Ref{}
-			confidence, basis := "candidate", "lexical_name"
+			confidence, basis := analysis.Scoped, "lexical_name"
 			if usage(r.Extension).Key != nil {
 				var ordinary bool
 				var err error
@@ -31,7 +31,7 @@ func resolveReferences(ctx context.Context, files map[string]analysis.Facts, nam
 						if len(edges) >= limit {
 							return nil, nil, ErrEdgeLimit
 						}
-						edges = append(edges, Edge{Source: analysis.SourceRef(name, r.Owner), Target: target, Kind: "references", Confidence: "candidate", Basis: "composite_field", Path: name, Span: r.Span})
+						edges = append(edges, Edge{Source: analysis.SourceRef(name, r.Owner), Target: target, Kind: "references", Confidence: "scoped", Basis: "composite_field", Path: name, Span: r.Span})
 					}
 					if len(targets) == 0 {
 						issues = append(issues, Gap{Path: name, Code: "unresolved_reference", Reference: r.Name, Relation: "references", Span: r.Span})
@@ -45,7 +45,7 @@ func resolveReferences(ctx context.Context, files map[string]analysis.Facts, nam
 					return nil, nil, err
 				}
 				for _, target := range found {
-					edges = append(edges, Edge{Source: analysis.SourceRef(name, r.Owner), Target: target, Kind: "references", Confidence: "candidate", Basis: "receiver_type", Path: name, Span: r.Span})
+					edges = append(edges, Edge{Source: analysis.SourceRef(name, r.Owner), Target: target, Kind: "references", Confidence: "scoped", Basis: "receiver_type", Path: name, Span: r.Span})
 				}
 				if len(found) == 0 {
 					issues = append(issues, Gap{Path: name, Code: "unresolved_reference", Reference: r.Name, Relation: "references", Span: r.Span})

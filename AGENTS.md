@@ -18,6 +18,7 @@ build.go、build_graph.go                 # 范围构建、诊断及原子发布
 build_extract.go、material.go            # 有界提取、容量预留、统一材料分类及确定性汇总
 query.go                                # 只读查询及领域结果还原
 internal/
+  confidence/                           # 公共 API 与分析过程共用的证据精度及排序
   analysis/                             # 实体、Namespace、Scope/Binding、Relation/Evidence 登记及阶段契约
   pipeline/                             # parser 生命周期与 Organize → Bind → Resolve 阶段屏障
   language/                             # 内置语言注册及能力声明
@@ -35,7 +36,7 @@ docs/kernel.md                          # 稳定模型、主流程与设计依�
 ## 关键约定
 
 1. Node 使用具体语言类别；Symbol 与 Namespace 是可重叠的逻辑角色。源码贡献、成员归属和词法可见性分别由 declares、contains 与 Scope/Binding 表达。
-2. 关系身份保留端点、种类及发生位置，多条依据汇入 Evidence。保留候选与局部缺口，不虚构目标，也不将证据强度解释为业务影响概率。
+2. 关系身份保留端点、种类及发生位置，多条依据汇入 Evidence，Relation.Confidence 由 Evidence 的最高档推导；单条证据的必要推导链取最低档。保留候选与局部缺口，不虚构目标，也不将证据强度解释为业务影响概率。
 3. 同一 Graph 只容纳同一快照。Core 拥有调度、预算及原子发布；语言实现通过阶段接口提供事实、关系与诊断，不获取材料或直接操作图存储。
 4. AST 与引擎对象不穿透公共 API，提取结果脱离 parser 生命周期。新增语言能力同步更新注册声明及契约测试，grammar 可用不等于语义完整。
 5. 执行失败由 error 表达；局部诊断不否定无关事实。库测试验证图契约，真实语料验证语义覆盖，消费者验证自身策略与执行行为。

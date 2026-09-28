@@ -43,7 +43,7 @@ func TestImportedTypeRelationsAndIncrementalBinding(t *testing.T) {
 		confidence                   Confidence
 	}{
 		{"app.go", `package app; import "example.org/lib"; type Child interface{lib.Base}`, "lib/base.go", `package lib;type Base interface{Run()}`, Exact},
-		{"app.py", "from base import Base as Parent\nclass Child(Parent): pass\n", "base.py", "class Base: pass\n", Candidate},
+		{"app.py", "from base import Base as Parent\nclass Child(Parent): pass\n", "base.py", "class Base: pass\n", Scoped},
 		{"app.ts", "import {Parent} from './barrel';class Child extends Parent {}", "barrel.ts", "export {Base as Parent} from './base'", Exact},
 	} {
 		t.Run(tc.path, func(t *testing.T) {
@@ -119,7 +119,7 @@ func TestGoMethodSetCandidates(t *testing.T) {
 			count++
 			a, _ := g.Node(r.Source)
 			b, _ := g.Node(r.Target)
-			if a.Name != "A" || b.Name != "I" || b.Location.Path != "types.go" || r.Confidence != Candidate || r.Evidence[0].Basis != "method_name_set" {
+			if a.Name != "A" || b.Name != "I" || b.Location.Path != "types.go" || r.Confidence != Heuristic || r.Evidence[0].Basis != "method_name_set" {
 				t.Fatal(r, a, b)
 			}
 		}

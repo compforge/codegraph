@@ -59,7 +59,7 @@ func TestLanguageStagesAndSharedMembership(t *testing.T) {
 						t.Fatalf("receiver member unavailable: %v", got)
 					}
 					if name == "alpha" {
-						return []analysis.Edge{{Source: owner, Target: member, Kind: "calls", Path: "a.probe", Confidence: "candidate", Basis: "probe_binding"}}, nil, nil
+						return []analysis.Edge{{Source: owner, Target: member, Kind: "calls", Path: "a.probe", Confidence: "scoped", Basis: "probe_binding"}}, nil, nil
 					}
 					return nil, nil, nil
 				})}
@@ -89,7 +89,7 @@ func TestLanguageStagesAndSharedMembership(t *testing.T) {
 		t.Fatal("source ownership became semantic containment")
 	}
 	methods := analysis.NewMethodIndex(index)
-	found, err := methods.Lookup(context.Background(), []analysis.Ref{owner}, "run", func(analysis.Ref) bool { return true }, 2)
+	found, err := methods.Lookup(context.Background(), []analysis.BindingTarget{{Ref: owner, Confidence: analysis.Exact}}, "run", func(analysis.Ref) bool { return true }, 2)
 	if err != nil || len(found) != 1 || found[0].Ref != member {
 		t.Fatalf("method lookup did not use shared membership: %v %v", found, err)
 	}
@@ -201,7 +201,7 @@ func TestRelationAndEvidenceBudgetsAreSeparate(t *testing.T) {
 			if limit < 2 {
 				return analysis.BindResult{}, analysis.ErrEvidenceLimit
 			}
-			e := analysis.Edge{Source: analysis.DocumentRef("a"), Target: analysis.DocumentRef("b"), Kind: "imports", Path: "a", Basis: "first", Confidence: "candidate"}
+			e := analysis.Edge{Source: analysis.DocumentRef("a"), Target: analysis.DocumentRef("b"), Kind: "imports", Path: "a", Basis: "first", Confidence: "scoped"}
 			other := e
 			other.Basis = "second"
 			return analysis.BindResult{Edges: []analysis.Edge{e, other}}, nil

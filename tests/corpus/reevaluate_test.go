@@ -44,7 +44,7 @@ func readObservation(dir string, input InputIdentity) (observed, SubjectIdentity
 		}
 		report.Input = InputIdentity{legacy.Repository, legacy.Profile, legacy.Inputs}
 		report.Subject = SubjectIdentity{legacy.CodeGraphRevision, legacy.CodeGraphDiffSHA256, legacy.CodeGraphSourceSHA256, legacy.BuildInfo}
-	case 2:
+	case 2, 3:
 	default:
 		return graph, subject, nil, fmt.Errorf("unsupported original report schema %d", report.SchemaVersion)
 	}
@@ -65,6 +65,20 @@ func readObservation(dir string, input InputIdentity) (observed, SubjectIdentity
 				return graph, subject, nil, fmt.Errorf("original relation lacks evidence")
 			}
 			r.Evidence = []cg.Evidence{{Basis: legacy.Relations[i].Basis, Confidence: r.Confidence}}
+		}
+	}
+	// Old candidate grades cannot be reconstructed from Basis alone.
+	for _, r := range graph.Relations {
+		allowed := func(c cg.Confidence) bool {
+			return c.Valid() || c == legacyCandidate && (report.SchemaVersion < 3 || report.ReevaluatedFrom != nil)
+		}
+		if !allowed(r.Confidence) {
+			return graph, subject, nil, fmt.Errorf("unsupported confidence %q in schema %d", r.Confidence, report.SchemaVersion)
+		}
+		for _, proof := range r.Evidence {
+			if !allowed(proof.Confidence) {
+				return graph, subject, nil, fmt.Errorf("unsupported evidence confidence %q", proof.Confidence)
+			}
 		}
 	}
 	origin := &artifactOrigin{report.SchemaVersion, fmt.Sprintf("%x", sha256.Sum256(reportData)), fmt.Sprintf("%x", sha256.Sum256(graphData))}
@@ -91,5 +105,42 @@ func TestReevaluationPreservesSubjectAndSource(t *testing.T) {
 	input.Profile = "changed"
 	if _, _, _, err := readObservation(dir, input); err == nil {
 		t.Fatal("accepted different input")
+	}
+}
+
+// A current report can retain a legacy graph only through explicit re-evaluation.
+func TestReevaluationLegacyGradesRequireProvenance(t *testing.T) {
+	dir := t.TempDir()
+	input := InputIdentity{Profile: "fixed"}
+	graph := observed{Relations: []cg.Relation{{Confidence: legacyCandidate, Evidence: []cg.Evidence{{Basis: "syntax", Confidence: legacyCandidate}}}}}
+	graphData, err := json.Marshal(graph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "graph.json"), graphData, 0600); err != nil {
+		t.Fatal(err)
+	}
+	report := runReport{SchemaVersion: 3, Status: "measured", Input: input}
+	save := func() {
+		t.Helper()
+		data, err := json.Marshal(report)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "report.json"), data, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	save()
+	if _, _, _, err := readObservation(dir, input); err == nil {
+		t.Fatal("current subject emitted legacy grade")
+	}
+	for _, schema := range []int{2, 3} {
+		report.ReevaluatedFrom = &artifactOrigin{SchemaVersion: schema, ReportSHA256: "retained", GraphSHA256: "retained"}
+		save()
+		got, _, _, err := readObservation(dir, input)
+		if err != nil || got.Relations[0].Confidence != legacyCandidate {
+			t.Fatal(got, err)
+		}
 	}
 }

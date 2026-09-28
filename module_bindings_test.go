@@ -15,8 +15,8 @@ func TestModuleSymbolBindings(t *testing.T) {
 		{"js_default", "app.js", "import run from './lib.js';\nexport function entry(){ return run(); }", "lib.js", "export default function work() {}", Exact},
 		{"ts_namespace", "app.ts", "import * as lib from './lib';\nexport function entry(){ return lib.work(); }", "lib.ts", "export function work() {}", Exact},
 		{"py_relative", "pkg/app.py", "from .lib import work as run\ndef entry():\n    return run()\n", "pkg/lib.py", "def work():\n    pass\n", Exact},
-		{"py_absolute", "app.py", "from lib import work as run\ndef entry():\n    return run()\n", "lib.py", "def work():\n    pass\n", Candidate},
-		{"py_namespace", "app.py", "import lib as helper\ndef entry():\n    return helper.work()\n", "lib.py", "def work():\n    pass\n", Candidate},
+		{"py_absolute", "app.py", "from lib import work as run\ndef entry():\n    return run()\n", "lib.py", "def work():\n    pass\n", Scoped},
+		{"py_namespace", "app.py", "import lib as helper\ndef entry():\n    return helper.work()\n", "lib.py", "def work():\n    pass\n", Scoped},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			g, _, err := Build(context.Background(), "bindings", []Document{{Path: tc.path, Content: []byte(tc.source)}, {Path: tc.libPath, Content: []byte(tc.lib)}}, Options{})
@@ -102,7 +102,7 @@ func TestModuleBindingCandidatesCyclesAndIncremental(t *testing.T) {
 		t.Fatal(rows)
 	}
 	for _, row := range rows {
-		if row["r"].(Relation).Confidence != Candidate {
+		if row["r"].(Relation).Confidence != Scoped {
 			t.Fatal(row)
 		}
 	}

@@ -68,7 +68,7 @@ func TestReferenceCandidatesAndUnresolved(t *testing.T) {
 		t.Fatal(rows)
 	}
 	for _, row := range rows {
-		if row["r"].(Relation).Confidence != Candidate {
+		if row["r"].(Relation).Confidence != Scoped {
 			t.Fatal(row)
 		}
 	}
@@ -131,7 +131,7 @@ func TestReferenceImportedNameAndShadowedReceiver(t *testing.T) {
 		t.Fatal(err)
 	}
 	rows := query(t, g, `MATCH (:Function {name:'use'})-[r:references]->(:Constant {name:'Value'}) RETURN r`, nil)
-	if len(rows) != 1 || rows[0]["r"].(Relation).Confidence != Candidate || rows[0]["r"].(Relation).Evidence[0].Basis != "imported_name" {
+	if len(rows) != 1 || rows[0]["r"].(Relation).Confidence != Scoped || rows[0]["r"].(Relation).Evidence[0].Basis != "imported_name" {
 		t.Fatal(rows)
 	}
 	rows = query(t, g, `MATCH (:Function {name:'shadow'})-[:references]->(:Constant {name:'Value'}) RETURN 1`, nil)

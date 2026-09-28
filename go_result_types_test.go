@@ -70,7 +70,7 @@ func TestGoDeclaredResultTypes(t *testing.T) {
 					continue
 				}
 				count++
-				if n.QualifiedName != tc.target || e.Confidence != Candidate {
+				if n.QualifiedName != tc.target || e.Confidence != Scoped {
 					t.Fatalf("wrong result binding: %+v", row)
 				}
 			}
@@ -116,7 +116,7 @@ func TestGoResultTypeCallTargets(t *testing.T) {
 		t.Fatal(rows, g.Report())
 	}
 	for _, row := range rows {
-		if row["target"].(Node).QualifiedName != "Leaf.Run" || row["r"].(Relation).Confidence != Candidate {
+		if row["target"].(Node).QualifiedName != "Leaf.Run" || row["r"].(Relation).Confidence != Scoped {
 			t.Fatal(row)
 		}
 	}

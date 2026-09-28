@@ -44,9 +44,9 @@ func (Adapter) Extract(ctx context.Context, f Facts, tree *gts.Tree, entry gramm
 func (Adapter) Compatible(lang string) bool {
 	return lang == "javascript" || lang == "typescript" || lang == "tsx"
 }
-func (Adapter) ImportConfidence(imp analysis.Import, n int) string {
+func (Adapter) ImportConfidence(imp analysis.Import, n int) analysis.Confidence {
 	if n > 1 {
-		return "candidate"
+		return "scoped"
 	}
 	return "exact"
 }

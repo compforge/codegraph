@@ -23,7 +23,7 @@ func TestPythonAbsoluteImportsBelowSnapshotRoot(t *testing.T) {
 				t.Fatalf("calls=%v diagnostics=%v", rows, g.Report().Diagnostics)
 			}
 			for _, row := range rows {
-				if row["r"].(Relation).Confidence != Candidate || row["target"].(Node).Location.Path != prefix+"pkg/lib.py" {
+				if row["r"].(Relation).Confidence != Scoped || row["target"].(Node).Location.Path != prefix+"pkg/lib.py" {
 					t.Fatal(row)
 				}
 			}
@@ -35,7 +35,7 @@ func TestPythonAbsoluteImportsBelowSnapshotRoot(t *testing.T) {
 				t.Fatal(refs)
 			}
 			for _, row := range refs {
-				if row["r"].(Relation).Confidence != Candidate {
+				if row["r"].(Relation).Confidence != Scoped {
 					t.Fatal(row)
 				}
 			}
@@ -59,7 +59,7 @@ func TestPythonPackageLayoutReExportAndReload(t *testing.T) {
 		t.Fatal(err)
 	}
 	rows := query(t, g, `MATCH (:Function {name:'entry'})-[r:calls]->(target:Function {name:'work'}) RETURN r,target`, nil)
-	if len(rows) != 1 || rows[0]["r"].(Relation).Confidence != Candidate || rows[0]["target"].(Node).Location.Path != "sdk/pkg/lib.py" {
+	if len(rows) != 1 || rows[0]["r"].(Relation).Confidence != Scoped || rows[0]["target"].(Node).Location.Path != "sdk/pkg/lib.py" {
 		t.Fatal(rows)
 	}
 }
@@ -80,7 +80,7 @@ func TestPythonPackageLayoutAmbiguityAndBoundaries(t *testing.T) {
 		t.Fatal(rows)
 	}
 	for _, row := range rows {
-		if row["r"].(Relation).Confidence != Candidate || strings.HasPrefix(row["target"].(Node).Location.Path, "elsewhere/") {
+		if row["r"].(Relation).Confidence != Scoped || strings.HasPrefix(row["target"].(Node).Location.Path, "elsewhere/") {
 			t.Fatal(row)
 		}
 	}
@@ -107,7 +107,7 @@ func TestPythonPackageLayoutStubsAndRelativeImports(t *testing.T) {
 			for _, row := range rows {
 				counts[row["r"].(Relation).Confidence]++
 			}
-			if counts[Exact] != 1 || counts[Candidate] != 1 {
+			if counts[Exact] != 1 || counts[Scoped] != 1 {
 				t.Fatal(counts)
 			}
 		})

@@ -87,7 +87,7 @@ func TestPythonOracleScoring(t *testing.T) {
 		}
 	}
 	bad := evaluate(o, a)
-	if bad.Bindings[cg.Calls].ExactWrong != 1 || bad.Verdict != "failed" {
+	if bad.Bindings[cg.Calls].tier(cg.Exact).Other != 1 || bad.Verdict != "failed" {
 		t.Fatal(bad)
 	}
 	empty := evaluate(o, observed{})

@@ -29,7 +29,7 @@ func TestInheritedMethodCalls(t *testing.T) {
 					continue
 				}
 				count++
-				if r.Confidence != Candidate || r.Evidence[0].Basis != "inherited_method" || target.QualifiedName != "Base.run" && target.QualifiedName != "Base.Run" {
+				if r.Confidence != Scoped || r.Evidence[0].Basis != "inherited_method" || target.QualifiedName != "Base.run" && target.QualifiedName != "Base.Run" {
 					t.Fatal(r, target)
 				}
 			}
@@ -59,7 +59,7 @@ func TestInheritedMethodOverrideAndMultipleBases(t *testing.T) {
 			if r.Kind == Calls {
 				target, _ := g.Node(r.Target)
 				if target.Kind == Method {
-					if r.Evidence[0].Basis != tc.basis || r.Confidence != Candidate {
+					if r.Evidence[0].Basis != tc.basis || r.Confidence != Scoped {
 						t.Fatal(r)
 					}
 					found[target.QualifiedName] = true

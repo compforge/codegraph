@@ -27,7 +27,7 @@ func TargetState(targets []BindingTarget) MatchState {
 	if len(targets) > 1 {
 		return Candidates
 	}
-	if targets[0].Confidence == "candidate" {
+	if targets[0].Confidence != Exact {
 		return Candidates
 	}
 	return Bound

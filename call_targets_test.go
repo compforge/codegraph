@@ -25,7 +25,7 @@ func TestGoReceiverAndCallableCandidates(t *testing.T) {
 	counts := map[string]int{}
 	for _, row := range rows {
 		edge := row["r"].(Relation)
-		if edge.Confidence != Candidate {
+		if edge.Confidence != Scoped {
 			t.Fatal(edge)
 		}
 		counts[row["target"].(Node).Name]++
@@ -66,7 +66,7 @@ func TestGoCrossFileImportedReceiver(t *testing.T) {
 		t.Fatal(err)
 	}
 	rows := query(t, g, `MATCH (:Function {name:'Entry'})-[r:calls]->(m:Method {name:'Run'}) RETURN r,m`, nil)
-	if len(rows) != 1 || rows[0]["r"].(Relation).Confidence != Candidate || rows[0]["m"].(Node).Location.Path != "lib/method.go" {
+	if len(rows) != 1 || rows[0]["r"].(Relation).Confidence != Scoped || rows[0]["m"].(Node).Location.Path != "lib/method.go" {
 		t.Fatal(rows, g.Report())
 	}
 }
@@ -86,7 +86,7 @@ func TestModuleReceiverCandidates(t *testing.T) {
 				t.Fatal(err)
 			}
 			rows := query(t, g, `MATCH (source {name:'entry'})-[r:calls]->(target:Method {name:'run'}) RETURN r,target`, nil)
-			if len(rows) != 1 || rows[0]["r"].(Relation).Confidence != Candidate {
+			if len(rows) != 1 || rows[0]["r"].(Relation).Confidence != Scoped {
 				t.Fatal(rows, g.Report())
 			}
 		})
@@ -108,7 +108,7 @@ func TestImportedClassConstructorAndMethod(t *testing.T) {
 				t.Fatal(rows, g.Report())
 			}
 			for _, row := range rows {
-				if row["r"].(Relation).Confidence != Candidate {
+				if row["r"].(Relation).Confidence != Scoped {
 					t.Fatal(row)
 				}
 			}
@@ -129,7 +129,7 @@ func TestUnknownReceiverRetainsCandidatesAndIsolation(t *testing.T) {
 		t.Fatal(rows)
 	}
 	for _, row := range rows {
-		if row["r"].(Relation).Confidence != Candidate || row["target"].(Node).Location.Path != "app.ts" {
+		if row["r"].(Relation).Confidence != NameOnly || row["target"].(Node).Location.Path != "app.ts" {
 			t.Fatal(row)
 		}
 	}
@@ -174,7 +174,7 @@ func TestGoCallableReassignmentCandidates(t *testing.T) {
 		t.Fatal(rows, g.Report())
 	}
 	for _, row := range rows {
-		if row["r"].(Relation).Confidence != Candidate {
+		if row["r"].(Relation).Confidence != Scoped {
 			t.Fatal(row)
 		}
 	}
@@ -208,7 +208,7 @@ func TestGoMethodExpressionsAndUnqualifiedPackageName(t *testing.T) {
 	}
 	for _, name := range []string{"Entry", "Imported"} {
 		rows := query(t, g, `MATCH (:Function {name:$name})-[r:calls]->(:Method {name:'Run'}) RETURN r`, map[string]any{"name": name})
-		if len(rows) != 1 || rows[0]["r"].(Relation).Confidence != Candidate {
+		if len(rows) != 1 || rows[0]["r"].(Relation).Confidence != Scoped {
 			t.Fatal(name, rows, g.Report())
 		}
 	}
@@ -224,7 +224,7 @@ func TestGoUnknownReceiverMethodCandidates(t *testing.T) {
 		t.Fatal(rows, g.Report())
 	}
 	for _, row := range rows {
-		if row["r"].(Relation).Confidence != Candidate || row["r"].(Relation).Evidence[0].Basis != "method_name" {
+		if row["r"].(Relation).Confidence != NameOnly || row["r"].(Relation).Evidence[0].Basis != "method_name" {
 			t.Fatal(row)
 		}
 	}

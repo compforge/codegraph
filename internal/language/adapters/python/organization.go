@@ -61,9 +61,9 @@ func (Adapter) Organize(ctx context.Context, scope analysis.BuildScope) (analysi
 		}
 		parents := pythonPackages[dir]
 		for _, parent := range parents {
-			confidence := "exact"
+			confidence := analysis.Exact
 			if len(parents) > 1 {
-				confidence = "candidate"
+				confidence = "scoped"
 			}
 			edges = append(edges, analysis.Edge{Source: analysis.SyntheticRef(parent), Target: analysis.SyntheticRef(key), Kind: "contains", Confidence: confidence, Basis: "package_child", Path: p, Span: analysis.Span{End: len(f.Source)}})
 		}

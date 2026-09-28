@@ -17,7 +17,7 @@ func resolveReferences(ctx context.Context, files map[string]analysis.Facts, nam
 				return nil, nil, err
 			}
 			targets := []Ref{}
-			confidence, basis := "candidate", "lexical_name"
+			confidence, basis := analysis.NameOnly, "lexical_name"
 			if state := r.BindingState(); state != analysis.NotApplicable {
 				if state == analysis.Bound {
 					targets = append(targets, analysis.SourceRef(name, r.Target))

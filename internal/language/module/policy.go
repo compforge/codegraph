@@ -7,7 +7,7 @@ import (
 type Policy interface {
 	ImportPaths(analysis.Facts, analysis.Import) []string
 	Compatible(string) bool
-	ImportConfidence(analysis.Import, int) string
+	ImportConfidence(analysis.Import, int) analysis.Confidence
 	ExportName(analysis.Facts, string) (string, bool)
 	NestedImport(analysis.Import) bool
 }

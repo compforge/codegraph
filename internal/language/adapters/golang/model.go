@@ -26,5 +26,9 @@ type methodIndex struct {
 }
 
 func (m *methodIndex) lookup(ctx context.Context, roots []Ref, name string, includeTests bool, limit int) ([]analysis.MethodTarget, error) {
-	return m.shared.Lookup(ctx, roots, name, func(r Ref) bool { return includeTests || !strings.HasSuffix(r.Path, "_test.go") }, limit)
+	bindings := make([]analysis.BindingTarget, 0, len(roots))
+	for _, root := range roots {
+		bindings = append(bindings, analysis.BindingTarget{Ref: root, Confidence: analysis.Scoped})
+	}
+	return m.shared.Lookup(ctx, bindings, name, func(r Ref) bool { return includeTests || !strings.HasSuffix(r.Path, "_test.go") }, limit)
 }

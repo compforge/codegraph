@@ -52,11 +52,11 @@ func bind(ctx context.Context, scope analysis.BuildScope, index *analysis.Index,
 				}
 				targets = append(targets, target)
 			}
-			confidence := "exact"
+			confidence := analysis.Exact
 			if len(targets) == 0 {
 				issues = append(issues, Gap{Path: name, Code: "unresolved_receiver", Reference: d.Receiver, Relation: "contains", Span: d.Span})
 			} else if len(targets) > 1 {
-				confidence = "candidate"
+				confidence = "scoped"
 			}
 			for _, owner := range targets {
 				if err := add(Edge{Source: owner, Target: analysis.SourceRef(name, i), Kind: "contains", Confidence: confidence, Basis: "receiver_declaration", Path: name, Span: d.Span}); err != nil {
@@ -78,9 +78,9 @@ func bind(ctx context.Context, scope analysis.BuildScope, index *analysis.Index,
 			if len(targets)+len(gitlinks) == 0 {
 				issues = append(issues, Gap{Path: name, Code: "unresolved_import", Reference: imp.Path, Relation: "imports", Span: imp.Span})
 			}
-			confidence := "exact"
+			confidence := analysis.Exact
 			if namespaces.PackageCount(targets) > 1 {
-				confidence = "candidate"
+				confidence = "scoped"
 			}
 			seenPackages := map[analysis.Ref]bool{}
 			for _, target := range targets {

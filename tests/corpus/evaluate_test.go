@@ -109,7 +109,7 @@ func evaluate(o *oracle, a observed) evaluation {
 		}
 	}
 	for _, b := range e.Bindings {
-		if b.ExactWrong > 0 {
+		if b.tier(cg.Exact).Other > 0 {
 			e.Verdict = "failed"
 		}
 	}
@@ -149,6 +149,9 @@ func compareFacts(e *evaluation, name string, truth map[string]occurrence, actua
 
 func compareBindings(e *evaluation, kind cg.RelationKind, truth map[string]occurrence, nodeKeys map[string]string, a observed) {
 	b := &bindings{}
+	for _, c := range []cg.Confidence{cg.Exact, cg.Scoped, cg.NameOnly, cg.Heuristic} {
+		b.tier(c)
+	}
 	e.Bindings[kind] = b
 	hits, candidates := map[string]bool{}, map[string]map[string]bool{}
 	for _, edge := range a.Relations {
@@ -156,15 +159,15 @@ func compareBindings(e *evaluation, kind cg.RelationKind, truth map[string]occur
 			continue
 		}
 		key := location(edge.Location).key()
-		if edge.Confidence == cg.Candidate {
-			if candidates[key] == nil {
-				candidates[key] = map[string]bool{}
-			}
-			candidates[key][edge.Target] = true
+		// Target-set size measures topology independently of confidence grading.
+		if candidates[key] == nil {
+			candidates[key] = map[string]bool{}
 		}
+		candidates[key][edge.Target] = true
+		tier := b.tier(edge.Confidence)
 		want, exists := truth[key]
 		if !exists || want.Class == "runtime_dispatch" || want.Class == "unknown" {
-			b.Unassessed++
+			tier.Unassessed++
 			e.Unassessed[string(kind)+"/unresolved_oracle"]++
 			continue
 		}
@@ -173,26 +176,17 @@ func compareBindings(e *evaluation, kind cg.RelationKind, truth map[string]occur
 		if correct {
 			hits[key] = true
 		}
-		switch edge.Confidence {
-		case cg.Exact:
-			if correct {
-				b.ExactCorrect++
-			} else {
-				b.ExactWrong++
-			}
-		case cg.Candidate:
-			if correct {
-				b.CandidateCorrect++
-			} else {
-				b.CandidateOther++
-			}
+		if correct {
+			tier.Hit++
+		} else {
+			tier.Other++
 		}
 		if !correct {
 			e.Findings = append(e.Findings, finding{Category: "target_difference/" + string(kind), Site: want.Site, Expected: want.Target, Actual: edge.Target, Confidence: edge.Confidence, Evidence: edge.Evidence})
 		}
 	}
 	for _, set := range candidates {
-		b.MaxCandidates = max(b.MaxCandidates, len(set))
+		b.MaxTargets = max(b.MaxTargets, len(set))
 	}
 	for k, r := range truth {
 		if r.Class != "internal" {

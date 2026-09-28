@@ -124,7 +124,7 @@ func TestNamespaceSameNamesAndStubCandidates(t *testing.T) {
 		t.Fatal(rows)
 	}
 	for _, r := range rows {
-		if r["r"].(Relation).Confidence != Candidate {
+		if r["r"].(Relation).Confidence != Scoped {
 			t.Fatal(r)
 		}
 	}

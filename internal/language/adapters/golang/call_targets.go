@@ -27,13 +27,18 @@ func resolveCallTargets(ctx context.Context, f analysis.Facts, call analysis.Cal
 		if len(targets) > 0 {
 			for _, target := range targets {
 				if files[target.Path].Declarations[target.Declaration].Kind == "method" {
-					edges = append(edges, Edge{Source: source, Target: target, Kind: "calls", Confidence: "candidate", Basis: "receiver_type", Path: f.Path, Span: call.Span})
+					edges = append(edges, Edge{Source: source, Target: target, Kind: "calls", Confidence: "scoped", Basis: "receiver_type", Path: f.Path, Span: call.Span})
 				}
 			}
 			return edges, nil
 		}
 	}
-	seen := map[Ref]bool{}
+	type proofKey struct {
+		Target     Ref
+		Basis      string
+		Confidence analysis.Confidence
+	}
+	seen := map[proofKey]bool{}
 	for _, hint := range call.Targets {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -101,18 +106,25 @@ func resolveCallTargets(ctx context.Context, f analysis.Facts, call analysis.Cal
 			}
 		}
 		for _, target := range targets {
-			if seen[target] {
+			basis := hint.Basis
+			confidence := analysis.Scoped
+			if hint.Kind == "method" && hint.ReceiverType == "" {
+				confidence = analysis.NameOnly
+			}
+			if inherited[target] {
+				basis = "inherited_method"
+			}
+			// Deduplicate proofs, not targets: a later hint may supply stronger evidence.
+			proof := proofKey{target, basis, confidence}
+			if seen[proof] {
 				continue
 			}
 			if len(edges) >= limit {
 				return nil, ErrEdgeLimit
 			}
-			seen[target] = true
-			basis := hint.Basis
-			if inherited[target] {
-				basis = "inherited_method"
-			}
-			edges = append(edges, Edge{Source: source, Target: target, Kind: "calls", Confidence: "candidate", Basis: basis, Path: f.Path, Span: call.Span})
+			seen[proof] = true
+
+			edges = append(edges, Edge{Source: source, Target: target, Kind: "calls", Confidence: confidence, Basis: basis, Path: f.Path, Span: call.Span})
 		}
 	}
 	return edges, nil

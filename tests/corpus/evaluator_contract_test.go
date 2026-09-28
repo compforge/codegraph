@@ -67,7 +67,7 @@ var A,B = 1,2
 		t.Fatal(err)
 	}
 	e := evaluate(o, a)
-	if e.Bindings[cg.Calls].Expected != 1 || e.Bindings[cg.Calls].Hit != 1 || e.Bindings[cg.Calls].ExactWrong != 0 {
+	if e.Bindings[cg.Calls].Expected != 1 || e.Bindings[cg.Calls].Hit != 1 || e.Bindings[cg.Calls].tier(cg.Exact).Other != 0 {
 		t.Fatal(e.Bindings)
 	}
 	var wrong cg.Node
@@ -84,7 +84,7 @@ var A,B = 1,2
 		}
 	}
 	bad := evaluate(o, mutated)
-	if bad.Bindings[cg.Calls].ExactWrong != 1 || bad.Verdict != "failed" {
+	if bad.Bindings[cg.Calls].tier(cg.Exact).Other != 1 || bad.Verdict != "failed" {
 		t.Fatal(bad.Bindings)
 	}
 	empty := evaluate(o, observed{})

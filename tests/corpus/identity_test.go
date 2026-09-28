@@ -94,7 +94,7 @@ func TestEvaluatorDependencyContentIdentity(t *testing.T) {
 }
 
 func TestIdentitySeparatesSubjectFromOracle(t *testing.T) {
-	base := runReport{SchemaVersion: 2, Status: "measured", Evaluation: &evaluation{}, Evaluator: EvaluatorIdentity{SourceSHA256: "oracle", Dependencies: []string{"tools@v1"}}}
+	base := runReport{SchemaVersion: 3, Status: "measured", Evaluation: &evaluation{}, Evaluator: EvaluatorIdentity{SourceSHA256: "oracle", Dependencies: []string{"tools@v1"}}}
 	changed := base
 	changed.Subject = SubjectIdentity{Revision: "new", BuildInfo: "parser@new"}
 	if _, err := compareBaseline(base, changed); err != nil {

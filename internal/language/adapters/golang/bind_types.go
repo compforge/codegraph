@@ -151,7 +151,7 @@ func resolveTypeRelations(ctx context.Context, files map[string]analysis.Facts, 
 					if !complete || count == 0 {
 						continue
 					}
-					if err := add(Edge{Source: analysis.SourceRef(p, i), Target: analysis.SourceRef(q, j), Kind: "implements", Confidence: "candidate", Basis: "method_name_set", Path: p, Span: d.Span}); err != nil {
+					if err := add(Edge{Source: analysis.SourceRef(p, i), Target: analysis.SourceRef(q, j), Kind: "implements", Confidence: analysis.Heuristic, Basis: "method_name_set", Path: p, Span: d.Span}); err != nil {
 						return nil, nil, err
 					}
 				}

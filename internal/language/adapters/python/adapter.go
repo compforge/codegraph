@@ -22,9 +22,9 @@ func (Adapter) Extract(ctx context.Context, f Facts, tree *gts.Tree, entry gramm
 	return f, err
 }
 func (Adapter) Compatible(lang string) bool { return lang == "python" }
-func (Adapter) ImportConfidence(imp analysis.Import, n int) string {
+func (Adapter) ImportConfidence(imp analysis.Import, n int) analysis.Confidence {
 	if n > 1 || imp.Relative == 0 {
-		return "candidate"
+		return "scoped"
 	}
 	return "exact"
 }

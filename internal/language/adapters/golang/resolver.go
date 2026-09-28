@@ -86,9 +86,9 @@ func (s session) Resolve(ctx context.Context, index *analysis.Index, limit int) 
 				}
 				continue
 			}
-			confidence := "exact"
+			confidence := analysis.Exact
 			if len(candidates) > 1 {
-				confidence = "candidate"
+				confidence = "scoped"
 			}
 			for _, target := range candidates {
 				if err := add(Edge{Source: source, Target: target, Kind: "calls", Confidence: confidence, Basis: basis, Path: name, Span: call.Span}); err != nil {

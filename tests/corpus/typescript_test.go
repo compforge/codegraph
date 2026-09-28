@@ -93,7 +93,7 @@ func TestTypeScriptOracleScoring(t *testing.T) {
 			}
 		}
 	}
-	if bad := evaluate(o, a); bad.Bindings[cg.Calls].ExactWrong != 1 || bad.Verdict != "failed" {
+	if bad := evaluate(o, a); bad.Bindings[cg.Calls].tier(cg.Exact).Other != 1 || bad.Verdict != "failed" {
 		t.Fatal(bad)
 	}
 	empty := evaluate(o, observed{})

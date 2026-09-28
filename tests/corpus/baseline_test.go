@@ -130,11 +130,11 @@ func compareBaseline(base, current runReport) ([]string, error) {
 		if now.Hit < prior.Hit {
 			regressions = append(regressions, string(kind)+": fewer correct targets")
 		}
-		if now.ExactWrong > prior.ExactWrong {
+		if now.tier(cg.Exact).Other > prior.tier(cg.Exact).Other {
 			regressions = append(regressions, string(kind)+": more incorrect exact targets")
 		}
-		if now.CandidateOther > prior.CandidateOther || now.MaxCandidates > prior.MaxCandidates {
-			regressions = append(regressions, string(kind)+": candidate expansion needs review")
+		if now.otherTargets() > prior.otherTargets() || now.MaxTargets > prior.MaxTargets {
+			regressions = append(regressions, string(kind)+": target-set expansion needs review")
 		}
 		if now.SilentMissing > prior.SilentMissing {
 			regressions = append(regressions, string(kind)+": more silent target gaps")
@@ -145,7 +145,7 @@ func compareBaseline(base, current runReport) ([]string, error) {
 }
 
 func TestBaselineRejectsDriftAndDetectsLoss(t *testing.T) {
-	base := runReport{SchemaVersion: 2, Status: "measured", Evaluator: EvaluatorIdentity{SourceSHA256: "same"}, Evaluation: &evaluation{Measurements: map[string]*measurement{"declarations/all": {Expected: 10, Found: 9}}, Bindings: map[cg.RelationKind]*bindings{cg.Calls: {Expected: 3, Hit: 3}}}}
+	base := runReport{SchemaVersion: 3, Status: "measured", Evaluator: EvaluatorIdentity{SourceSHA256: "same"}, Evaluation: &evaluation{Measurements: map[string]*measurement{"declarations/all": {Expected: 10, Found: 9}}, Bindings: map[cg.RelationKind]*bindings{cg.Calls: {Expected: 3, Hit: 3}}}}
 	current := base
 	current.Evaluation = &evaluation{Measurements: map[string]*measurement{"declarations/all": {Expected: 10, Found: 8}}, Bindings: map[cg.RelationKind]*bindings{cg.Calls: {Expected: 3, Hit: 2}}}
 	r, err := compareBaseline(base, current)

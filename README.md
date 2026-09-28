@@ -31,7 +31,7 @@ These roles can overlap: a class both declares a type and organizes members.
 
 Relations connect these nodes: `declares` records source contributions, `contains` records direct
 membership, and `imports`, `references`, `calls`, `extends`, and `implements` describe code relationships.
-Each relation preserves its occurrence and evidence. Confidence is `exact` or `candidate`, not a
+Each relation preserves its occurrence and evidence. Confidence is `exact`, `scoped`, `name_only` or `heuristic`, not a
 probability of downstream impact. Missing targets remain diagnostics instead of invented nodes.
 
 ## Quick start
