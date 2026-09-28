@@ -69,9 +69,9 @@ func resolveCalls(ctx context.Context, f analysis.Facts, files map[string]analys
 			issues = append(issues, Issue{Path: f.Path, Code: "unresolved_call", Reference: call.Name, Relation: "calls", Span: call.Span})
 			continue
 		}
-		confidence := "exact"
+		confidence := analysis.Exact
 		if len(targets) > 1 {
-			confidence = "candidate"
+			confidence = "scoped"
 		}
 		for _, target := range targets {
 			if err := add(Edge{Source: source, Target: target, Kind: "calls", Confidence: confidence, Basis: "module_function", Path: f.Path, Span: call.Span}); err != nil {

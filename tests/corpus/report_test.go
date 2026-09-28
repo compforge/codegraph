@@ -45,10 +45,19 @@ func renderSummary(r runReport) string {
 			m := e.Measurements[key]
 			fmt.Fprintf(&b, "| %s | %d / %d | %d |\n", key, m.Found, m.Expected, m.Unexpected)
 		}
-		b.WriteString("\n| Relation | Internal target hits | Correct / wrong exact | Correct / other candidate | Unassessed edges | Silent missing targets |\n|---|---:|---:|---:|---:|---:|\n")
+		b.WriteString("\n| Relation | Internal target hits | Max targets per occurrence | Silent missing targets |\n|---|---:|---:|---:|\n")
 		for _, kind := range []cg.RelationKind{cg.References, cg.Calls} {
 			v := e.Bindings[kind]
-			fmt.Fprintf(&b, "| %s | %d / %d | %d / %d | %d / %d | %d | %d |\n", kind, v.Hit, v.Expected, v.ExactCorrect, v.ExactWrong, v.CandidateCorrect, v.CandidateOther, v.Unassessed, v.SilentMissing)
+			fmt.Fprintf(&b, "| %s | %d / %d | %d | %d |\n", kind, v.Hit, v.Expected, v.MaxTargets, v.SilentMissing)
+		}
+		b.WriteString("\n| Relation | Confidence | Hit | Other target | Unassessed |\n|---|---|---:|---:|---:|\n")
+		for _, kind := range []cg.RelationKind{cg.References, cg.Calls} {
+			for _, c := range []cg.Confidence{cg.Exact, cg.Scoped, cg.NameOnly, cg.Heuristic, legacyCandidate} {
+				v := e.Bindings[kind].ByConfidence[c]
+				if v != nil {
+					fmt.Fprintf(&b, "| %s | %s | %d | %d | %d |\n", kind, c, v.Hit, v.Other, v.Unassessed)
+				}
+			}
 		}
 		if r.Input.Repository.Language == "python" {
 			fmt.Fprintf(&b, "\nUnreviewed source occurrences: references=%d, calls=%d. Reviewed runtime-dispatch calls=%d, external calls=%d.\n", e.Unassessed["references/unknown"], e.Unassessed["calls/unknown"], e.Unassessed["calls/runtime_dispatch"], e.Unassessed["calls/external"])

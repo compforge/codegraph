@@ -187,7 +187,7 @@ func TestImportCandidatesAndScope(t *testing.T) {
 		t.Fatal(rows)
 	}
 	for _, row := range rows {
-		if row["r"].(Relation).Confidence != Candidate {
+		if row["r"].(Relation).Confidence != Scoped {
 			t.Fatal(row)
 		}
 	}

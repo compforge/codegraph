@@ -237,7 +237,7 @@ func TestShadowingAndAmbiguity(t *testing.T) {
 		t.Fatal(rows)
 	}
 	for _, r := range rows {
-		if r["confidence"] != "candidate" {
+		if r["confidence"] != "scoped" {
 			t.Fatal(rows)
 		}
 	}

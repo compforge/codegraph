@@ -38,9 +38,11 @@ testdata、嵌套 module 等不混入已评估分母。此 profile 不代表所�
 `found / expected` 表达召回；`unexpected` 保留无法对应参照的输出。声明整体口径与契约口径同时
 展示，避免缩小支持范围掩盖真实缺口。关系的目标命中率也不代表所有这些绑定形式都已被库承诺支持。
 
-关系按 exact 正确/错误、candidate 命中/其他目标、未评估分别计数。候选集合最大大小同时记录，
-防止通过扩大候选集合掩盖质量退化。candidate 的其他目标表示不等于本次编译器绑定，仍需结合
-候选规则审定，不能直接解释成错误的 exact 关系。
+关系按 exact、scoped、name_only、heuristic 分别记录命中、其他目标和未评估数量。
+exact 的其他目标属于错误绑定，维持严格失败门禁；较低档的其他目标需结合规则审定。
+目标集合最大大小覆盖所有档位，独立于 confidence，防止通过扩大集合掩盖质量退化。
+比较实现变更时分别核对节点、端点、种类与 occurrence 的变化，以及相同关系的分级变化；
+不能把重分级解释为目标召回提升或退化。
 
 函数变量调用、接口动态分派等没有完整静态运行时答案的调用保持未评估。外部依赖目标不纳入内部
 目标召回分母；但如果误连到本仓库目标，仍能发现与编译器答案的差异。
@@ -93,7 +95,7 @@ make test-corpus CORPUS=go-stdx \
   CORPUS_REPORT_DIR=/path/to/new-report
 ```
 
-报告 schema 2 分离三种身份：
+报告 schema 3 分离三种身份：
 
 - InputIdentity：仓库固定快照、profile 与材料清单及内容摘要。
 - EvaluatorIdentity：评分/oracle 源码、工具链、实际 evaluator 依赖闭包。Go oracle 记录
@@ -131,6 +133,11 @@ make test-corpus CORPUS_BASELINE_DIR=/path/to/reevaluated-report \
 重评仍校验输入身份，并重新生成独立 oracle；不重新运行旧版 CodeGraph。
 新报告沿用原 SubjectIdentity，记录原 graph/report 的 SHA-256。schema 1 的单 Basis 只在评测器
 读取旧产物时转换为一条 Evidence；库 API 不保留兼容字段。原报告与原图保持不变。
+schema 1/2 的 candidate 仅在评测器中保留为历史未分级档，不根据 Basis 强行映射到新四档；
+本版重新构建的图只产生四个当前值；schema 3 的重评报告需保留来源才能继续读取历史档位。
+四档统计不会混入历史 candidate。
+跨 schema 基线必须显式重评；总目标命中、其他目标和目标集合规模仍可比较。
 新评测器引入了原图不含的信息时，相应指标只能描述可重评范围，不能补造历史证据。
 
-本轮新契约的六仓比较见 [0.8 评测记录](../tests/corpus/semantic-contracts.md)。
+关系与组织模型的六仓比较见 [0.8 评测记录](../tests/corpus/semantic-contracts.md)；
+四档 confidence 的拓扑与分级对照见 [0.9 评测记录](../tests/corpus/confidence-tiers.md)。

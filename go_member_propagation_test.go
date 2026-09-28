@@ -59,7 +59,7 @@ func TestGoMemberTypePropagation(t *testing.T) {
 					continue
 				}
 				count++
-				if n.QualifiedName != tc.target || e.Confidence != Candidate {
+				if n.QualifiedName != tc.target || e.Confidence != Scoped {
 					t.Fatalf("wrong propagation: %+v", row)
 				}
 			}
@@ -159,7 +159,7 @@ func TestGoGenericMethodExpressionAcrossFiles(t *testing.T) {
 		t.Fatal(rows, g.Report())
 	}
 	for _, row := range rows {
-		if row["r"].(Relation).Confidence != Candidate {
+		if row["r"].(Relation).Confidence != Scoped {
 			t.Fatal(row)
 		}
 	}

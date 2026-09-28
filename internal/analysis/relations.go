@@ -8,9 +8,10 @@ type edgeKey struct {
 	Span           Span
 }
 type proofKey struct {
-	Basis, Confidence string
-	Location          SourceLocation
-	Located           bool
+	Basis      string
+	Confidence Confidence
+	Location   SourceLocation
+	Located    bool
 }
 
 func proofIdentity(e Evidence) proofKey {
@@ -59,7 +60,7 @@ func (x *Index) registerEdge(e Edge) bool {
 			return a.Basis < b.Basis
 		}
 		if a.Confidence != b.Confidence {
-			return a.Confidence < b.Confidence
+			return b.Confidence.AtLeast(a.Confidence)
 		}
 		if a.Located != b.Located {
 			return !a.Located
@@ -72,19 +73,16 @@ func (x *Index) registerEdge(e Edge) bool {
 		}
 		return a.Location.End < b.Location.End
 	})
-	r.Confidence = "candidate"
+	r.Confidence = ""
 	for _, proof := range r.Evidence {
-		if proof.Confidence == "exact" {
-			r.Confidence = "exact"
-			break
-		}
+		r.Confidence = r.Confidence.Stronger(proof.Confidence)
 	}
 	r.Basis = "" // Aggregate relations have no single privileged derivation.
 	return !exists
 }
 
 // Conflicts retain contradictory unique-target claims at their source site.
-// Candidate alternatives and organization membership are deliberately excluded.
+// Lower-tier alternatives and organization membership are deliberately excluded.
 func (x *Index) Conflicts() []Gap {
 	type site struct {
 		Source     Ref

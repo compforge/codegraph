@@ -49,7 +49,7 @@ func TestGoChainedCallIdentity(t *testing.T) {
 		if text == "Make()" && target.Name == "Make" && edge.Confidence == Exact {
 			found[text] = true
 		}
-		if text == "maker()" && target.Name == "Make" && edge.Confidence == Candidate {
+		if text == "maker()" && target.Name == "Make" && edge.Confidence == Scoped {
 			found[text] = true
 		}
 		if text == "(Box{}).Next()" && target.Name == "Next" {
@@ -127,7 +127,7 @@ func TestGoCompositeKeyBinding(t *testing.T) {
 					if n.Kind != tc.kind || n.Name != tc.target {
 						t.Fatalf("wrong key binding: %+v", row)
 					}
-					if n.Kind == Field && (e.Confidence != Candidate || e.Evidence[0].Basis != "composite_field") {
+					if n.Kind == Field && (e.Confidence != Scoped || e.Evidence[0].Basis != "composite_field") {
 						t.Fatal(e)
 					}
 				case valueStart:

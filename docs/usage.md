@@ -144,7 +144,18 @@ WHERE 'receiver_declaration' IN r.bases
 RETURN r
 ```
 
-关系 confidence 是证据的派生投影，候选数量增加不会使其成为 exact。
+`Relation.Confidence` 由 `Evidence[].Confidence` 推导，取独立证据中的最高档；
+证据自身的必要推导链取最低档，候选或证据数量增加不会升级。四档从高到低为
+`exact`、`scoped`、`name_only`、`heuristic`，不使用字符串大小判断强弱。
+Go 调用方可用 `r.Confidence.AtLeast(Scoped)`；Cypher 显式列出所需档位：
+
+```cypher
+MATCH ()-[r:calls]->()
+WHERE r.confidence IN ['exact', 'scoped']
+RETURN r
+```
+
+Relation、Path、Subgraph 与 `r.confidence` 都保留同一派生值，`r.evidenceData` 保留完整证据。
 关系发生与依据的区别见 [内核设计](kernel.md)。
 
 ### 意图标记

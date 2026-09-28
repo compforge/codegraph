@@ -123,7 +123,7 @@ func TestRepositories(t *testing.T) {
 			if err := os.MkdirAll(dir, 0755); err != nil {
 				t.Fatal(err)
 			}
-			r := runReport{SchemaVersion: 2, Status: "error", Input: InputIdentity{Repository: repo, Profile: "linux/amd64 CGO_ENABLED=0; production packages; root module; -mod=readonly"}, Evaluator: EvaluatorIdentity{Toolchain: runtime.Version(), Dependencies: evaluatorDependencies(t)}}
+			r := runReport{SchemaVersion: 3, Status: "error", Input: InputIdentity{Repository: repo, Profile: "linux/amd64 CGO_ENABLED=0; production packages; root module; -mod=readonly"}, Evaluator: EvaluatorIdentity{Toolchain: runtime.Version(), Dependencies: evaluatorDependencies(t)}}
 			if repo.Language == "python" {
 				r.Input.Profile = "CPython AST; reviewed bindings; UTF-8; source root=" + repo.SourceRoot
 			}

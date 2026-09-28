@@ -1,5 +1,7 @@
 package codegraph
 
+import "github.com/compforge/codegraph/internal/confidence"
+
 type RelationKind string
 
 const (
@@ -13,11 +15,13 @@ const (
 )
 
 // Confidence describes evidence strength, not a calibrated probability.
-type Confidence string
+type Confidence = confidence.Level
 
 const (
-	Exact     Confidence = "exact"     // syntactically owned or uniquely bound within the supplied scope
-	Candidate Confidence = "candidate" // a possible target without sufficient binding evidence
+	Exact     = confidence.Exact     // established by supported static semantics in the supplied snapshot
+	Scoped    = confidence.Scoped    // constrained by bindings, imports, receivers or types
+	NameOnly  = confidence.NameOnly  // name match without a proven binding
+	Heuristic = confidence.Heuristic // convention or incomplete structural similarity
 )
 
 // Evidence records one derivation. Location, when present, points to supporting syntax.
@@ -33,7 +37,7 @@ type Relation struct {
 	Source string       `json:"source"`
 	Target string       `json:"target"`
 	Kind   RelationKind `json:"kind"`
-	// Confidence is derived from Evidence when the graph is published.
+	// Confidence is the strongest independent Evidence confidence when published.
 	Confidence Confidence `json:"confidence"`
 	Evidence   []Evidence `json:"evidence"`
 	Location   Location   `json:"location"`

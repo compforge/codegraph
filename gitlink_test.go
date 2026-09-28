@@ -69,7 +69,7 @@ func TestGitlinkImports(t *testing.T) {
 		{"src/app.ts", "import {work} from '../sdk/src/api'; export function run(){work()}", "sdk", Options{}, Exact},
 		{"src/app.js", "import '../sdk';", "sdk", Options{}, Exact},
 		{"src/app.tsx", "import '../sdk/lib';", "sdk", Options{}, Exact},
-		{"app.py", "import sdk.api\nsdk.api.work()\n", "sdk", Options{}, Candidate},
+		{"app.py", "import sdk.api\nsdk.api.work()\n", "sdk", Options{}, Scoped},
 		{"pkg/app.py", "from .sdk.api import work\nwork()\n", "pkg/sdk", Options{}, Exact},
 		{"app.go", "package app\nimport sdk \"example.org/app/sdk/api\"\nfunc Run(){sdk.Work()}\n", "sdk", Options{ModulePath: "example.org/app"}, Exact},
 	} {

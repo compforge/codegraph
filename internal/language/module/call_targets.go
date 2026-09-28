@@ -9,12 +9,17 @@ import (
 func resolveCallTargets(ctx context.Context, f analysis.Facts, call analysis.Call, files map[string]analysis.Facts, module string, methods *methodIndex, limit int) ([]Edge, error) {
 	var edges []Edge
 	source := analysis.SourceRef(f.Path, enclosingDeclaration(f, call.Span))
-	seen := map[Ref]bool{}
+	type proofKey struct {
+		Target     Ref
+		Basis      string
+		Confidence analysis.Confidence
+	}
+	seen := map[proofKey]bool{}
 	for _, hint := range call.Targets {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		var targets []Ref
+		var targets []bindingTarget
 		inherited := map[Ref]bool{}
 
 		binder := moduleBinder{ctx, files, limit - len(edges), methods.namespaces}
@@ -22,7 +27,7 @@ func resolveCallTargets(ctx context.Context, f analysis.Facts, call analysis.Cal
 		if hint.Kind == "constructor" {
 			typeName = hint.Name
 		}
-		var classes []Ref
+		var classes []bindingTarget
 		if typeName != "" {
 			// self/this denotes its lexical class, including nested classes that do
 			// not bind as a top-level name in this module.
@@ -30,7 +35,7 @@ func resolveCallTargets(ctx context.Context, f analysis.Facts, call analysis.Cal
 				for owner := enclosingDeclaration(f, call.Span); owner >= 0; owner = f.Declarations[owner].Parent {
 					d := f.Declarations[owner]
 					if d.Kind == "class" && d.Name == typeName {
-						classes = append(classes, analysis.SourceRef(f.Path, owner))
+						classes = append(classes, bindingTarget{Ref: analysis.SourceRef(f.Path, owner), Confidence: analysis.Exact})
 						break
 					}
 				}
@@ -38,7 +43,7 @@ func resolveCallTargets(ctx context.Context, f analysis.Facts, call analysis.Cal
 			lexicalClass := len(classes) > 0
 			for i, d := range f.Declarations {
 				if !lexicalClass && hint.Module == "" && d.Parent == -1 && d.Name == typeName && d.Kind == "class" {
-					classes = append(classes, analysis.SourceRef(f.Path, i))
+					classes = append(classes, bindingTarget{Ref: analysis.SourceRef(f.Path, i), Confidence: analysis.Exact})
 				}
 			}
 			imported, _, err := binder.useTargets(f, typeName, hint.Module, call.Span)
@@ -47,7 +52,7 @@ func resolveCallTargets(ctx context.Context, f analysis.Facts, call analysis.Cal
 			}
 			for _, target := range imported {
 				if target.IsDeclaration() && files[target.Path].Declarations[target.Declaration].Kind == "class" {
-					classes = append(classes, target.Ref)
+					classes = append(classes, target)
 				}
 			}
 		}
@@ -59,29 +64,37 @@ func resolveCallTargets(ctx context.Context, f analysis.Facts, call analysis.Cal
 				return nil, err
 			}
 			for _, target := range found {
-				targets = append(targets, target.Ref)
+				targets = append(targets, target.BindingTarget)
 				inherited[target.Ref] = target.Inherited
 			}
 		} else if hint.ReceiverType == "" {
 			for i, d := range f.Declarations {
 				if d.Kind == "method" && d.Name == hint.Name {
-					targets = append(targets, analysis.SourceRef(f.Path, i))
+					targets = append(targets, bindingTarget{Ref: analysis.SourceRef(f.Path, i), Confidence: analysis.NameOnly})
 				}
 			}
 		}
 		for _, target := range targets {
-			if seen[target] {
+			basis := hint.Basis
+			confidence := analysis.Scoped
+			if hint.Kind == "method" && hint.ReceiverType == "" {
+				confidence = analysis.NameOnly
+			}
+			if inherited[target.Ref] {
+				basis = "inherited_method"
+			}
+			// Deduplicate proofs, not targets: a later hint may supply stronger evidence.
+			confidence = confidence.Weaker(target.Confidence)
+			proof := proofKey{target.Ref, basis, confidence}
+			if seen[proof] {
 				continue
 			}
 			if len(edges) >= limit {
 				return nil, ErrEdgeLimit
 			}
-			seen[target] = true
-			basis := hint.Basis
-			if inherited[target] {
-				basis = "inherited_method"
-			}
-			edges = append(edges, Edge{Source: source, Target: target, Kind: "calls", Confidence: "candidate", Basis: basis, Path: f.Path, Span: call.Span})
+			seen[proof] = true
+
+			edges = append(edges, Edge{Source: source, Target: target.Ref, Kind: "calls", Confidence: confidence, Basis: basis, Path: f.Path, Span: call.Span})
 		}
 	}
 	return edges, nil

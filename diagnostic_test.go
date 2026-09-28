@@ -106,7 +106,7 @@ func TestOutlineGapPreservesUsableFacts(t *testing.T) {
 	}
 }
 
-// +case=`Candidate edges coexist with exact edges and locally unresolved references`
+// +case=`Scoped edges coexist with exact edges and locally unresolved references`
 func TestCandidateEvidenceAndUnresolvedLocations(t *testing.T) {
 	source := "import './lib';\nimport './missing';\nfunction target() {}\nfunction entry() { target(); unknown(); }\n"
 	g, report, err := Build(context.Background(), "rev", []Document{
@@ -140,7 +140,7 @@ func TestCandidateEvidenceAndUnresolvedLocations(t *testing.T) {
 		t.Fatal(imports)
 	}
 	for _, edge := range imports {
-		if edge.Confidence != Candidate || edge.Evidence[0].Basis == "" {
+		if edge.Confidence != Scoped || edge.Evidence[0].Basis == "" {
 			t.Fatal(edge)
 		}
 	}

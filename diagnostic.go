@@ -14,7 +14,7 @@ const (
 	ResourcesSubject    DiagnosticSubject = "resources"
 )
 
-// Diagnostic records information that could not be produced. Candidate edges
+// Diagnostic records information that could not be produced. Non-exact edges
 // already carry their uncertainty in Confidence and Basis.
 // Location covers the whole document when the producer cannot localize the gap.
 type Diagnostic struct {

@@ -66,17 +66,13 @@ type measurement struct {
 }
 
 type bindings struct {
-	Expected           int `json:"expected"`
-	Hit                int `json:"hit"`
-	ExactCorrect       int `json:"exactCorrect"`
-	ExactWrong         int `json:"exactWrong"`
-	CandidateCorrect   int `json:"candidateCorrect"`
-	CandidateOther     int `json:"candidateOther"`
-	Unassessed         int `json:"unassessed"`
-	MaxCandidates      int `json:"maxCandidates"`
-	SilentMissing      int `json:"silentMissing"`
-	LocalizedMissing   int `json:"localizedMissing"`
-	DocumentGapMissing int `json:"documentGapMissing"`
+	Expected           int                             `json:"expected"`
+	Hit                int                             `json:"hit"`
+	ByConfidence       map[cg.Confidence]*tierBindings `json:"byConfidence"`
+	MaxTargets         int                             `json:"maxTargets"`
+	SilentMissing      int                             `json:"silentMissing"`
+	LocalizedMissing   int                             `json:"localizedMissing"`
+	DocumentGapMissing int                             `json:"documentGapMissing"`
 }
 
 type finding struct {
@@ -104,4 +100,31 @@ func (e *evaluation) metric(name string) *measurement {
 		e.Measurements[name] = &measurement{}
 	}
 	return e.Measurements[name]
+}
+
+// Legacy candidates remain ungraded during explicit artifact re-evaluation.
+// They are never emitted by the current CodeGraph API.
+const legacyCandidate cg.Confidence = "candidate"
+
+type tierBindings struct {
+	Hit        int `json:"hit"`
+	Other      int `json:"other"`
+	Unassessed int `json:"unassessed"`
+}
+
+func (b *bindings) tier(c cg.Confidence) *tierBindings {
+	if b.ByConfidence == nil {
+		b.ByConfidence = map[cg.Confidence]*tierBindings{}
+	}
+	if b.ByConfidence[c] == nil {
+		b.ByConfidence[c] = &tierBindings{}
+	}
+	return b.ByConfidence[c]
+}
+func (b *bindings) otherTargets() int {
+	n := 0
+	for _, v := range b.ByConfidence {
+		n += v.Other
+	}
+	return n
 }

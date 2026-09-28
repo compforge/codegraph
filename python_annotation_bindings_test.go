@@ -40,7 +40,7 @@ func TestPythonSignatureReferences(t *testing.T) {
 				confidence := Exact
 				if imported {
 					prelude = "from pkg.models import Model\n"
-					confidence = Candidate
+					confidence = Scoped
 					docs = append(docs, Document{Path: "pkg/models.py", Content: []byte("class Model: pass\n")})
 				}
 				docs = append(docs, Document{Path: "pkg/app.py", Content: []byte(prelude + tc.source)})
@@ -100,7 +100,7 @@ func TestPythonDefaultCallsAndBodyShadowing(t *testing.T) {
 			t.Fatal(err)
 		}
 		rows := query(t, g, `MATCH ()-[r:calls]->(:Function {name:'target'}) RETURN r`, nil)
-		if len(rows) != 1 || rows[0]["r"].(Relation).Confidence != Candidate {
+		if len(rows) != 1 || rows[0]["r"].(Relation).Confidence != Scoped {
 			t.Fatalf("source=%s calls=%v diagnostics=%v", source, rows, g.Report().Diagnostics)
 		}
 	}

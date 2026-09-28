@@ -5,9 +5,8 @@ func UniqueBindingTargets(targets []BindingTarget) []BindingTarget {
 	indexes := map[Ref]int{}
 	for _, target := range targets {
 		if i, ok := indexes[target.Ref]; ok {
-			if target.Confidence == "candidate" {
-				out[i].Confidence = "candidate"
-			}
+			// Duplicate routes are independent proofs of the same binding.
+			out[i].Confidence = out[i].Confidence.Stronger(target.Confidence)
 		} else {
 			indexes[target.Ref] = len(out)
 			out = append(out, target)
@@ -15,7 +14,7 @@ func UniqueBindingTargets(targets []BindingTarget) []BindingTarget {
 	}
 	if len(out) > 1 {
 		for i := range out {
-			out[i].Confidence = "candidate"
+			out[i].Confidence = out[i].Confidence.Weaker(Scoped)
 		}
 	}
 	return out

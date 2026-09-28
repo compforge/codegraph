@@ -27,7 +27,7 @@ Symbol 表达代码声明，Namespace 表达语言如何组织成员，两种逻
 
 关系连接这些节点：`declares` 记录源码贡献，`contains` 记录直接成员归属，
 `imports`、`references`、`calls`、`extends`、`implements` 表达代码关系。
-每条关系保留发生位置及证据，confidence 为 `exact` 或 `candidate`，不表示修改传播的概率。
+每条关系保留发生位置及证据，confidence 为 `exact`、`scoped`、`name_only` 或 `heuristic`，不表示修改传播的概率。
 找不到目标时保留诊断，不补造节点。
 
 ## 快速开始

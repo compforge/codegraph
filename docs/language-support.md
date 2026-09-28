@@ -27,7 +27,9 @@ imports 连接语言组织单元，具名导入及显式转导出还可连接最
 
 Facts.Calls.Targets 保存语法提出的名称、接收者类型、模块限定及依据，不表示运行时分派结果。
 候选方法可以沿已绑定的 extends 查找；直接同名方法停止该分支，多个基类保留候选，重复祖先去重。
-继承调用使用 candidate / inherited_method；implements 不作为继承依据。
+继承调用使用 scoped / inherited_method，并受导入与 extends 必要环节的精度上限约束；implements 不作为继承依据。
+已知接收者或类型的调用采用 scoped；缺少接收者约束、仅按方法名提出的目标采用 name_only，
+即使只有一个同名方法也不升级。具体分级由已有语义证据决定，不由 Basis 名称直接决定。
 动态实现选择、运行时方法修改、未知回调及未建模闭包保留缺口。
 
 候选解析消费已加载材料，遵守取消与预算；补料后重解析，失败批次不发布部分关系。
@@ -46,8 +48,8 @@ Facts.Calls.Targets 保存语法提出的名称、接收者类型、模块限定
 
 ### 引用与类型线索
 
-同文件可证明的词法引用为 exact，同包跨文件和 import 名称匹配的引用为 candidate。
-复合字面量的字段键按已加载类型及别名提出 candidate / composite_field；map、数组键保留词法引用。
+同文件可证明的词法引用为 exact，同包跨文件和 import 名称匹配的引用为 scoped。
+复合字面量的字段键按已加载类型及别名提出 scoped / composite_field；map、数组键保留词法引用。
 未知类型、匿名或省略类型的字段键保留缺口，不连接偶然同名的变量或类型。
 
 成员引用与调用共用接收者类型传播：
@@ -68,7 +70,7 @@ Facts.Calls.Targets 保存语法提出的名称、接收者类型、模块限定
 重赋值保留可能目标，不作语句流判定。接收者未知时仅在同包按方法名提出候选，不匹配普通函数。
 
 interface 嵌入形成 extends，struct 嵌入表达组合。
-同包具名类型的直接方法名集合可提出 candidate / method_name_set 的 implements；
+同包具名类型的直接方法名集合可提出 heuristic / method_name_set 的 implements；
 该证据不验证签名、值/指针方法集或类型约束。空接口、嵌入接口和类型项接口不参与推断，提升方法不展开。
 
 不评估 build tags、第三方模块或编译器类型检查；//go:embed 记录 unsupported_resource，不读取嵌入资源。
@@ -82,7 +84,7 @@ interface 嵌入形成 extends，struct 嵌入表达组合。
 import 指向 Module / Package，from-import 与 alias 可连接已加载声明。
 函数内 import 不泄漏到其他函数；显式导入的类可以参与构造与方法绑定。
 
-绝对 import 缺少运行时搜索路径证据，即使只有一个本地目标也保持 candidate。
+绝对 import 缺少运行时搜索路径证据，即使只有一个本地目标也保持 scoped。
 路径候选来自快照根，以及与导入首段同名的当前文件祖先目录，支持源码子目录和嵌套 SDK 布局。
 无关目录不会自动成为搜索根。普通包、类型桩及 namespace package 边界见 [命名空间组织](namespaces.md)。
 
@@ -100,7 +102,7 @@ Lambda 默认值调用属于创建函数时的表达式，函数体调用仍保�
 实例首参数、显式类型及局部实例初始化可定位类方法；类构造调用指向 Class。
 接收者未知时仅在同模块按方法名提出候选，运行时 MRO 不在查找模型内。
 
-具名基类复用模块绑定，唯一可证明目标为 exact，绝对导入或多个来源仍为 candidate；
+具名基类复用模块绑定，唯一可证明目标为 exact，绝对导入或多个来源仍为 scoped；
 动态基类表达式和缺少目标产生局部诊断。
 
 ### 单文件语句事实
@@ -117,7 +119,7 @@ import 事实保存绑定名及语句挂靠。结构是语言中立的，当前�
 文件以 Module 组织顶层声明；具名、default、namespace import 及显式 re-export 链连接已加载目标。
 显式导出优先于星号转导出，星号转导出不传播 default；循环按路径和公开名称检测。
 
-相对路径支持 index 文件；多个匹配来源保留 candidate。
+相对路径支持 index 文件；多个匹配来源保留 scoped。
 不求值 package metadata、tsconfig alias、CommonJS 导出表达式和动态属性，
 namespace 转导出的嵌套属性仍可能未解析。Module 不证明 ESM/CommonJS 运行时加载模式。
 
@@ -128,7 +130,7 @@ Scope/Binding 区分函数、块、catch 与循环作用域，var 归最近函�
 this、显式类型、局部实例初始化及显式导入的类可提供候选方法，构造调用指向 Class。
 接收者未知时只在同模块提出同名方法候选。
 
-具名基类和显式接口关系形成 extends / implements；唯一语法绑定为 exact，多个目标保持 candidate。
+具名基类和显式接口关系形成 extends / implements；唯一语法绑定为 exact，多个目标保持 scoped。
 继承方法查找复用已绑定类型关系，运行时分派仍未证明。
 独立编译器参照与未评估范围见 [TypeScript 仓库评测](typescript-corpus.md)。
 

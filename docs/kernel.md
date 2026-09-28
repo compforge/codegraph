@@ -59,15 +59,31 @@ Relation 表达一次有向代码关系，种类包括 declares、contains、imp
 Evidence 记录建立关系的依据：Basis 说明推导规则，Confidence 说明证据强度，
 可选 Location 指向支撑语法。同一次发生的多条依据合并、去重并确定性排序，避免最后写入覆盖证据。
 
-- `exact`：已加载范围内的唯一语法绑定或显式结构关系。
-- `candidate`：有可能目标，但缺少足以证明绑定的证据；目标只有一个也可能仍是 candidate。
+| Confidence | 证据语义 |
+|---|---|
+| `exact` | 在给定材料与已支持的静态语义下，绑定或结构关系已确定 |
+| `scoped` | 已有词法绑定、导入、接收者或类型等实际约束，但尚不足以确定绑定 |
+| `name_only` | 主要依据名称匹配，未证明名称在该位置的绑定 |
+| `heuristic` | 依赖约定、模式或不完整的结构相似性 |
 
-Relation.confidence 是派生投影：存在 exact 依据时为 exact，否则为 candidate。
-多个 candidate 不会投票升级为 exact；同一调用或引用位置出现冲突的 exact 目标时保留局部诊断。
+精度顺序为 `heuristic < name_only < scoped < exact`，不按字符串排序。
+目标数量与精度相互独立：只有一个同名目标也不能自动升级；多个合理目标继续保留。
+Basis 描述“如何得到这条证据”，Confidence 描述“这条证据能证明到什么程度”；
+同一种 Basis 可以因材料和约束不同而得到不同档位，不建立 Basis 到 Confidence 的固定映射表。
+
+**`Relation.Confidence` 由 `Evidence[].Confidence` 推导，不是另一份独立判断。**
+
+- 同一关系的独立证据取最高档，并保留全部 Evidence；重复或更多弱证据不会投票升级。
+- 一条证据依赖多个必要推导环节时，取这些环节中的最低档；例如导入、转导出、继承查找不能丢失上游的不确定性。
+- Confidence 不参与关系身份，调整分级不会制造另一条同位置关系。
+- 同一调用或引用位置出现不同目标的 exact 断言时，保留关系并报告 `conflicting_binding`；较低档的备选目标不构成该冲突。
+
+例如，同一调用关系有 name_only 的名称证据和 scoped 的接收者证据，关系投影为 scoped；
+导入为 scoped、转导出为 exact 的必要推导链，最终证据仍为 scoped。
 无法提出目标的引用保留诊断，不虚构关系端点。
 
-confidence 不是概率，也不等于编译器类型检查结论。Path 与 Subgraph 保留原始关系及其证据；
-多跳距离衰减、证据聚合及业务影响阈值由消费者决定。
+confidence 不是概率，exact 也不承诺运行时行为或完整编译器类型检查。
+Path 与 Subgraph 保留原始关系及其证据；跨关系的多跳衰减、影响阈值、筛选与排序由消费者决定。
 
 ### Marker 与覆盖信息
 

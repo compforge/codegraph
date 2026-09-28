@@ -24,6 +24,6 @@ type methodIndex struct {
 	shared     *analysis.MethodIndex
 }
 
-func (m *methodIndex) lookup(ctx context.Context, roots []Ref, name string, limit int) ([]analysis.MethodTarget, error) {
+func (m *methodIndex) lookup(ctx context.Context, roots []bindingTarget, name string, limit int) ([]analysis.MethodTarget, error) {
 	return m.shared.Lookup(ctx, roots, name, func(r Ref) bool { return true }, limit)
 }

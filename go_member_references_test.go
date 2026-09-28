@@ -58,7 +58,7 @@ func TestGoMemberReferenceReceivers(t *testing.T) {
 					continue
 				}
 				count++
-				if target.QualifiedName != tc.target || edge.Confidence != Candidate || edge.Evidence[0].Basis != "receiver_type" {
+				if target.QualifiedName != tc.target || edge.Confidence != Scoped || edge.Evidence[0].Basis != "receiver_type" {
 					t.Fatalf("unexpected member binding: %+v", row)
 				}
 			}
@@ -101,7 +101,7 @@ func TestGoMemberReferencesImportedReload(t *testing.T) {
 			e, n := row["r"].(Relation), row["target"].(Node)
 			if e.Location.Path == "app.go" && (n.Kind == Field || n.Kind == Method) {
 				count++
-				if e.Confidence != Candidate || !strings.HasPrefix(n.Location.Path, "types/") {
+				if e.Confidence != Scoped || !strings.HasPrefix(n.Location.Path, "types/") {
 					t.Fatal(row)
 				}
 			}
@@ -139,7 +139,7 @@ func TestGoMemberReferencesScopeAndAmbiguity(t *testing.T) {
 	}
 	for _, row := range rows {
 		e, n := row["r"].(Relation), row["target"].(Node)
-		if e.Confidence != Candidate || (n.Location.Path != "a.go" && n.Location.Path != "b.go") {
+		if e.Confidence != Scoped || (n.Location.Path != "a.go" && n.Location.Path != "b.go") {
 			t.Fatal(row)
 		}
 	}
