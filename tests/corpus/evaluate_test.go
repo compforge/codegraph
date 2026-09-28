@@ -69,10 +69,12 @@ func evaluate(o *oracle, a observed) evaluation {
 			calls[location(c.Location).key()] = true
 		}
 		for _, i := range f.Imports {
-			// Import facts can locate the literal or its containing import spec.
+			// Import facts can locate the module token or its containing statement.
+			// CPython aliases and tree-sitter statements have different spans;
+			// require the same module path and nested ranges, never nearby text.
 			key := location(i.Location).key()
 			for k, expected := range o.Imports {
-				if expected.Site.Path == i.Location.Path && expected.Name == i.Path && expected.Site.Start <= i.Location.StartByte && expected.Site.End >= i.Location.EndByte {
+				if expected.Site.Path == i.Location.Path && expected.Name == i.Path && (expected.Site.Start <= i.Location.StartByte && expected.Site.End >= i.Location.EndByte || i.Location.StartByte <= expected.Site.Start && i.Location.EndByte >= expected.Site.End) {
 					key = k
 					break
 				}

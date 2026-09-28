@@ -1,0 +1,237 @@
+[
+  {
+    "relation": "calls",
+    "source": {
+      "path": "sdks/python/src/agentue/emitter.py",
+      "line": 35,
+      "text": "self._next_offset()",
+      "name": "self._next_offset"
+    },
+    "class": "internal",
+    "reason": "Declared receiver method supplies the next sequence number.",
+    "target": {
+      "path": "sdks/python/src/agentue/emitter.py",
+      "qualifiedName": "PatchEmitter._next_offset"
+    }
+  },
+  {
+    "relation": "references",
+    "source": {
+      "path": "sdks/python/src/agentue/emitter.py",
+      "line": 35,
+      "text": "self._next_offset",
+      "name": "_next_offset"
+    },
+    "class": "internal",
+    "reason": "Declared receiver method supplies the next sequence number.",
+    "target": {
+      "path": "sdks/python/src/agentue/emitter.py",
+      "qualifiedName": "PatchEmitter._next_offset"
+    }
+  },
+  {
+    "relation": "calls",
+    "source": {
+      "path": "sdks/python/src/agentue/emitter.py",
+      "line": 47,
+      "text": "event.to_json()",
+      "name": "event.to_json"
+    },
+    "class": "internal",
+    "reason": "Local event was constructed as imported PatchEvent; to_json is explicitly declared.",
+    "target": {
+      "path": "sdks/python/src/agentue/event.py",
+      "qualifiedName": "PatchEvent.to_json"
+    }
+  },
+  {
+    "relation": "references",
+    "source": {
+      "path": "sdks/python/src/agentue/emitter.py",
+      "line": 47,
+      "text": "event.to_json",
+      "name": "to_json"
+    },
+    "class": "internal",
+    "reason": "Local event was constructed as imported PatchEvent; to_json is explicitly declared.",
+    "target": {
+      "path": "sdks/python/src/agentue/event.py",
+      "qualifiedName": "PatchEvent.to_json"
+    }
+  },
+  {
+    "relation": "calls",
+    "source": {
+      "path": "sdks/python/src/agentue/sse.py",
+      "line": 11,
+      "text": "event.to_json()",
+      "name": "event.to_json"
+    },
+    "class": "internal",
+    "reason": "Conditional expression narrows event to PatchEvent via isinstance before the call.",
+    "target": {
+      "path": "sdks/python/src/agentue/event.py",
+      "qualifiedName": "PatchEvent.to_json"
+    }
+  },
+  {
+    "relation": "references",
+    "source": {
+      "path": "sdks/python/src/agentue/sse.py",
+      "line": 11,
+      "text": "event.to_json",
+      "name": "to_json"
+    },
+    "class": "internal",
+    "reason": "Conditional expression narrows event to PatchEvent via isinstance before the call.",
+    "target": {
+      "path": "sdks/python/src/agentue/event.py",
+      "qualifiedName": "PatchEvent.to_json"
+    }
+  },
+  {
+    "relation": "references",
+    "source": {
+      "path": "sdks/python/src/agentue/sse.py",
+      "line": 6,
+      "text": "PatchEvent",
+      "name": "PatchEvent"
+    },
+    "class": "internal",
+    "reason": "Explicit from-import used in a union annotation.",
+    "target": {
+      "path": "sdks/python/src/agentue/event.py",
+      "qualifiedName": "PatchEvent"
+    }
+  },
+  {
+    "relation": "references",
+    "source": {
+      "path": "sdks/python/src/agentue/sse.py",
+      "line": 11,
+      "text": "PatchEvent",
+      "name": "PatchEvent"
+    },
+    "class": "internal",
+    "reason": "Explicit from-import used as the isinstance class argument.",
+    "target": {
+      "path": "sdks/python/src/agentue/event.py",
+      "qualifiedName": "PatchEvent"
+    }
+  },
+  {
+    "relation": "references",
+    "source": {
+      "path": "sdks/python/src/agentue/emitter.py",
+      "line": 28,
+      "text": "UIModel",
+      "name": "UIModel"
+    },
+    "class": "internal",
+    "reason": "Explicit model class import in method annotation.",
+    "target": {
+      "path": "sdks/python/src/agentue/model.py",
+      "qualifiedName": "UIModel"
+    }
+  },
+  {
+    "relation": "calls",
+    "source": {
+      "path": "sdks/python/src/agentue/runner/runner.py",
+      "line": 370,
+      "text": "extract_patch_op(item.data)",
+      "name": "extract_patch_op"
+    },
+    "class": "internal",
+    "reason": "Explicit from-import calls the event decoder helper.",
+    "target": {
+      "path": "sdks/python/src/agentue/event.py",
+      "qualifiedName": "extract_patch_op"
+    }
+  },
+  {
+    "relation": "references",
+    "source": {
+      "path": "sdks/python/src/agentue/runner/runner.py",
+      "line": 370,
+      "text": "extract_patch_op",
+      "name": "extract_patch_op"
+    },
+    "class": "internal",
+    "reason": "Explicit from-import calls the event decoder helper.",
+    "target": {
+      "path": "sdks/python/src/agentue/event.py",
+      "qualifiedName": "extract_patch_op"
+    }
+  },
+  {
+    "relation": "references",
+    "source": {
+      "path": "sdks/python/src/agentue/runner/runner.py",
+      "line": 401,
+      "text": "PatchEmitter",
+      "name": "PatchEmitter"
+    },
+    "class": "internal",
+    "reason": "Explicit from-import used to construct the local emitter.",
+    "target": {
+      "path": "sdks/python/src/agentue/emitter.py",
+      "qualifiedName": "PatchEmitter"
+    }
+  },
+  {
+    "relation": "calls",
+    "source": {
+      "path": "sdks/python/src/agentue/emitter.py",
+      "line": 53,
+      "text": "block.model_dump(\n            mode=\"json\",\n            exclude_none=mask is None,\n            exclude_unset=mask is not None,\n            serialize_as_any=True,\n        )",
+      "name": "block.model_dump"
+    },
+    "class": "external",
+    "reason": "BaseBlock inherits model_dump from external Pydantic; no included declaration is its target."
+  },
+  {
+    "relation": "calls",
+    "source": {
+      "path": "sdks/python/src/agentue/runner/runner.py",
+      "line": 129,
+      "text": "self._callbacks.pre_start(context)",
+      "name": "self._callbacks.pre_start"
+    },
+    "class": "runtime_dispatch",
+    "reason": "RunnerCallbacks is provided by the application; its callable field has no unique static implementation."
+  },
+  {
+    "relation": "calls",
+    "source": {
+      "path": "sdks/python/src/agentue/runner/runner.py",
+      "line": 253,
+      "text": "self._callbacks.prepare(context)",
+      "name": "self._callbacks.prepare"
+    },
+    "class": "runtime_dispatch",
+    "reason": "RunnerCallbacks is provided by the application; its callable field has no unique static implementation."
+  },
+  {
+    "relation": "calls",
+    "source": {
+      "path": "sdks/python/src/agentue/runner/runner.py",
+      "line": 254,
+      "text": "self._callbacks.stream(context)",
+      "name": "self._callbacks.stream"
+    },
+    "class": "runtime_dispatch",
+    "reason": "RunnerCallbacks is provided by the application; its callable field has no unique static implementation."
+  },
+  {
+    "relation": "calls",
+    "source": {
+      "path": "sdks/python/src/agentue/runner/runner.py",
+      "line": 350,
+      "text": "self._callbacks.complete(completion)",
+      "name": "self._callbacks.complete"
+    },
+    "class": "runtime_dispatch",
+    "reason": "RunnerCallbacks is provided by the application; its callable field has no unique static implementation."
+  }
+]

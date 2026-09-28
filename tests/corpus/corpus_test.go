@@ -63,6 +63,11 @@ func TestRepositories(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	pythonRepos, err := readRepositories("python/repos.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	repos = append(repos, pythonRepos...)
 	selected := map[string]bool{}
 	for _, name := range strings.Split(*corpusNames, ",") {
 		selected[name] = true
@@ -88,6 +93,9 @@ func TestRepositories(t *testing.T) {
 				t.Fatal(err)
 			}
 			r := runReport{SchemaVersion: 1, Repository: repo, Status: "error", Toolchain: runtime.Version(), Profile: "linux/amd64 CGO_ENABLED=0; production packages; root module; -mod=readonly"}
+			if repo.Language == "python" {
+				r.Profile = "CPython AST; reviewed bindings; UTF-8; source root=" + repo.SourceRoot
+			}
 			if info, ok := debug.ReadBuildInfo(); ok {
 				r.BuildInfo = info.String()
 			}
@@ -107,7 +115,16 @@ func TestRepositories(t *testing.T) {
 				r.Error = err.Error()
 				t.Fatal(err)
 			}
-			o, docs, inventory, err := loadOracle(ctx, root)
+			var o *oracle
+			var docs []cg.Document
+			var inventory []inputFile
+			if repo.Language == "python" {
+				var version string
+				o, docs, inventory, version, err = loadPythonOracle(ctx, root, repo.SourceRoot, "python/"+repo.Name+".json")
+				r.Toolchain += "; CPython " + version
+			} else {
+				o, docs, inventory, err = loadOracle(ctx, root)
+			}
 			if err != nil {
 				r.Error = err.Error()
 				t.Fatal(err)

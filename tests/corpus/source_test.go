@@ -21,10 +21,16 @@ type repository struct {
 	Repository    string `json:"repository"`
 	Commit        string `json:"commit"`
 	ArchiveSHA256 string `json:"archiveSHA256"`
+	Language      string `json:"language,omitempty"`
+	SourceRoot    string `json:"sourceRoot,omitempty"`
 }
 
 func repositories() ([]repository, error) {
-	data, err := os.ReadFile("repos.json")
+	return readRepositories("repos.json")
+}
+
+func readRepositories(name string) ([]repository, error) {
+	data, err := os.ReadFile(name)
 	if err != nil {
 		return nil, err
 	}

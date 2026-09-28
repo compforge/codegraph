@@ -35,7 +35,12 @@ func renderSummary(r runReport) string {
 			v := e.Bindings[kind]
 			fmt.Fprintf(&b, "| %s | %d / %d | %d / %d | %d / %d | %d | %d |\n", kind, v.Hit, v.Expected, v.ExactCorrect, v.ExactWrong, v.CandidateCorrect, v.CandidateOther, v.Unassessed, v.SilentMissing)
 		}
-		b.WriteString("\nTarget recall excludes external and runtime-unknown targets; see report.json for all exclusions.\nParameters and short variable definitions remain in the overall declaration denominator.\nReference/call source ownership, basis semantics, type/containment/import bindings and markers are not independently scored.\n")
+		if r.Repository.Language == "python" {
+			fmt.Fprintf(&b, "\nUnreviewed source occurrences: references=%d, calls=%d. Reviewed runtime-dispatch calls=%d, external calls=%d.\n", e.Unassessed["references/unknown"], e.Unassessed["calls/unknown"], e.Unassessed["calls/runtime_dispatch"], e.Unassessed["calls/external"])
+			b.WriteString("\nPython target hits cover only reviewed source bindings, not all references or calls. CPython AST inventories syntax independently; unreviewed targets remain unknown. Store sites and parameters are outside the declaration contract. Dynamic dispatch and generated framework members are not certified. Source ownership, basis semantics and non-reference/call relations are not independently scored.\n")
+		} else {
+			b.WriteString("\nTarget recall excludes external and runtime-unknown targets; see report.json for all exclusions.\nParameters and short variable definitions remain in the overall declaration denominator.\nReference/call source ownership, basis semantics, type/containment/import bindings and markers are not independently scored.\n")
+		}
 		if len(r.Regressions) > 0 {
 			b.WriteString("\n## Regressions\n\n")
 			for _, s := range r.Regressions {
@@ -43,6 +48,6 @@ func renderSummary(r runReport) string {
 			}
 		}
 	}
-	b.WriteString("\n## Evidence\n\n[Report and differences](report.json) · [Compiler oracle](oracle.json) · [Actual graph and facts](graph.json)\n")
+	b.WriteString("\n## Evidence\n\n[Report and differences](report.json) · [Independent oracle](oracle.json) · [Actual graph and facts](graph.json)\n")
 	return b.String()
 }

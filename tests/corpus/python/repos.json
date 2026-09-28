@@ -1,0 +1,18 @@
+[
+  {
+    "name": "python-stdx",
+    "repository": "https://github.com/compforge/python-stdx",
+    "commit": "71b0ea49a0f72d9af7b08d70e9400997d63aed29",
+    "archiveSHA256": "059613b60bd573796cd6cd6fd64bc443952b21bb6ff456ddb03643bc737f13a5",
+    "language": "python",
+    "sourceRoot": "src/python_stdx"
+  },
+  {
+    "name": "agentue",
+    "repository": "https://github.com/compforge/agentue",
+    "commit": "07742f0f3822e73646d49b9b46ca21dcac727a3b",
+    "archiveSHA256": "bfd21c8807268bbb44ea2f0ec3986159de3c9cc37dbc2e6f72d94c7eabbf3442",
+    "language": "python",
+    "sourceRoot": "sdks/python/src/agentue"
+  }
+]
