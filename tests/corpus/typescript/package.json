@@ -1,0 +1,7 @@
+{
+  "name": "codegraph-typescript-oracle",
+  "private": true,
+  "type": "module",
+  "scripts": {"test": "node --test oracle.test.mjs"},
+  "dependencies": {"typescript": "5.6.3"}
+}

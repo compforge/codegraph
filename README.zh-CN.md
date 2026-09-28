@@ -228,6 +228,7 @@ outline 遗漏通过结构化计数返回，计数描述查询候选，不代表
 ## 本地验证
 
 ```sh
+make setup-typescript-corpus  # 首次安装锁定的编译器参照
 make fmt
 make lint test build
 ```
@@ -235,6 +236,10 @@ make lint test build
 测试覆盖多语言声明与绑定、grammar 扩展、跨文件调用和 import、多重边、marker 往返、路径置信过滤、查询只读/预算、
 批次回滚及并发查询。源码结构与设计依据见 [内核设计](docs/kernel.md)。
 
-`make test-corpus` 对固定的 go-stdx、agentgo、repocli 快照执行独立 Go 编译器参照评测。
-该入口下载源码和依赖，将覆盖测量、未评估范围与绑定差异写入 `.corpus-results/`。
-范围、证据及回归门禁见 [真实仓库评测](docs/corpus.md)；普通 test 只执行评测器的本地契约。
+本地验证还需要 CPython 3.11+、Ruff、Node.js 20+ 和 npm。
+
+`make test-corpus` 评测固定的 Go（go-stdx、agentgo、repocli）、Python（python-stdx、agentue）和
+TypeScript（Doctor）仓库，使用独立编译器 / AST 参照。该入口下载源码及 Go 依赖，不执行目标应用；
+覆盖测量、未评估范围与绑定差异写入 `.corpus-results/`。范围、证据及回归门禁见
+[真实仓库评测](docs/corpus.md)，源码限定 profile 见 [TypeScript 评测](docs/typescript-corpus.md)；
+普通 test 只执行评测器的本地契约。

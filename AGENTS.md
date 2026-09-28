@@ -33,7 +33,7 @@ internal/
   graphstore/                           # GoGraph、查询限制及引擎值转换
 graph_test.go、example_test.go           # 契约测试与可执行示例
 multilanguage_test.go、language_extension_test.go # 多语言隔离、能力边界与 grammar 扩展
-tests/corpus/                            # 独立 Go 测试模块：固定仓库、Go 编译器 / Python AST 参照、覆盖测量与差异证据
+tests/corpus/                            # 独立 Go 测试模块：固定仓库、Go / Python / TypeScript 独立参照、覆盖测量与差异证据
 docs/kernel.md                          # 稳定模型、主流程与设计依据
 ```
 
@@ -59,3 +59,5 @@ docs/kernel.md                          # 稳定模型、主流程与设计依�
 - [真实仓库评测](docs/corpus.md) — 固定语料、独立参照、评分口径及验证入口；评测策略留在测试层。
 
 - [Python 仓库评测](docs/python-corpus.md) — AST 事实清单、人工审定绑定及动态语义边界。
+
+- [TypeScript 仓库评测](docs/typescript-corpus.md) — Doctor 固定快照、编译器静态绑定与缺失依赖边界。

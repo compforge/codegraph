@@ -157,3 +157,49 @@ func Entry() { New().Done() }
 		t.Fatalf("field=%v nested=%v import=%v", fieldKey, nestedCall, imported)
 	}
 }
+
+func TestArchiveRegularFileLinks(t *testing.T) {
+	for _, target := range []string{"AGENTS.md", "../escape", "folder"} {
+		t.Run(target, func(t *testing.T) {
+			var buf bytes.Buffer
+			gz := gzip.NewWriter(&buf)
+			tw := tar.NewWriter(gz)
+			headers := []*tar.Header{
+				{Name: "root/CLAUDE.md", Linkname: target, Typeflag: tar.TypeSymlink},
+				{Name: "root/AGENTS.md", Size: 3, Mode: 0644, Typeflag: tar.TypeReg},
+				{Name: "root/folder", Mode: 0755, Typeflag: tar.TypeDir},
+			}
+			for _, h := range headers {
+				if err := tw.WriteHeader(h); err != nil {
+					t.Fatal(err)
+				}
+				if h.Typeflag == tar.TypeReg {
+					if _, err := tw.Write([]byte("doc")); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			if err := tw.Close(); err != nil {
+				t.Fatal(err)
+			}
+			if err := gz.Close(); err != nil {
+				t.Fatal(err)
+			}
+			root := t.TempDir()
+			err := unpack(buf.Bytes(), root)
+			if target != "AGENTS.md" {
+				if err == nil {
+					t.Fatal("unsafe link accepted")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			content, err := os.ReadFile(filepath.Join(root, "CLAUDE.md"))
+			if err != nil || string(content) != "doc" {
+				t.Fatal(string(content), err)
+			}
+		})
+	}
+}

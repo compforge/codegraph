@@ -6,7 +6,8 @@
 
 ## Go 语料与参照
 
-Python 语料及其独立参照见 [Python 仓库评测](python-corpus.md)，与 Go 共用快照、图观察、评分和基线机制。
+Python 与 TypeScript 的独立参照分别见 [Python 仓库评测](python-corpus.md) 和
+[TypeScript 仓库评测](typescript-corpus.md)，与 Go 共用快照、图观察、评分和基线机制。
 
 `tests/corpus/repos.json` 固定 go-stdx、agentgo、repocli 的完整 commit 和源码压缩包 SHA-256。
 下载内容必须通过校验；缓存只保存压缩包，每次运行解压到独立临时目录。源码保留原始许可证。
@@ -54,15 +55,18 @@ CodeGraph 接口相互一致当成语义正确的 ground truth。
 ## 执行与证据
 
 ```sh
+make setup-typescript-corpus             # 首次安装锁定的 TypeScript 编译器参照
 make lint test build                     # 库测试和评测器本地契约；真实仓库评测显示 skipped
-make test-corpus                         # 全部 Go / Python 固定仓库，允许下载源码及 Go 依赖
+make test-corpus                         # 全部 Go / Python / TypeScript 固定仓库，允许下载源码及 Go 依赖
 make test-python-corpus                  # python-stdx、agentue，仅静态分析源码
+make test-typescript-corpus              # Doctor，仅静态分析源码
 make test-corpus CORPUS=go-stdx,agentgo    # 精确选择语料
 ```
 
 只加载源码、类型检查和构图，不执行目标仓库的 init、业务测试或服务。每仓最多运行五分钟；构图与
 查询有显式预算。无需模型凭据、数据库或 Kubernetes 环境。普通 Go 测试仍需要其正常的模块依赖缓存。评测器的 Python 契约测试需要 CPython 3.11+；
-`make fix` / `make lint` 还需要 PATH 中的 Ruff。`PYTHON` 可指定解释器路径。
+`make fix` / `make lint` 还需要 PATH 中的 Ruff。`PYTHON` 可指定解释器路径。TypeScript 参照契约需要
+Node.js 20+、npm 和锁定的 TypeScript 5.6.3；安装入口只安装评测器依赖，不安装目标应用依赖。
 
 默认产物在 gitignored `.corpus-results/<repo>/`，可通过 `CORPUS_REPORT_DIR` 指定：
 
@@ -85,7 +89,7 @@ make test-corpus CORPUS=go-stdx \
   CORPUS_REPORT_DIR=/path/to/new-report
 ```
 
-比较要求仓库快照、文件清单、profile、Go 工具链、评测器摘要及 schema 一致。分母变化会拒绝比较；
+比较要求仓库快照、文件清单、profile、工具链（含对应语言解释器或编译器）、评测器摘要及 schema 一致。分母变化会拒绝比较；
 召回下降、额外输出增加、错误 exact 增加、候选膨胀或静默目标缺口增加会触发回归门禁。
 错误 exact 的零容忍条件独立存在，不能通过接受失败基线将其绕过。
 

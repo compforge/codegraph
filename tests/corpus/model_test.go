@@ -29,10 +29,12 @@ type occurrence struct {
 	Name   string `json:"name"`
 	Target string `json:"target,omitempty"`
 	Class  string `json:"class"`
+	Reason string `json:"reason,omitempty"`
 }
 
 type oracle struct {
 	Module             string                 `json:"module"`
+	Diagnostics        []compilerDiagnostic   `json:"diagnostics,omitempty"`
 	Declarations       map[string]declaration `json:"declarations"`
 	References         map[string]occurrence  `json:"references"`
 	Calls              map[string]occurrence  `json:"calls"`

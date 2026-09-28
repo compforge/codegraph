@@ -264,7 +264,7 @@ func collectOccurrences(o *oracle, p *packages.Package, file *ast.File, root str
 		if _, ok := obj.(*types.PkgName); ok {
 			class = "package_qualifier"
 		}
-		r := occurrence{s, id.Name, target, class}
+		r := occurrence{Site: s, Name: id.Name, Target: target, Class: class}
 		if class == "builtin" || class == "package_qualifier" {
 			o.ExcludedReferences[s.key()] = r
 		} else {
@@ -280,7 +280,7 @@ func collectOccurrences(o *oracle, p *packages.Package, file *ast.File, root str
 			if name == o.Module || strings.HasPrefix(name, o.Module+"/") {
 				class = "internal"
 			}
-			o.Imports[s.key()] = occurrence{s, name, name, class}
+			o.Imports[s.key()] = occurrence{Site: s, Name: name, Target: name, Class: class}
 		case *ast.CallExpr:
 			s := sourceSite(p.Fset, root, x.Pos(), x.End())
 			r := occurrence{Site: s, Name: "call", Class: "runtime_dispatch"}

@@ -94,9 +94,29 @@ func unpack(data []byte, dest string) error {
 	defer gz.Close()
 	tr := tar.NewReader(gz)
 	var total int64
+	type fileLink struct{ name, relative, target string }
+	var links []fileLink
 	for {
 		h, err := tr.Next()
 		if err == io.EOF {
+			// Create links only after extraction. Every target must be a regular file,
+			// so an archive link can never redirect a later extraction write.
+			for _, link := range links {
+				target := filepath.Join(dest, filepath.Dir(link.relative), link.target)
+				info, err := os.Lstat(target)
+				if err != nil {
+					return err
+				}
+				if !info.Mode().IsRegular() {
+					return fmt.Errorf("archive link target is not a regular file: %s", link.relative)
+				}
+				if err := os.MkdirAll(filepath.Dir(link.name), 0755); err != nil {
+					return err
+				}
+				if err := os.Symlink(link.target, link.name); err != nil {
+					return err
+				}
+			}
 			return nil
 		}
 		if err != nil {
@@ -135,6 +155,11 @@ func unpack(data []byte, dest string) error {
 			if closeErr != nil {
 				return closeErr
 			}
+		case tar.TypeSymlink:
+			if filepath.IsAbs(h.Linkname) || !filepath.IsLocal(filepath.Join(filepath.Dir(relative), h.Linkname)) {
+				return fmt.Errorf("non-local archive link %q", h.Name)
+			}
+			links = append(links, fileLink{name, relative, h.Linkname})
 		default:
 			return fmt.Errorf("unsupported archive entry %q type %d", h.Name, h.Typeflag)
 		}

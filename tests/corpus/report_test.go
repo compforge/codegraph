@@ -38,6 +38,9 @@ func renderSummary(r runReport) string {
 		if r.Repository.Language == "python" {
 			fmt.Fprintf(&b, "\nUnreviewed source occurrences: references=%d, calls=%d. Reviewed runtime-dispatch calls=%d, external calls=%d.\n", e.Unassessed["references/unknown"], e.Unassessed["calls/unknown"], e.Unassessed["calls/runtime_dispatch"], e.Unassessed["calls/external"])
 			b.WriteString("\nPython target hits cover only reviewed source bindings, not all references or calls. CPython AST inventories syntax independently; unreviewed targets remain unknown. Store sites and parameters are outside the declaration contract. Dynamic dispatch and generated framework members are not certified. Source ownership, basis semantics and non-reference/call relations are not independently scored.\n")
+		} else if r.Repository.Language == "typescript" {
+			fmt.Fprintf(&b, "\nTypeScript compiler diagnostics: %d (retained in oracle.json). Only loaded, uniquely resolved source targets are scored. Missing external dependencies remain unknown; method/callback runtime dispatch is unassessed.\n", r.OracleDiagnostics)
+			b.WriteString("\nTypeScript syntax inventories are independent of CodeGraph. Parameters, property signatures and other unsupported declarations remain in the overall denominator. The compiler reads the original project configurations with source workspace links, without installing or executing the target application's external dependencies. Declaration files are compiler support, outside the graph input. Module organization, source ownership and non-reference/call relations are not independently scored.\n")
 		} else {
 			b.WriteString("\nTarget recall excludes external and runtime-unknown targets; see report.json for all exclusions.\nParameters and short variable definitions remain in the overall declaration denominator.\nReference/call source ownership, basis semantics, type/containment/import bindings and markers are not independently scored.\n")
 		}

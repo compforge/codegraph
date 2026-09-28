@@ -1,0 +1,9 @@
+{
+  "projects": [
+    {"config": "cli/tsconfig.json", "sourceRoot": "cli/src"},
+    {"config": "packages/plugin/tsconfig.json", "sourceRoot": "packages/plugin/src"},
+    {"config": "packages/agent/tsconfig.json", "sourceRoot": "packages/agent/src"},
+    {"config": "plugins/example/tsconfig.json", "sourceRoot": "plugins/example/src"}
+  ],
+  "workspaces": ["cli", "packages/plugin", "packages/agent", "plugins/example"]
+}
