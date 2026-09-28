@@ -8,7 +8,7 @@ import (
 	"github.com/compforge/codegraph/internal/extract"
 )
 
-func resolveReferences(ctx context.Context, files map[string]extract.Facts, names []string, module string, limit int) ([]Edge, []Issue, error) {
+func resolveReferences(ctx context.Context, files map[string]extract.Facts, names []string, module string, methods *methodIndex, limit int) ([]Edge, []Issue, error) {
 	var edges []Edge
 	var issues []Issue
 	for _, name := range names {
@@ -39,6 +39,19 @@ func resolveReferences(ctx context.Context, files map[string]extract.Facts, name
 					}
 					continue
 				}
+			}
+			if r.Member {
+				found, err := goMemberReferenceTargets(ctx, f, r, files, module, methods, limit-len(edges))
+				if err != nil {
+					return nil, nil, err
+				}
+				for _, target := range found {
+					edges = append(edges, Edge{Ref{name, r.Owner}, target, "references", "candidate", "receiver_type", name, r.Span})
+				}
+				if len(found) == 0 {
+					issues = append(issues, Issue{name, "unresolved_reference", r.Name, "references", r.Span})
+				}
+				continue
 			}
 			if r.Bound {
 				if r.Target >= 0 {

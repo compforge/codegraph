@@ -40,3 +40,5 @@ go-stdx 的最大引用候选数从 0 变为 1，来自此前未命中的 13 处
 三个真实语料的错误 exact 门禁通过，verdict 均为 measured，不表示全部引用已解析或全面完整性认证。
 原始产物位于 `.corpus-results/<repo>/`，包含 report.json、oracle.json、graph.json 与 summary.md。
 语料版本和复现入口见 [repos.json](repos.json) 与[评测文档](../../docs/corpus.md)。
+
+后续成员引用扩展见 [Go 成员引用复测](member-references.md)。

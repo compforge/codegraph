@@ -209,7 +209,7 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 			}
 		}
 	}
-	references, gaps, err := resolveReferences(ctx, files, names, module, limit-len(edges))
+	references, gaps, err := resolveReferences(ctx, files, names, module, methods, limit-len(edges))
 	if err != nil {
 		return nil, nil, err
 	}
