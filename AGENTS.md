@@ -42,7 +42,7 @@ docs/kernel.md                          # 稳定模型、主流程与设计依�
 1. 核心模型沿用 Graph、Node、Relation；Node.Kind 表达 Document、Struct、Interface、Field、Method、Function 等具体类别，直接映射为唯一节点标签。Symbol 与 Namespace 是逻辑概念，不新增上位标签或互斥三分类；Package、Module、语言自身的 Namespace 使用具体 Kind。
 2. `declares` 从 Document 指向源码声明或组织贡献；`contains` 表达直接语义归属，允许 Namespace 嵌套。跨文件组织身份不依赖首个成员；单一位置缺失时沿 declares 读取证据。
 3. spec、case、rule、link、doc 属于核心 marker 类型；关系的 confidence 描述证据强度，basis 记录建立关系的依据。路径证据聚合、距离衰减与业务阈值由消费者决定。
-4. Document 是本库拥有的源码材料概念，既作为输入，也以同名节点类别入图；材料获取与选择由调用方负责。本库提供代码事实及节点、关系、路径和子图的通用查询；受影响文件的判定与排序、评审组织、测试选择及执行回退留在消费方。
+4. Document 是本库拥有的输入材料概念（源码或不展开的 gitlink），既作为输入，也以同名节点类别入图；材料获取与选择由调用方负责。本库提供代码事实及节点、关系、路径和子图的通用查询；受影响文件的判定与排序、评审组织、测试选择及执行回退留在消费方。
 5. AST 与图引擎内部类型不穿透公共 API；消费者通过 `Find`、`Node`、`RelationsFrom`、`RelationsTo` 或 Cypher 消费图事实；局部分析与未解析引用必须保留可辨识的覆盖信息。
    执行失败由 error 表达；候选关系使用 confidence 与 basis，信息缺口以局部诊断保留。局部缺口不否定无关事实，不自动触发消费者的全量回退。
 6. 同一 Graph 只容纳同一源码快照；Document.ID 与对应 Document 节点 ID 相同。入队任务可提前返回单文件事实，后台构建跨文件关系并原子发布；Wait 只等待已提交工作完成。新增语言解析先声明能力并补契约测试；仅识别 grammar 不表示引用已解析，不得跨语言按同名猜测关系。
@@ -61,3 +61,5 @@ docs/kernel.md                          # 稳定模型、主流程与设计依�
 - [Python 仓库评测](docs/python-corpus.md) — AST 事实清单、人工审定绑定及动态语义边界。
 
 - [TypeScript 仓库评测](docs/typescript-corpus.md) — Doctor 固定快照、编译器静态绑定与缺失依赖边界。
+
+- [gitlink 材料](docs/gitlinks.md) — 父仓的子仓边界、固定 commit 与导入证据。

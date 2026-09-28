@@ -66,7 +66,16 @@ func bind(ctx context.Context, scope analysis.Scope, index *analysis.Index, limi
 		}
 		for _, imp := range f.Imports {
 			targets := namespaces.GoImportFiles(module, imp.Path)
-			if len(targets) == 0 {
+			var gitlinks []string
+			if dir, ok := ImportDir(module, imp.Path); ok {
+				gitlinks = index.GitlinkPaths([]string{dir})
+			}
+			for _, target := range gitlinks {
+				if err := add(Edge{Source: analysis.DocumentRef(name), Target: analysis.DocumentRef(target), Kind: "imports", Confidence: "exact", Basis: "gitlink_boundary", Path: name, Span: imp.Span}); err != nil {
+					return nil, nil, err
+				}
+			}
+			if len(targets)+len(gitlinks) == 0 {
 				issues = append(issues, Gap{Path: name, Code: "unresolved_import", Reference: imp.Path, Relation: "imports", Span: imp.Span})
 			}
 			confidence := "exact"

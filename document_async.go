@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/fs"
 	"sync"
 
 	"github.com/alitto/pond/v2"
@@ -116,25 +115,41 @@ func (g *Graph) enqueueDocuments(ctx context.Context, documents ...Document) ([]
 	seen := make(map[string]Document, len(documents))
 	g.mu.RLock()
 	for _, document := range documents {
-		if !fs.ValidPath(document.Path) {
+		if err := document.validate(); err != nil {
 			g.mu.RUnlock()
-			return nil, fmt.Errorf("invalid source path %q", document.Path)
+			return nil, err
 		}
-		if old, ok := seen[document.Path]; ok && !bytes.Equal(old.Content, document.Content) {
-			g.mu.RUnlock()
-			return nil, fmt.Errorf("%w: %s", ErrSnapshotChanged, document.Path)
-		}
-		if old, ok := g.documentTasks[document.ID()]; ok && !old.failed && !bytes.Equal(old.document.Content, document.Content) {
+		if old, ok := seen[document.Path]; ok && !document.same(old) {
 			g.mu.RUnlock()
 			return nil, fmt.Errorf("%w: %s", ErrSnapshotChanged, document.Path)
 		}
-		if old, ok := g.documents[document.Path]; ok && !bytes.Equal(old.Source, document.Content) {
+		if old, ok := g.documentTasks[document.ID()]; ok && !old.failed && !document.same(old.document) {
+			g.mu.RUnlock()
+			return nil, fmt.Errorf("%w: %s", ErrSnapshotChanged, document.Path)
+		}
+		if old, ok := g.documents[document.Path]; ok && !document.matches(old) {
 			g.mu.RUnlock()
 			return nil, fmt.Errorf("%w: %s", ErrSnapshotChanged, document.Path)
 		}
 		seen[document.Path] = document
 	}
+	boundaries := make(map[string]Document, len(g.documents)+len(g.documentTasks)+len(seen))
+	for p, f := range g.documents {
+		boundaries[p] = Document{Path: p, Gitlink: f.Gitlink}
+	}
+	for _, task := range g.documentTasks {
+		if !task.failed {
+			boundaries[task.document.Path] = task.document
+		}
+	}
+	for p, d := range seen {
+		boundaries[p] = d
+	}
+	boundaryErr := validateDocumentBoundaries(boundaries)
 	g.mu.RUnlock()
+	if boundaryErr != nil {
+		return nil, boundaryErr
+	}
 
 	tasks := make([]pond.ResultTask[Facts], 0, len(documents))
 	newDocuments := false
@@ -149,7 +164,7 @@ func (g *Graph) enqueueDocuments(ctx context.Context, documents ...Document) ([]
 		if g.pendingWorkers == nil {
 			g.pendingWorkers = &sync.WaitGroup{}
 		}
-		owned := Document{Path: document.Path, Content: bytes.Clone(document.Content)}
+		owned := Document{Path: document.Path, Content: bytes.Clone(document.Content), Gitlink: document.Gitlink}
 		workers := g.pendingWorkers
 		workers.Add(1)
 		task := g.asyncPool.SubmitErr(func() (Facts, error) {

@@ -21,7 +21,7 @@ HTTP 服务和可视化页面归调用方。比如 repocli view 捕获当前工�
 Graph、Node、Relation 是通用图结构；CodeGraph 的代码领域语义由节点类别、关系类别及其属性表达。
 因此，理解 CodeGraph 既要看图如何组织，也要看节点代表什么代码对象、关系表达什么代码事实。
 
-在 Node 层面，Document 表达源码材料，Symbol 表达代码声明，Namespace 表达组织名称及成员的
+在 Node 层面，Document 表达输入材料，Symbol 表达代码声明，Namespace 表达组织名称及成员的
 语言单元。Symbol 与 Namespace 是可重叠的逻辑概念，各对象以 Package、Module、Class、Function 等
 具体 Node.Kind 入图；不增加上位标签或三分类字段。具体 Namespace Kind 仅表示语言自身的 namespace
 声明。Go API 使用 DocumentKind 常量表示 Document 节点类别，其值与 Cypher 标签均为 "Document"。
@@ -44,24 +44,26 @@ extends 表达类型继承，calls 表达调用，references 表达引用，decl
 
 ### Document 与输入边界
 
-Document 表达提供给图的一份源码材料，由快照内的逻辑路径与完整源码内容组成。来源可以是文件系统、
+Document 表达提供给图的一份材料，由快照内的逻辑路径与完整源码内容或 gitlink 固定 commit 组成。来源可以是文件系统、
 Git revision 或内存；获取材料与选择材料由消费者负责，提取代码事实和解析关系由 CodeGraph 负责。
 路径提供稳定身份、语言识别和相对 import 上下文，不要求实际文件存在。快照身份统一归 Graph 所有。
 
-每份输入材料对应一个 Document 节点，通过 declares 指向源码内的声明及组织贡献；
+每份输入材料对应一个 Document 节点；源码材料通过 declares 指向声明及组织贡献；
 Package、Module 等节点通过 contains 组织直接成员，Namespace 可以递归嵌套。
+gitlink 保留父仓记录的子仓边界，指向其路径的 imports 止于 Document，不产生子仓内部声明。
+调用方决定是否另建子仓快照；具体契约见 [gitlink 材料](gitlinks.md)。
 review unit、候选测试、changed 等消费策略不进入 Document。
 
 `AddDocuments` 将显式批次入队并启动后台构图，`AddDocument` 返回单文件事实的 ResultTask。
 调用方可按 Document.ID 获取任务，或按路径和限定名提前查声明；Document.ID 与其 Document 节点 ID 相同。
 后台构建在这些材料与已加载事实之间解析关系并原子发布。`Wait` 只等待调用前提交的工作并返回结果。
 缺少依赖时保留覆盖诊断，补充材料后重新解析。源码读取、Git 版本选择与依赖枚举属于消费者的
-输入准备职责，CodeGraph 不隐式扫描文件系统或获取依赖。没有注册 grammar 的 Document 仍进入图：只产生对应的 Document 节点，不触发解析、
+输入准备职责，CodeGraph 不隐式扫描文件系统或获取依赖。没有注册 grammar 的源码 Document 仍进入图：只产生对应的 Document 节点，不触发解析、
 不产生声明与关系，覆盖缺口以 `unsupported_language` 诊断保留在构建报告中；消费者不能将"没有符号"
 误解为"文件不存在"。材料选择（是否纳入纯文本、图片等非代码文件）仍是消费者职责。
 
 输入内容在入队时复制，避免后续批次重建受到调用方内存修改影响。逻辑路径相同且内容相同的
-输入幂等；已加载路径或同一显式批次内的内容冲突阻止该次提交。
+输入幂等；材料类型和固定 commit 也参与内容身份。已加载路径或同一显式批次内的内容冲突阻止该次提交。
 
 `Extract` 提供不入图的事实提取：返回与 `AddDocuments` 消费的同一份声明、import、调用、标识符引用与诊断事实，
 供消费者在决定构图范围前探索依赖。结果按路径与内容身份缓存，后续同内容 `AddDocuments` 直接复用，

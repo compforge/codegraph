@@ -11,7 +11,7 @@ import (
 type NodeKind string
 
 const (
-	// DocumentKind represents the source material itself, including unparsed inputs.
+	// DocumentKind represents the input material itself, including opaque gitlinks.
 	DocumentKind NodeKind = "Document"
 	Struct       NodeKind = "Struct"
 	Interface    NodeKind = "Interface"
@@ -54,7 +54,9 @@ type Location struct {
 // Location is absent when no single source occurrence owns the entity;
 // declares relations retain its contributing source locations.
 type Node struct {
-	ID            string    `json:"id"`
+	ID string `json:"id"`
+	// Gitlink is set only on an opaque gitlink Document, never on symbols.
+	Gitlink       string    `json:"gitlink,omitempty"`
 	Kind          NodeKind  `json:"kind"`
 	Name          string    `json:"name"`
 	QualifiedName string    `json:"qualifiedName,omitempty"`

@@ -2,8 +2,6 @@ package codegraph
 
 import (
 	"context"
-	"fmt"
-	"io/fs"
 	"sort"
 	"strings"
 
@@ -55,15 +53,15 @@ func (g *Graph) addPrepared(ctx context.Context, parseFailures map[string]error,
 		return g.Report(), err
 	}
 	for _, document := range documents {
-		if !fs.ValidPath(document.Path) {
-			return g.Report(), fmt.Errorf("invalid source path %q", document.Path)
+		if err := document.validate(); err != nil {
+			return g.Report(), err
 		}
 	}
 	staged := make(map[string]analysis.Facts, len(g.documents))
 	var total int64
 	for p, f := range g.documents {
 		staged[p] = f
-		total += int64(len(f.Source))
+		total += int64(len(f.Source) + len(f.Gitlink))
 	}
 	failures := map[string]Diagnostic{}
 	for p, d := range g.failures {

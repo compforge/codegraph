@@ -3,9 +3,7 @@ package codegraph
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"fmt"
-	"io/fs"
 
 	"github.com/compforge/codegraph/internal/language"
 
@@ -20,12 +18,14 @@ import (
 // hand the same documents to AddDocuments without a second parse.
 type Facts struct {
 	Path, Package, Language string
-	Declarations            []FactDeclaration
-	Imports                 []FactImport
-	Calls                   []FactCall
-	References              []FactReference
-	TypeRelations           []FactTypeRelation
-	Issues                  []Diagnostic
+	// Gitlink retains the pinned commit for an opaque gitlink document.
+	Gitlink       string
+	Declarations  []FactDeclaration
+	Imports       []FactImport
+	Calls         []FactCall
+	References    []FactReference
+	TypeRelations []FactTypeRelation
+	Issues        []Diagnostic
 	// Exports maps explicit public names to local declarations or imported bindings.
 	// Cross-module re-exports are recorded on Imports.Bindings.
 	Exports map[string]string
@@ -124,14 +124,15 @@ type factCacheEntry struct {
 // graph state. Results are cached by path and content identity: a later
 // AddDocuments of the same path and content reuses them instead of parsing
 // again, and facts of already loaded documents are projected without parsing.
-// Documents without a registered grammar yield file-level facts carrying an
+// Source documents without a registered grammar yield file-level facts carrying an
 // unsupported_language issue, mirroring how AddDocuments records them.
+// Gitlinks yield only their path and commit, without attempting language parsing.
 // +spec=`Exploration extraction never reparses identical snapshot content`
 func (g *Graph) Extract(ctx context.Context, document Document) (Facts, error) {
-	if !fs.ValidPath(document.Path) {
-		return Facts{}, fmt.Errorf("invalid source path %q", document.Path)
+	if err := document.validate(); err != nil {
+		return Facts{}, err
 	}
-	hash := sha256.Sum256(document.Content)
+	hash := document.digest()
 	g.factCacheMu.Lock()
 	entry, cached := g.factCache[document.Path]
 	g.factCacheMu.Unlock()
@@ -141,11 +142,14 @@ func (g *Graph) Extract(ctx context.Context, document Document) (Facts, error) {
 	g.mu.RLock()
 	staged, loaded := g.documents[document.Path]
 	g.mu.RUnlock()
-	if loaded && sha256.Sum256(staged.Source) == hash {
+	if loaded && document.matches(staged) {
 		return projectFacts(staged)
 	}
 	var facts analysis.Facts
-	if language.Detect(document.Path) == nil {
+	if document.Gitlink != "" {
+		facts = pipeline.DocumentOnly(document.Path, nil)
+		facts.Gitlink = document.Gitlink
+	} else if language.Detect(document.Path) == nil {
 		facts = pipeline.DocumentOnly(document.Path, bytes.Clone(document.Content))
 		facts.Issues = append(facts.Issues, analysis.Issue{Code: "unsupported_language", Message: "no registered grammar for file", Subject: "document", Span: analysis.Span{End: len(document.Content)}})
 	} else {
@@ -170,19 +174,19 @@ func (g *Graph) Extract(ctx context.Context, document Document) (Facts, error) {
 // cachedFacts returns a cached extraction for identical content and consumes
 // the entry: once staged, the graph's retained facts become the authoritative
 // copy, so the cache stays bounded to explored-but-not-yet-added documents.
-func (g *Graph) cachedFacts(name string, data []byte) (analysis.Facts, bool) {
+func (g *Graph) cachedFacts(document Document) (analysis.Facts, bool) {
 	g.factCacheMu.Lock()
 	defer g.factCacheMu.Unlock()
-	entry, ok := g.factCache[name]
-	if !ok || entry.hash != sha256.Sum256(data) {
+	entry, ok := g.factCache[document.Path]
+	if !ok || entry.hash != document.digest() {
 		return analysis.Facts{}, false
 	}
-	delete(g.factCache, name)
+	delete(g.factCache, document.Path)
 	return entry.facts, true
 }
 
 func projectFacts(f analysis.Facts) (Facts, error) {
-	out := Facts{Path: f.Path, Package: f.Package, Language: f.Language}
+	out := Facts{Path: f.Path, Package: f.Package, Language: f.Language, Gitlink: f.Gitlink}
 	for _, d := range f.Declarations {
 		kind, err := declarationKind(d.Kind)
 		if err != nil {

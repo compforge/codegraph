@@ -39,11 +39,11 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 				next++
 				continue
 			}
-			if int64(len(data)) > g.opts.MaxDocumentBytes {
+			if document.size() > g.opts.MaxDocumentBytes {
 				return fmt.Errorf("%w: file %s exceeds byte limit", ErrBuildBudget, name)
 			}
 			if old, exists := staged[name]; exists {
-				if !bytes.Equal(data, old.Source) {
+				if !document.matches(old) {
 					return fmt.Errorf("%w: %s", ErrSnapshotChanged, name)
 				}
 				delete(failures, name)
@@ -58,7 +58,7 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 			var budgetErr error
 			if len(staged)+len(batch) >= g.opts.MaxDocuments {
 				budgetErr = fmt.Errorf("%w: file limit %d", ErrBuildBudget, g.opts.MaxDocuments)
-			} else if int64(len(data)) > g.opts.MaxSourceBytes-total-reserved {
+			} else if document.size() > g.opts.MaxSourceBytes-total-reserved {
 				budgetErr = fmt.Errorf("%w: source byte limit", ErrBuildBudget)
 			}
 			if budgetErr != nil {
@@ -70,9 +70,17 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 				break
 			}
 			// A previous Extract of identical content already owns the facts.
-			if facts, ok := g.cachedFacts(name, data); ok {
+			if facts, ok := g.cachedFacts(document); ok {
 				staged[name] = facts
-				total += int64(len(data))
+				total += document.size()
+				next++
+				continue
+			}
+			if document.Gitlink != "" {
+				facts := pipeline.DocumentOnly(name, nil)
+				facts.Gitlink = document.Gitlink
+				staged[name] = facts
+				total += document.size()
 				next++
 				continue
 			}
@@ -80,12 +88,12 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 				facts := pipeline.DocumentOnly(name, bytes.Clone(data))
 				facts.Issues = append(facts.Issues, analysis.Issue{Code: "unsupported_language", Message: "no registered grammar for file", Subject: "document", Span: analysis.Span{End: len(data)}})
 				staged[name] = facts
-				total += int64(len(data))
+				total += document.size()
 				next++
 				continue
 			}
 			batch = append(batch, document)
-			reserved += int64(len(data))
+			reserved += document.size()
 			next++
 		}
 		results := g.extractBatch(ctx, batch)
@@ -102,7 +110,7 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 				continue
 			}
 			staged[name] = result.facts
-			total += int64(len(result.facts.Source))
+			total += int64(len(result.facts.Source) + len(result.facts.Gitlink))
 			delete(failures, name)
 		}
 	}
