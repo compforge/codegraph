@@ -258,6 +258,7 @@ Other Cypher-specific value types return an error.
 ## Local validation
 
 ```sh
+make setup-typescript-corpus  # install the pinned compiler oracle once
 make fmt
 make lint test build
 ```
@@ -266,7 +267,11 @@ Tests cover multilingual outlines and bindings, grammar extensions, cross-file i
 filters, read-only queries and budgets, batch rollback, and concurrent queries.
 See the [kernel design](docs/kernel.md) (in Chinese) for source structure and design rationale.
 
-`make test-corpus` evaluates pinned go-stdx, agentgo and repocli snapshots against an independent
-Go compiler oracle. It downloads source/dependencies and writes coverage measurements, unknowns
-and binding differences to `.corpus-results/`. See [corpus evaluation](docs/corpus.md) for scope,
-evidence and regression gates. The normal test target runs the evaluator's local contracts only.
+Local validation also requires CPython 3.11+, Ruff, Node.js 20+ and npm.
+
+`make test-corpus` evaluates pinned Go (go-stdx, agentgo, repocli), Python (python-stdx, agentue),
+and TypeScript (Doctor) repositories using independent compiler/AST references. It downloads
+source and Go dependencies, without executing target applications. Measurements, unknowns and
+binding differences are written to `.corpus-results/`. See [corpus evaluation](docs/corpus.md)
+for scope, evidence and regression gates, and [TypeScript evaluation](docs/typescript-corpus.md)
+for the source-only profile. The normal test target runs the evaluator's local contracts only.

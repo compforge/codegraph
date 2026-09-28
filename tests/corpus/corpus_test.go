@@ -37,6 +37,7 @@ type runReport struct {
 	BuildInfo             string      `json:"buildInfo"`
 	Inputs                []inputFile `json:"inputs"`
 	Documents             int         `json:"documents"`
+	OracleDiagnostics     int         `json:"oracleDiagnostics,omitempty"`
 	Regressions           []string    `json:"regressions,omitempty"`
 	Evaluation            *evaluation `json:"evaluation,omitempty"`
 }
@@ -68,6 +69,11 @@ func TestRepositories(t *testing.T) {
 		t.Fatal(err)
 	}
 	repos = append(repos, pythonRepos...)
+	tsRepos, err := readRepositories("typescript/repos.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	repos = append(repos, tsRepos...)
 	selected := map[string]bool{}
 	for _, name := range strings.Split(*corpusNames, ",") {
 		selected[name] = true
@@ -96,6 +102,9 @@ func TestRepositories(t *testing.T) {
 			if repo.Language == "python" {
 				r.Profile = "CPython AST; reviewed bindings; UTF-8; source root=" + repo.SourceRoot
 			}
+			if repo.Language == "typescript" {
+				r.Profile = "TypeScript AST and static source bindings; original tsconfig; source workspaces only; no third-party packages; profile=typescript/" + repo.Name + ".json"
+			}
 			if info, ok := debug.ReadBuildInfo(); ok {
 				r.BuildInfo = info.String()
 			}
@@ -122,6 +131,10 @@ func TestRepositories(t *testing.T) {
 				var version string
 				o, docs, inventory, version, err = loadPythonOracle(ctx, root, repo.SourceRoot, "python/"+repo.Name+".json")
 				r.Toolchain += "; CPython " + version
+			} else if repo.Language == "typescript" {
+				var version string
+				o, docs, inventory, version, err = loadTypeScriptOracle(ctx, root, "typescript/"+repo.Name+".json")
+				r.Toolchain += "; " + version
 			} else {
 				o, docs, inventory, err = loadOracle(ctx, root)
 			}
@@ -130,6 +143,7 @@ func TestRepositories(t *testing.T) {
 				t.Fatal(err)
 			}
 			r.Inputs, r.Documents = inventory, len(docs)
+			r.OracleDiagnostics = len(o.Diagnostics)
 			writeJSON(t, filepath.Join(dir, "oracle.json"), o)
 			a, err := observe(ctx, o.Module, repo.Commit, docs)
 			if err != nil {

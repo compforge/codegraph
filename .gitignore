@@ -1,3 +1,4 @@
 .corpus-results/
 __pycache__/
 .ruff_cache/
+tests/corpus/typescript/node_modules/

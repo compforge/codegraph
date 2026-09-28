@@ -1,0 +1,9 @@
+[
+  {
+    "name": "doctor",
+    "repository": "https://github.com/compforge/doctor",
+    "commit": "2c6dd6edaf045ce126f3ad176d5036e68407561c",
+    "archiveSHA256": "44784dbd407f447d7f9a090728f2f5d5a1bfc3c410d98f49b24ef988f46bda0d",
+    "language": "typescript"
+  }
+]
