@@ -50,11 +50,11 @@ func (u *User) Save(){ Work() }
 	}
 	got := map[string]NodeKind{}
 	for _, n := range g.Nodes() {
-		if n.Kind != DocumentKind {
+		if n.Kind != DocumentKind && n.Location != nil {
 			got[n.QualifiedName] = n.Kind
 		}
 	}
-	if !reflect.DeepEqual(got, want) || len(g.Nodes()) != len(want)+1 {
+	if !reflect.DeepEqual(got, want) || len(g.Nodes()) != len(want)+2 {
 		t.Fatalf("declarations=%v, want %v", got, want)
 	}
 	for _, row := range query(t, g, `MATCH (n) RETURN n, n.kind AS kind, labels(n) AS labels, properties(n) AS props`, nil) {
@@ -138,7 +138,7 @@ func Local(){ type Box struct{} }
 		t.Fatal(rows)
 	}
 	edge, method := rows[0]["r"].(Relation), rows[0]["m"].(Node)
-	if method.ID != before.ID || edge.Location != method.Location || edge.Location.Path != "methods.go" || edge.Confidence != Exact || edge.Basis != "receiver_declaration" {
+	if method.ID != before.ID || edge.Location != *method.Location || edge.Location.Path != "methods.go" || edge.Confidence != Exact || edge.Basis != "receiver_declaration" {
 		t.Fatal(edge, method)
 	}
 	if rows[0]["b"].(Node).QualifiedName != "Box" {
@@ -149,7 +149,7 @@ func Local(){ type Box struct{} }
 	}
 	// Document ownership and receiver ownership are distinct evidence, not inferred
 	// from the physical location of the receiver's type declaration.
-	if len(query(t, g, `MATCH (:Document {path:'methods.go'})-[:contains]->(:Method) RETURN 1`, nil)) != 1 {
+	if len(query(t, g, `MATCH (:Document {path:'methods.go'})-[:declares]->(:Method) RETURN 1`, nil)) != 1 {
 		t.Fatal("method's lexical file owner missing")
 	}
 	nodes, edges := g.Nodes(), g.Relations()

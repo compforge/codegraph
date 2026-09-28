@@ -8,48 +8,48 @@ import (
 	"github.com/compforge/codegraph/internal/extract"
 )
 
-func goTypeTargets(f extract.Facts, name, qualifier string, files map[string]extract.Facts, names []string, module string) []bindingTarget {
-	dir := path.Dir(f.Path)
-	pkg := f.Package
+func goTypeTargets(f extract.Facts, name, qualifier string, files map[string]extract.Facts, namespaces *NamespaceIndex, module string) []bindingTarget {
+	paths := namespaces.ScopeFiles(f)
 	if qualifier != "" {
-		dir = ""
+		paths = nil
 		for _, imp := range f.Imports {
-			imported, ok := ImportDir(module, imp.Path)
-			if !ok {
-				continue
-			}
-			for _, p := range names {
-				target := files[p]
+			for _, p := range namespaces.GoImportFiles(module, imp.Path) {
 				alias := imp.Alias
 				if alias == "" {
-					alias = target.Package
+					alias = files[p].Package
 				}
-				if target.Language == "go" && path.Dir(p) == imported && alias == qualifier {
-					dir = imported
-					pkg = target.Package
+				if alias == qualifier {
+					paths = append(paths, p)
 				}
 			}
 		}
 	}
+	allowed := map[string]bool{}
+	for _, p := range paths {
+		allowed[p] = true
+	}
+	seen := map[string]bool{}
 	var out []bindingTarget
-	for _, p := range names {
-		target := files[p]
-		if dir == "" || target.Language != "go" || path.Dir(p) != dir || target.Package != pkg || strings.HasSuffix(p, "_test.go") && !strings.HasSuffix(f.Path, "_test.go") {
+	for _, p := range paths {
+		key := namespaces.ByDocument[p]
+		if seen[key] {
 			continue
 		}
-		for i, d := range target.Declarations {
-			if d.Parent == -1 && d.Name == name && (qualifier == "" || exported(name)) {
-				switch d.Kind {
-				case "struct", "interface", "type", "type_alias":
-					out = append(out, bindingTarget{Ref{p, i}, "exact"})
-				}
+		seen[key] = true
+		for _, ref := range namespaces.Members[key][name] {
+			if !allowed[ref.Path] || qualifier != "" && !exported(name) {
+				continue
+			}
+			switch files[ref.Path].Declarations[ref.Declaration].Kind {
+			case "struct", "interface", "type", "type_alias":
+				out = append(out, bindingTarget{ref, "exact"})
 			}
 		}
 	}
 	return uniqueBindingTargets(out)
 }
 
-func resolveTypeRelations(ctx context.Context, files map[string]extract.Facts, names []string, module string, limit int) ([]Edge, []Issue, error) {
+func resolveTypeRelations(ctx context.Context, files map[string]extract.Facts, names []string, module string, namespaces *NamespaceIndex, limit int) ([]Edge, []Issue, error) {
 	var edges []Edge
 	var issues []Issue
 	add := func(e Edge) error {
@@ -70,9 +70,9 @@ func resolveTypeRelations(ctx context.Context, files map[string]extract.Facts, n
 			}
 			var targets []bindingTarget
 			if f.Language == "go" {
-				targets = goTypeTargets(f, hint.Name, hint.Module, files, names, module)
+				targets = goTypeTargets(f, hint.Name, hint.Module, files, namespaces, module)
 			} else {
-				binder := moduleBinder{ctx, files, limit - len(edges)}
+				binder := moduleBinder{ctx, files, limit - len(edges), namespaces}
 				imported, matched, err := binder.useTargets(f, hint.Name, hint.Module, hint.Span)
 				if err != nil {
 					return nil, nil, err
@@ -84,7 +84,7 @@ func resolveTypeRelations(ctx context.Context, files map[string]extract.Facts, n
 					for scope >= -1 {
 						for i, d := range f.Declarations {
 							if d.Parent == scope && d.Name == hint.Name && (d.Kind == "class" || d.Kind == "interface") {
-								targets = append(targets, bindingTarget{Ref{p, i}, "exact"})
+								targets = append(targets, bindingTarget{Ref{Path: p, Declaration: i}, "exact"})
 							}
 						}
 						if len(targets) > 0 || scope == -1 {
@@ -96,7 +96,7 @@ func resolveTypeRelations(ctx context.Context, files map[string]extract.Facts, n
 			}
 			var eligible []bindingTarget
 			for _, target := range targets {
-				if target.Declaration < 0 {
+				if !target.IsDeclaration() {
 					continue
 				}
 				kind := files[target.Path].Declarations[target.Declaration].Kind
@@ -114,7 +114,7 @@ func resolveTypeRelations(ctx context.Context, files map[string]extract.Facts, n
 				issues = append(issues, Issue{p, "unresolved_type_relation", hint.Name, hint.Kind, hint.Span})
 			}
 			for _, target := range eligible {
-				if err := add(Edge{Ref{p, hint.Owner}, target.Ref, hint.Kind, target.Confidence, hint.Basis, p, hint.Span}); err != nil {
+				if err := add(Edge{Ref{Path: p, Declaration: hint.Owner}, target.Ref, hint.Kind, target.Confidence, hint.Basis, p, hint.Span}); err != nil {
 					return nil, nil, err
 				}
 			}
@@ -175,7 +175,7 @@ func resolveTypeRelations(ctx context.Context, files map[string]extract.Facts, n
 					if !complete || count == 0 {
 						continue
 					}
-					if err := add(Edge{Ref{p, i}, Ref{q, j}, "implements", "candidate", "method_name_set", p, d.Span}); err != nil {
+					if err := add(Edge{Ref{Path: p, Declaration: i}, Ref{Path: q, Declaration: j}, "implements", "candidate", "method_name_set", p, d.Span}); err != nil {
 						return nil, nil, err
 					}
 				}

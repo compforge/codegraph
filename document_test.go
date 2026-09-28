@@ -120,7 +120,7 @@ func TestDocumentsRollback(t *testing.T) {
 		{name: "file count", opts: Options{MaxDocuments: 1}, documents: []Document{added}, wantErr: ErrBuildBudget},
 		{name: "file bytes", opts: Options{MaxDocumentBytes: int64(len(seed.Content))}, documents: []Document{added}, wantErr: ErrBuildBudget},
 		{name: "source bytes", opts: Options{MaxSourceBytes: int64(len(seed.Content) + len(added.Content) - 1)}, documents: []Document{added}, wantErr: ErrBuildBudget},
-		{name: "node count", opts: Options{MaxNodes: 2}, documents: []Document{added}, wantErr: ErrBuildBudget},
+		{name: "node count", opts: Options{MaxNodes: 3}, documents: []Document{added}, wantErr: ErrBuildBudget},
 		{name: "invalid path", documents: []Document{added, {Path: "../escape.go", Content: seed.Content}}},
 		{name: "canceled", documents: []Document{added}, wantErr: context.Canceled, cancel: true},
 	} {

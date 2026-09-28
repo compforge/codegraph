@@ -99,6 +99,7 @@ type TypeRelation struct {
 
 type Facts struct {
 	Path, Package, Language string
+	PackageSpan             Span
 	Source                  []byte
 	LineStarts              []int
 	Declarations            []Declaration
@@ -218,6 +219,7 @@ func Analyze(ctx context.Context, name string, source []byte, timeout time.Durat
 	for _, i := range facts.Imports {
 		if i.Kind == "package" {
 			f.Package = i.Name
+			f.PackageSpan = Span{int(i.StartByte), int(i.EndByte)}
 			continue
 		}
 		f.Imports = append(f.Imports, Import{Alias: i.Alias, Path: i.Path, Binding: i.Name, Span: Span{int(i.StartByte), int(i.EndByte)}})

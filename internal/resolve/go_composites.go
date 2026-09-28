@@ -9,7 +9,7 @@ import (
 
 // Follow only loaded type declarations. Unknown/external types cannot license a
 // bare-name fallback: their keys may name fields rather than lexical variables.
-func goCompositeKeyTargets(ctx context.Context, f extract.Facts, ref extract.Reference, files map[string]extract.Facts, names []string, module string, limit int) ([]Ref, bool, error) {
+func goCompositeKeyTargets(ctx context.Context, f extract.Facts, ref extract.Reference, files map[string]extract.Facts, namespaces *NamespaceIndex, module string, limit int) ([]Ref, bool, error) {
 	var fields []Ref
 	seen := map[Ref]bool{}
 	unique := map[Ref]bool{}
@@ -29,7 +29,7 @@ func goCompositeKeyTargets(ctx context.Context, f extract.Facts, ref extract.Ref
 			if owner != nil && (source.Package == f.Package && path.Dir(source.Path) == path.Dir(f.Path) || exported(ref.Name)) {
 				for i, d := range source.Declarations {
 					if d.Parent == owner.Declaration && d.Kind == "field" && d.Name == ref.Name {
-						target := Ref{source.Path, i}
+						target := Ref{Path: source.Path, Declaration: i}
 						if !unique[target] {
 							if len(fields) >= limit {
 								return false, ErrEdgeLimit
@@ -45,10 +45,10 @@ func goCompositeKeyTargets(ctx context.Context, f extract.Facts, ref extract.Ref
 		var targets []Ref
 		if hint.Bound {
 			if hint.Target >= 0 {
-				targets = append(targets, Ref{source.Path, hint.Target})
+				targets = append(targets, Ref{Path: source.Path, Declaration: hint.Target})
 			}
 		} else if hint.Name != "" {
-			for _, target := range goTypeTargets(source, hint.Name, hint.Module, files, names, module) {
+			for _, target := range goTypeTargets(source, hint.Name, hint.Module, files, namespaces, module) {
 				targets = append(targets, target.Ref)
 			}
 		}

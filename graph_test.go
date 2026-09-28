@@ -53,7 +53,7 @@ func query(t *testing.T, g *Graph, q string, params map[string]any) []map[string
 
 func TestSourceGraph(t *testing.T) {
 	g := built(t, Options{})
-	rows := query(t, g, `MATCH (f:Document)-[:contains]->(a:Function {name:'Entry'})-[r:calls]->(b:Function {name:'Work'}) RETURN f,r,b`, nil)
+	rows := query(t, g, `MATCH (f:Document)-[:declares]->(a:Function {name:'Entry'})-[r:calls]->(b:Function {name:'Work'}) RETURN f,r,b`, nil)
 	if len(rows) != 2 {
 		t.Fatalf("calls=%v", rows)
 	}
@@ -67,7 +67,7 @@ func TestSourceGraph(t *testing.T) {
 	if rows[0]["f"].(Node).Kind != DocumentKind || rows[0]["b"].(Node).Name != "Work" {
 		t.Fatal(rows)
 	}
-	properties := query(t, g, `MATCH (:Document)-[:contains]->(a:Function {name:'Entry'})-[r:calls]->(b:Function {name:'Work'}) RETURN r.id AS id, r.confidence AS confidence, properties(r) AS props`, nil)
+	properties := query(t, g, `MATCH (:Document)-[:declares]->(a:Function {name:'Entry'})-[r:calls]->(b:Function {name:'Work'}) RETURN r.id AS id, r.confidence AS confidence, properties(r) AS props`, nil)
 	for _, row := range properties {
 		if row["confidence"] != "exact" || row["id"] == nil {
 			t.Fatal(row)
@@ -90,7 +90,7 @@ func TestSourceGraph(t *testing.T) {
 	if len(cycles) != 1 {
 		t.Fatal(cycles)
 	}
-	imports := query(t, g, `MATCH (f:Document {path:'main.go'})-[r:imports]->(d:Document) RETURN d.path AS path`, nil)
+	imports := query(t, g, `MATCH (f:Document {path:'main.go'})-[r:imports]->(:Package)<-[:declares]-(d:Document) RETURN d.path AS path`, nil)
 	if len(imports) != 1 || imports[0]["path"] != "lib/work.go" {
 		t.Fatal(imports)
 	}

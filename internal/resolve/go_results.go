@@ -36,7 +36,7 @@ func goCallResultTypes(ctx context.Context, f extract.Facts, result *extract.GoT
 		case "function_ref":
 			if hint.Bound {
 				if hint.Target >= 0 {
-					return declaration(Ref{source.Path, hint.Target})
+					return declaration(Ref{Path: source.Path, Declaration: hint.Target})
 				}
 				return nil
 			}
@@ -76,12 +76,12 @@ func goCallResultTypes(ctx context.Context, f extract.Facts, result *extract.GoT
 			typ := value.hint
 			if typ.Bound {
 				if typ.Target >= 0 {
-					if err := declaration(Ref{value.source.Path, typ.Target}); err != nil {
+					if err := declaration(Ref{Path: value.source.Path, Declaration: typ.Target}); err != nil {
 						return err
 					}
 				}
 			} else if typ.Name != "" {
-				for _, target := range goTypeTargets(value.source, typ.Name, typ.Module, files, methods.names, module) {
+				for _, target := range goTypeTargets(value.source, typ.Name, typ.Module, files, methods.namespaces, module) {
 					if err := declaration(target.Ref); err != nil {
 						return err
 					}

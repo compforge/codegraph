@@ -27,6 +27,7 @@ const (
 	Variable    NodeKind = "Variable"
 	Constant    NodeKind = "Constant"
 	Module      NodeKind = "Module"
+	Package     NodeKind = "Package"
 	Enum        NodeKind = "Enum"
 	Record      NodeKind = "Record"
 	Namespace   NodeKind = "Namespace"
@@ -48,18 +49,24 @@ type Location struct {
 	EndColumn int    `json:"endColumn"`
 }
 
-// Node is a file or declaration in a single source snapshot.
+// Node is a source document, language organization or declaration in one snapshot.
+// Location is nil for organizations assembled across source contributions;
+// declares relations retain each contributing source location.
 type Node struct {
-	ID            string   `json:"id"`
-	Kind          NodeKind `json:"kind"`
-	Name          string   `json:"name"`
-	QualifiedName string   `json:"qualifiedName,omitempty"`
-	Language      string   `json:"language"`
-	Location      Location `json:"location"`
-	Markers       []Marker `json:"markers,omitempty"`
+	ID            string    `json:"id"`
+	Kind          NodeKind  `json:"kind"`
+	Name          string    `json:"name"`
+	QualifiedName string    `json:"qualifiedName,omitempty"`
+	Language      string    `json:"language"`
+	Location      *Location `json:"location,omitempty"`
+	Markers       []Marker  `json:"markers,omitempty"`
 }
 
 func cloneNode(n Node) Node {
+	if n.Location != nil {
+		loc := *n.Location
+		n.Location = &loc
+	}
 	n.Markers = append([]Marker(nil), n.Markers...)
 	return n
 }

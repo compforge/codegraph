@@ -3,15 +3,16 @@ package codegraph
 import "sort"
 
 // Find returns declaration nodes in source order. An empty kind matches every
-// declaration kind; an empty qualifiedName matches every name. Document nodes are
-// excluded because their name is a basename rather than a declaration name.
+// declaration kind; an empty qualifiedName matches every name. Documents and
+// organizations without a single Location are excluded. Follow declares from a
+// Document to find its package/module contributions.
 // The returned nodes are detached values and can be safely modified.
 func (g *Graph) Find(path string, kind NodeKind, qualifiedName string) []Node {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	out := make([]Node, 0)
 	for _, node := range g.nodes {
-		if node.Kind == DocumentKind || node.Location.Path != path {
+		if node.Kind == DocumentKind || node.Location == nil || node.Location.Path != path {
 			continue
 		}
 		if kind != "" && node.Kind != kind {

@@ -49,13 +49,23 @@ func (g *Graph) assemble(ctx context.Context, files map[string]extract.Facts, fa
 		if d.Code == "parse_error" {
 			id := DocumentID(d.Location.Path)
 			nodes[id] = Node{ID: id, Kind: DocumentKind, Name: path.Base(d.Location.Path),
-				Language: Language(d.Location.Path), Location: d.Location}
+				Language: Language(d.Location.Path), Location: &d.Location}
 		}
 	}
 	addEdge := func(source, target string, kind RelationKind, confidence Confidence, basis string, loc Location) {
 		id := identity(source, target, kind, loc.Path, loc.StartByte, loc.EndByte)
 		relations[id] = Relation{ID: id, Source: source, Target: target, Kind: kind, Confidence: confidence, Basis: basis, Location: loc}
 	}
+	namespaces, err := resolve.BuildNamespaces(ctx, files, g.opts.ModulePath)
+	if err != nil {
+		return nil, nil, report, err
+	}
+	for key, unit := range namespaces.Units {
+		id := "namespace:" + identity(key)
+		ids[resolve.Ref{Namespace: key}] = id
+		nodes[id] = Node{ID: id, Kind: NodeKind(unit.Kind), Name: unit.Name, QualifiedName: unit.QualifiedName, Language: unit.Language}
+	}
+
 	for _, p := range report.Documents {
 		if err := ctx.Err(); err != nil {
 			return nil, nil, report, err
@@ -69,7 +79,7 @@ func (g *Graph) assemble(ctx context.Context, files map[string]extract.Facts, fa
 		}
 		fid := DocumentID(p)
 		ids[resolve.Ref{Path: p, Declaration: -1}] = fid
-		nodes[fid] = Node{ID: fid, Kind: DocumentKind, Name: path.Base(p), Language: f.Language, Location: location(f, extract.Span{Start: 0, End: len(f.Source)})}
+		nodes[fid] = Node{ID: fid, Kind: DocumentKind, Name: path.Base(p), Language: f.Language, Location: locationPtr(f, extract.Span{Start: 0, End: len(f.Source)})}
 		for i, d := range f.Declarations {
 			kind, err := declarationKind(d.Kind)
 			if err != nil {
@@ -77,25 +87,37 @@ func (g *Graph) assemble(ctx context.Context, files map[string]extract.Facts, fa
 			}
 			id := declarationID(p, kind, d.QualifiedName, d.Start)
 			ids[resolve.Ref{Path: p, Declaration: i}] = id
-			n := Node{ID: id, Kind: kind, Name: d.Name, QualifiedName: d.QualifiedName, Language: f.Language, Location: location(f, d.Span)}
+			n := Node{ID: id, Kind: kind, Name: d.Name, QualifiedName: d.QualifiedName, Language: f.Language, Location: locationPtr(f, d.Span)}
 			for _, m := range d.Comments {
 				n.Markers = append(n.Markers, Marker{Kind: MarkerKind(m.Kind), Text: m.Text, Location: location(f, m.Span)})
 			}
 			nodes[id] = n
 		}
 		for i, d := range f.Declarations {
-			parent := ids[resolve.Ref{Path: p, Declaration: d.Parent}]
-			addEdge(parent, ids[resolve.Ref{Path: p, Declaration: i}], Contains, Exact, "declaration", location(f, d.Span))
+			target := ids[resolve.Ref{Path: p, Declaration: i}]
+			addEdge(fid, target, Declares, Exact, "source_declaration", location(f, d.Span))
+			if d.Parent >= 0 {
+				addEdge(ids[resolve.Ref{Path: p, Declaration: d.Parent}], target, Contains, Exact, "declaration", location(f, d.Span))
+			} else if key := namespaces.ByDocument[p]; key != "" && d.Receiver == "" {
+				addEdge(ids[resolve.Ref{Namespace: key}], target, Contains, Exact, "namespace_member", location(f, d.Span))
+			}
 		}
 	}
-	edges, issues, err := resolve.Resolve(ctx, files, g.opts.ModulePath, g.opts.MaxRelations-len(relations))
+	if len(relations)+len(namespaces.Edges) > g.opts.MaxRelations {
+		return nil, nil, report, fmt.Errorf("%w: organization graph size", ErrBuildBudget)
+	}
+	edges, issues, err := resolve.Resolve(ctx, files, g.opts.ModulePath, namespaces, g.opts.MaxRelations-len(relations)-len(namespaces.Edges))
 	if err != nil {
 		if errors.Is(err, resolve.ErrEdgeLimit) {
 			err = fmt.Errorf("%w: %v", ErrBuildBudget, err)
 		}
 		return nil, nil, report, err
 	}
+	edges = append(namespaces.Edges, edges...)
 	for _, e := range edges {
+		if ids[e.Source] == "" || ids[e.Target] == "" {
+			return nil, nil, report, fmt.Errorf("unpublished relation endpoint: %+v", e)
+		}
 		addEdge(ids[e.Source], ids[e.Target], RelationKind(e.Kind), Confidence(e.Confidence), e.Basis, location(files[e.Path], e.Span))
 	}
 	for _, i := range issues {
@@ -128,7 +150,11 @@ func (g *Graph) materialize(ctx context.Context, nodes map[string]Node, relation
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		props := map[string]any{"id": n.ID, "kind": string(n.Kind), "name": n.Name, "qualifiedName": n.QualifiedName, "language": n.Language, "path": n.Location.Path, "line": n.Location.Line, "column": n.Location.Column, "startByte": n.Location.StartByte, "endByte": n.Location.EndByte, "snapshot": g.snapshot}
+		props := map[string]any{"id": n.ID, "kind": string(n.Kind), "name": n.Name, "qualifiedName": n.QualifiedName, "language": n.Language, "snapshot": g.snapshot}
+		if n.Location != nil {
+			props["path"], props["line"], props["column"] = n.Location.Path, n.Location.Line, n.Location.Column
+			props["startByte"], props["endByte"] = n.Location.StartByte, n.Location.EndByte
+		}
 		kinds := []string{}
 		seen := map[MarkerKind]bool{}
 		for _, kind := range []MarkerKind{Spec, Case, Rule, Link, Doc} {
@@ -162,4 +188,9 @@ func (g *Graph) materialize(ctx context.Context, nodes map[string]Node, relation
 		}
 	}
 	return s, nil
+}
+
+func locationPtr(f extract.Facts, span extract.Span) *Location {
+	loc := location(f, span)
+	return &loc
 }

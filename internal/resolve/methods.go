@@ -11,9 +11,10 @@ import (
 // methodIndex is a per-resolution view of declarations and already-bound bases.
 // It follows extends only: an implements candidate does not imply inheritance.
 type methodIndex struct {
-	names   []string
-	bases   map[Ref][]Ref
-	members map[Ref]map[string][]Ref
+	namespaces *NamespaceIndex
+	names      []string
+	bases      map[Ref][]Ref
+	members    map[Ref]map[string][]Ref
 }
 
 func newMethodIndex(ctx context.Context, files map[string]extract.Facts, names []string, types []Edge) (*methodIndex, error) {
@@ -35,7 +36,7 @@ func newMethodIndex(ctx context.Context, files map[string]extract.Facts, names [
 			}
 			var owners []Ref
 			if d.Parent >= 0 {
-				owners = append(owners, Ref{p, d.Parent})
+				owners = append(owners, Ref{Path: p, Declaration: d.Parent})
 			}
 			if d.Receiver != "" {
 				owners = append(owners, receivers[receiverKey{path.Dir(p), f.Package, d.Receiver}]...)
@@ -44,7 +45,7 @@ func newMethodIndex(ctx context.Context, files map[string]extract.Facts, names [
 				if index.members[owner] == nil {
 					index.members[owner] = map[string][]Ref{}
 				}
-				index.members[owner][d.Name] = append(index.members[owner][d.Name], Ref{p, i})
+				index.members[owner][d.Name] = append(index.members[owner][d.Name], Ref{Path: p, Declaration: i})
 			}
 		}
 	}

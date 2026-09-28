@@ -14,7 +14,7 @@ Struct、Interface、Field、Method、Function 等具体类别，关系包括调
 无需独立数据库服务，无强制落盘。本仓库尚未首次发布。
 
 ## 能力与边界
-- 当前解析 **Go** 的函数、方法、结构体、接口、字段、其他命名类型、类型别名及单名称变量和常量，构建 contains、imports 和静态包函数 calls。
+- 当前解析 **Go** 的函数、方法、结构体、接口、字段、其他命名类型、类型别名及单名称变量和常量，构建 declares、contains、imports 和静态包函数 calls。
 - 提取 **Python、JavaScript、TypeScript、TSX** 声明、词法包含、本地源码 import、显式模块绑定、未被遮蔽的本地及导入函数调用及声明注释 marker。
 - 其他 gotreesitter 已注册语言使用通用语法/声明适配器；缺少 outline、未知声明类别和未实现的关系解析均输出明确诊断。
 - 沿已绑定的 `extends` 关系查找继承方法调用候选，覆盖 Go 嵌入接口及 Python/JS/TS 基类。同一分支优先当前类型声明的方法，多基类保留候选，不推断运行时 MRO；`implements` 不代表行为继承。
@@ -41,11 +41,11 @@ Python 包初始化和运行时分派。具名/default/namespace import 及显�
 
 ## 节点类别
 
-`Node.Kind` 同时是节点的 Cypher 标签：`Document`、`Struct`、`Interface`、`Field`、`Method`、
+`Node.Kind` 同时是节点的 Cypher 标签：`Document`、`Package`、`Module`、`Struct`、`Interface`、`Field`、`Method`、
 `Function`、`Type`、`TypeAlias`、`Class`、`Variable`、`Enum` 等具体声明类别。各语言实际覆盖见
 `Capabilities(language)`。`Type` 表达 `type ID int` 等其他命名类型；`TypeAlias`
-表达 `type Alias = ID` 等显式别名。分类描述声明本身，不推断底层类型。symbol（符号）只是代码声明的
-统称，不是图中的类别或标签。
+表达 `type Alias = ID` 等显式别名。分类描述声明本身，不推断底层类型。Symbol 表达代码声明，Namespace 表达语言的名称组织单元；两者是逻辑概念，
+不增加上位标签或互斥三分类。具体 Namespace Kind 只表示语言自身的 namespace 声明。
 Go API 中使用 `DocumentKind` 常量表示文档节点类别，`Document` 类型提供输入路径和内容。
 
 字段和接口中显式声明的方法均为独立节点，有自己的位置和 marker。可以直接查询成员：
@@ -55,9 +55,20 @@ MATCH (s:Struct)-[:contains]->(f:Field)
 RETURN s, f
 ```
 
-`contains` 记录词法归属。接收者方法还会从已加载包内的接收者类型建立 `contains` 边，支持跨文件；
+`declares` 从 Document 指向源码声明及包/模块贡献；`contains` 表达直接语义归属，支持 Namespace 嵌套。
+Go Package 跨文件组织声明，目录嵌套不代表包嵌套；Python 支持普通 Package 与文件 Module 的组织层级。
+接收者方法从已加载包内的接收者类型建立 `contains` 边，支持跨文件；
 关系的 `basis` 用 `declaration` 与 `receiver_declaration` 区分两种依据。接收者有多个候选时输出
 candidate 边，无法确定目标时保留诊断。不展开匿名嵌套类型或提升成员。
+
+例如，查询 Go 包的直接成员和源码来源：
+
+```cypher
+MATCH (:Package {name:$package})-[:contains]->(member)<-[:declares]-(source:Document)
+RETURN member, source
+```
+
+身份、嵌套和语言覆盖见[命名空间组织](docs/namespaces.md)。
 
 ## 快速使用
 
@@ -112,7 +123,7 @@ before/after 应创建不同的 Graph；同一路径重新加入不同字节会�
 ### 源码 Document
 
 `Document` 是一份构图源码输入：逻辑路径 `Path` 及其完整内容 `Content`。路径不必实际存在于磁盘，
-用于快照内的源码身份、语言识别、相对 import 上下文与源码位置。Document 是输入材料，不是 `Node.Kind`。
+用于快照内的源码身份、语言识别、相对 import 上下文与源码位置。Document 是输入材料，入图后对应 `DocumentKind` 节点。
 
 源码来自内存或 Git revision 时，可以直接传入：
 
@@ -159,6 +170,7 @@ for _, entry := range entries {
 }
 ```
 
+`Find` / `FindAsync` 查询有源码位置的声明；组织节点的 `Node.Location` 为 nil，沿入向 declares 获取各份源码贡献。
 `Find` 按源码位置排序；`Node`、`RelationsFrom`、`RelationsTo` 返回脱离内部存储的值。
 节点位置同时提供起止行/列，diff 消费者无需再次解析源码即可把变更范围映射到声明。
 kind 或限定名为空时表示通配。
@@ -166,7 +178,7 @@ kind 或限定名为空时表示通配。
 ## 语言扩展
 
 语言识别不使用 CodeGraph 固定白名单。构图前可以通过 gotreesitter 的 `grammars.Register` /
-`RegisterExtension` 注册 grammar，通用适配器依据其 tags 和归属规则构建具体类别节点及 contains 关系。
+`RegisterExtension` 注册 grammar，通用适配器依据其 tags 和归属规则构建具体类别节点、declares 来源与声明内部 contains 关系。
 AST 不穿透图 API；未知声明类别输出诊断，不降为笼统的 `Symbol` 节点。关系解析需要语言专有绑定规则；
 仅支持声明提取的语言始终报告局部覆盖。可运行的[扩展测试](language_extension_test.go)展示了这一边界。
 

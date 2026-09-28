@@ -80,8 +80,12 @@ func TestModuleImportExpansion(t *testing.T) {
 			if err != nil || len(r.Diagnostics) != 0 {
 				t.Fatal(r, err)
 			}
-			rows := query(t, g, `MATCH (a:Document)-[r:imports]->(b:Document) RETURN a,r,b`, nil)
-			if len(rows) != 1 || rows[0]["b"].(Node).Location.Path != tc.target || rows[0]["r"].(Relation).Confidence != Exact {
+			q := `MATCH (a:Document)-[r:imports]->(b:Document) RETURN a,r,b`
+			if Language(tc.entry) == "python" {
+				q = `MATCH (a:Document)-[r:imports]->(b:Module)<-[:declares]-(:Document {path:$path}) RETURN a,r,b`
+			}
+			rows := query(t, g, q, map[string]any{"path": tc.target})
+			if len(rows) != 1 || rows[0]["r"].(Relation).Confidence != Exact {
 				t.Fatal(rows)
 			}
 			g2, r, err := Build(context.Background(), "rev", documents(fs, tc.entry, tc.target), Options{})
@@ -154,7 +158,7 @@ func TestModuleDeclarationsAndMarkers(t *testing.T) {
 			}
 			got := map[string]NodeKind{}
 			for _, n := range g.Nodes() {
-				if n.Kind != DocumentKind {
+				if n.Kind != DocumentKind && n.Location != nil {
 					got[n.QualifiedName] = n.Kind
 				}
 				if n.QualifiedName == tc.marked && (len(n.Markers) != 1 || n.Markers[0].Kind != Rule) {
@@ -221,7 +225,7 @@ func TestLanguageDiscoveryAndCapabilities(t *testing.T) {
 		t.Fatal("unknown language capability invented")
 	}
 	for _, cap := range Capabilities() {
-		relations := []RelationKind{Contains, Imports, Calls, References, Extends}
+		relations := []RelationKind{Declares, Contains, Imports, Calls, References, Extends}
 		if cap.Language == "go" || cap.Language == "typescript" || cap.Language == "tsx" {
 			relations = append(relations, Implements)
 		}
@@ -230,7 +234,7 @@ func TestLanguageDiscoveryAndCapabilities(t *testing.T) {
 		}
 	}
 	cap := Capabilities("rust")
-	if len(cap) != 1 || len(cap[0].Declarations) == 0 || !reflect.DeepEqual(cap[0].Relations, []RelationKind{Contains}) {
+	if len(cap) != 1 || len(cap[0].Declarations) == 0 || !reflect.DeepEqual(cap[0].Relations, []RelationKind{Declares, Contains}) {
 		t.Fatal(cap)
 	}
 }

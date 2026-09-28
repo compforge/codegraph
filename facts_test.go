@@ -67,7 +67,7 @@ func TestExtractThenAddParsesOnce(t *testing.T) {
 	if parsed["main.go"] != 1 || parsed["helper.go"] != 1 {
 		t.Fatalf("batch parses = %v, main.go must reuse the Extract facts", parsed)
 	}
-	if got := query(t, g, `MATCH (:Document {path:'main.go'})-[:contains]->(f:Function {name:'Entry'}) RETURN f`, nil); len(got) != 1 {
+	if got := query(t, g, `MATCH (:Document {path:'main.go'})-[:declares]->(f:Function {name:'Entry'}) RETURN f`, nil); len(got) != 1 {
 		t.Fatalf("cached facts lost declarations: %v", got)
 	}
 	// The cache entry was consumed on staging; re-adding identical content must
