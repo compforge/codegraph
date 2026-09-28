@@ -140,7 +140,7 @@ func bindModuleUses(f *Facts, tree *gts.Tree) {
 		nodes[span] = n
 		switch n.Type(lang) {
 		case "lambda", "arrow_function", "function_expression", "generator_function":
-			closures = append(closures, span)
+			closures = append(closures, moduleClosureSpan(n, lang))
 		}
 	})
 	for i := range f.References {

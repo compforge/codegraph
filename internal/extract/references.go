@@ -114,6 +114,13 @@ func extractModuleReferences(f *Facts, tree *gts.Tree) {
 		if typ == "comment" || typ == "string" || typ == "import_statement" || typ == "import_from_statement" {
 			return
 		}
+		if f.Language == "python" && (typ == "parameters" || typ == "lambda_parameters") {
+			for i := 0; i < n.NamedChildCount(); i++ {
+				parameter := n.NamedChild(i)
+				visitPythonParameterExpressions(parameter, lang, func(expr *gts.Node) { visit(expr, parameter) })
+			}
+			return
+		}
 		if typ == "identifier" || typ == "property_identifier" || typ == "type_identifier" || typ == "shorthand_property_identifier" {
 			binding := false
 			receiver := ""

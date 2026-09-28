@@ -57,3 +57,5 @@ make test-python-corpus CORPUS_BASELINE_DIR=/path/to/reviewed-reports
 共同进入评测器摘要。改动参照或扩大绑定清单后需要新建基线，不能将分母变化解释为解析质量变化。
 
 固定快照的首次测量与已核对缺口见[首轮记录](../tests/corpus/python/first-run.md)。
+
+参数注解与遮蔽修复的同基线结果见[注解绑定复测](../tests/corpus/python/annotation-bindings.md)。

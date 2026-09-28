@@ -105,7 +105,7 @@ func enrichModuleCallTargets(f *Facts, tree *gts.Tree) {
 		case "call", "call_expression", "new_expression":
 			nodes[span] = n
 		case "lambda", "arrow_function", "function_expression", "generator_function":
-			closures = append(closures, span)
+			closures = append(closures, moduleClosureSpan(n, lang))
 		}
 	})
 	// Upstream call facts omit new-expressions in some grammars. Capture the
@@ -182,4 +182,13 @@ func moduleConstructorAllowed(f *Facts, tree *gts.Tree, n *gts.Node, name, modul
 		}
 	}
 	return true
+}
+
+// Python evaluates lambda defaults when creating the function. Only its body
+// has deferred execution; keep the existing conservative span for JS/TS.
+func moduleClosureSpan(n *gts.Node, lang *gts.Language) Span {
+	if n.Type(lang) == "lambda" {
+		n = n.ChildByFieldName("body", lang)
+	}
+	return Span{int(n.StartByte()), int(n.EndByte())}
 }
