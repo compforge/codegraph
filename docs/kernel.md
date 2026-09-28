@@ -124,60 +124,25 @@ outline 的结构化计数描述查询产生的候选，不能证明源码中的
 
 ## 代码结构
 
-公共类型位于根包，底层依赖限制在内部适配层。
+根包拥有公共 API、任务调度及图发布。`internal/analysis` 定义共享事实、带类别的实体引用、
+源码贡献与直接成员索引，以及构建阶段的接口；它不依赖语言实现和图存储。
 
-```text
-codegraph/
-├── go.mod
-├── README.md
-├── AGENTS.md
-├── graph.go                   # 公共 Graph 入口与生命周期
-├── node.go                    # Node、具体 NodeKind 与源码属性
-├── relation.go                # Relation、RelationKind、置信依据
-├── marker.go                  # Marker、MarkerKind 及源码绑定信息
-├── document.go                # Document 源码材料与显式批次输入
-├── facts.go                   # Extract 不入图事实提取与内容身份缓存
-├── build.go                   # 构图输入、范围、预算与构建报告
-├── build_graph.go             # 从事实构建节点/关系并物化发布批次
-├── query.go                   # 只读 Cypher 查询、参数及图结果
-├── internal/
-│   ├── extract/               # gotreesitter 适配与语言事实提取
-│   │   ├── extract.go
-│   │   ├── languages.go       # grammar 识别与声明类别映射
-│   │   ├── outline.go         # 通用 outline、Python/JS/TS 事实与 marker
-│   │   ├── bindings.go        # 局部调用的遮蔽检查
-│   │   ├── go.go              # Go 词法绑定与 marker 文档归属
-│   │   └── go_declarations.go # Go 声明分类、成员与词法归属
-│   ├── resolve/               # 作用域、import 与引用目标解析
-│   │   ├── resolve.go
-│   │   ├── namespaces.go      # 语言组织身份、嵌套、贡献及成员索引
-│   │   ├── modules.go         # 源码模块路径候选及本地调用
-│   │   └── receiver.go        # 包级接收者类型索引
-│   └── graphstore/            # GoGraph 适配、属性编码、边身份与结果转换
-│       ├── store.go
-│       └── policy.go          # 使用上游 AST 检查路径边界
-├── graph_test.go              # 真实解析/查询的内存源码夹具与契约测试
-├── file_only_test.go          # 无 grammar Document 的 Document 节点与身份/预算契约
-├── node_kinds_test.go         # 具体类别、成员与跨文件归属契约
-├── example_test.go            # 可执行使用示例
-├── Makefile                   # 格式、静态检查、race 测试和编译入口
-└── docs/
-    └── kernel.md              # 模型、主流程与关键设计依据
-```
+`internal/pipeline` 拥有 parser 生命周期和阶段编排，通过 `internal/language` 中的注册信息
+选择语言实现。语言模块拥有具体语义，并复用通用 outline、语法遍历、模块绑定和继承查找。
+注册项保持无跨快照可变状态，构建中的绑定状态由该批次独占。
 
-根包就是公共 codegraph API，不再嵌套同名包。测试与被测代码放在一起。
-internal 按实际职责组织，不预建多后端框架，也不引入 cmd、server 或独立数据库进程。
-内部包交换语法事实或通用图值，不反向导入根包；由根包完成代码领域实体的组装。
+`internal/graphstore` 封装 GoGraph；语言实现不直接物化或发布图。源码导航见根目录 AGENTS.md，
+阶段接入契约见[语言构建流程](language-pipeline.md)。
 
 ## 构图与查询流程
 
 1. 消费者提供源码快照标识、Document 批次、允许范围及预算。diff 是入口来源之一，
    不是图必须认识的业务对象，也不是唯一构图方式。
-2. CodeGraph 在范围内消费源码材料，通过 gotreesitter 提取声明、引用、import 和注释事实。
-   适配层在释放语法树之前保留独立的事实与位置。
-3. 建立 Namespace 索引、具体类别节点、declares 与 contains 关系，将 marker 绑定到源码声明。
-4. 复用组织索引，结合语言作用域与依赖规则解析引用目标，构建带置信依据的关系，记录未解析和范围受限诊断。
-5. 通过 Go API 将节点与关系写入内嵌 GoGraph，完成当前构建批次，再提供一致的只读查询。
+2. Extract 在有界 worker 中通过语言提取器保留脱离 AST 的事实，Core 随后释放语法树。
+3. Organize 登记组织身份与源码贡献，并把声明内嵌套和已知组织成员汇入统一直接成员索引。
+4. Bind 解析导入、类型及接收者归属。所有语言完成绑定后，Resolve 才解析引用与调用，
+   复用完整的直接成员和类型关系；候选与局部诊断随阶段结果返回。
+5. Core 校验端点与预算，组装具体类别节点和带来源的关系，物化到 GoGraph 后原子发布。
 6. 消费者使用 Cypher 查询关联节点、关系、路径或子图，结合构建覆盖情况形成业务结果。
 
 图可以从空图开始按范围补充 Document；重复加入同一快照的同一事实应幂等，不因重复加载制造多重边。
@@ -257,7 +222,7 @@ Graph、Node、Relation、快照、预算和 Cypher 不依赖具体语言。文�
 注册机制接入，AST 在事实提取后释放，不进入公开模型。未知声明类别保持诊断，不引入 Symbol 兜底分类。
 
 语法可用性、声明提取和引用解析是不同层次。Languages 只枚举注册项；Capabilities 按语言声明类别、
-关系及限制。只具备 outline 的语言报告 unsupported_resolution，保留有用声明但不伪装完整图。
+关系及限制，并从实际语言注册项取得能力声明。只具备 outline 的语言报告 unsupported_resolution，保留有用声明但不伪装完整图。
 Go 使用包和接收者规则；Python 与 JS/TS 使用模块路径候选及局部绑定规则。规则不能凭同名跨语言绑定。
 
 模块 import 扩展与关系解析共享路径候选函数，受同一范围及预算限制，不扫描全仓或安装依赖。

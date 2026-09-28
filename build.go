@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/compforge/codegraph/internal/extract"
+	"github.com/compforge/codegraph/internal/analysis"
 )
 
 // BuildReport describes the published graph and its local information gaps.
@@ -59,7 +59,7 @@ func (g *Graph) addPrepared(ctx context.Context, parseFailures map[string]error,
 			return g.Report(), fmt.Errorf("invalid source path %q", document.Path)
 		}
 	}
-	staged := make(map[string]extract.Facts, len(g.documents))
+	staged := make(map[string]analysis.Facts, len(g.documents))
 	var total int64
 	for p, f := range g.documents {
 		staged[p] = f
@@ -100,7 +100,7 @@ func (g *Graph) allowed(p string) bool {
 }
 func (g *Graph) allowedDir(p string) bool { return g.allowed(p) }
 
-func sortedFiles(files map[string]extract.Facts) []string {
+func sortedFiles(files map[string]analysis.Facts) []string {
 	out := make([]string, 0, len(files))
 	for p := range files {
 		out = append(out, p)

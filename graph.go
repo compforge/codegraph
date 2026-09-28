@@ -10,8 +10,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/compforge/codegraph/internal/language"
+
 	"github.com/alitto/pond/v2"
-	"github.com/compforge/codegraph/internal/extract"
+	"github.com/compforge/codegraph/internal/analysis"
 	"github.com/compforge/codegraph/internal/graphstore"
 	"github.com/odvcencio/gotreesitter/grammars"
 )
@@ -48,7 +50,7 @@ type Graph struct {
 	documentTasks  map[string]documentTask
 	snapshot       string
 	opts           Options
-	documents      map[string]extract.Facts
+	documents      map[string]analysis.Facts
 	failures       map[string]Diagnostic
 	nodes          map[string]Node
 	relations      map[string]Relation
@@ -65,7 +67,7 @@ func New(snapshot string, opts Options) (*Graph, error) {
 	if err := defaults(&opts); err != nil {
 		return nil, err
 	}
-	g := &Graph{snapshot: snapshot, opts: opts, documents: map[string]extract.Facts{}, failures: map[string]Diagnostic{}, nodes: map[string]Node{}, relations: map[string]Relation{}, factCache: map[string]factCacheEntry{}}
+	g := &Graph{snapshot: snapshot, opts: opts, documents: map[string]analysis.Facts{}, failures: map[string]Diagnostic{}, nodes: map[string]Node{}, relations: map[string]Relation{}, factCache: map[string]factCacheEntry{}}
 	g.documentTasks = map[string]documentTask{}
 	g.store = graphstore.New(g.limits())
 	g.report = BuildReport{Snapshot: snapshot, Documents: []string{}}
@@ -154,7 +156,7 @@ func (g *Graph) Report() BuildReport {
 // every registered grammar.
 func Capabilities(languages ...string) []Capability {
 	if len(languages) == 0 {
-		languages = []string{"go", "python", "javascript", "typescript", "tsx"}
+		languages = language.Registered()
 	}
 	var out []Capability
 	for _, name := range languages {
@@ -162,26 +164,19 @@ func Capabilities(languages ...string) []Capability {
 		if entry == nil {
 			continue
 		}
-		if entry.Name == "go" {
-			out = append(out, Capability{Language: "go", Organizations: []NodeKind{Package}, Declarations: []NodeKind{Function, Method, Struct, Interface, Field, Type, TypeAlias, Variable, Constant}, Relations: []RelationKind{Declares, Contains, Imports, Calls, References, Extends, Implements}, Markers: []MarkerKind{Spec, Case, Rule, Link, Doc}, Limitations: []string{"static package functions plus candidate receiver methods, embedded-interface method lookup and syntax-bound callable aliases; no runtime dispatch proof", "references use lexical binding or candidate name matches within Go packages and same-file module declarations", "variables and constants require a single declared name", "members are extracted only from named struct/interface literals; anonymous nested types and promoted members are not expanded", "interface embedding binds extends; same-package direct method names produce candidate implements without signature, pointer-set or promoted-method checking; empty and embedded/type-term interfaces are excluded from inference", "build tags and compiler type checking are not evaluated", "marker syntax: declaration comments using +kind=payload or +kind:payload"}})
-			continue
+		c := language.Lookup(entry.Name).Describe(*entry)
+		cap := Capability{Language: c.Language, Limitations: c.Limitations}
+		for _, v := range c.Organizations {
+			cap.Organizations = append(cap.Organizations, NodeKind(v))
 		}
-		cap := Capability{Language: entry.Name, Relations: []RelationKind{Declares, Contains}, Limitations: []string{"outline is limited to grammar tags; runtime omissions are diagnostics"}}
-		for _, kind := range extract.DeclarationKinds(*entry) {
-			cap.Declarations = append(cap.Declarations, NodeKind(kind))
+		for _, v := range c.Declarations {
+			cap.Declarations = append(cap.Declarations, NodeKind(v))
 		}
-		if entry.Name == "python" {
-			cap.Organizations = []NodeKind{Package, Module}
+		for _, v := range c.Relations {
+			cap.Relations = append(cap.Relations, RelationKind(v))
 		}
-		if extract.ModuleLanguage(entry.Name) {
-			cap.Relations = append(cap.Relations, Imports, Calls, References, Extends)
-			if entry.Name == "typescript" || entry.Name == "tsx" {
-				cap.Relations = append(cap.Relations, Implements)
-			}
-			cap.Markers = []MarkerKind{Spec, Case, Rule, Link, Doc}
-			cap.Limitations = append(cap.Limitations, "named base types bind extends; TS/TSX explicit interfaces bind implements; inherited methods follow bound extends edges as candidates; runtime MRO and dynamic base expressions are not evaluated", "calls resolve to unshadowed local/imported functions; class constructors and receiver methods have syntax-based candidates; arbitrary runtime dispatch remains unresolved", "imports use local source paths and explicit export bindings; dependency configuration, runtime paths and third-party modules are not evaluated; Python absolute imports are candidates")
-		} else {
-			cap.Limitations = append(cap.Limitations, "syntax/outline fallback only; reference resolution and markers are not implemented; builds report partial coverage")
+		for _, v := range c.Markers {
+			cap.Markers = append(cap.Markers, MarkerKind(v))
 		}
 		out = append(out, cap)
 	}
@@ -203,7 +198,7 @@ func Languages() []string {
 // Language returns the registered grammar name selected for a source path, or
 // an empty string. Recognition does not imply complete semantic coverage.
 func Language(name string) string {
-	if entry := extract.Detect(name); entry != nil {
+	if entry := language.Detect(name); entry != nil {
 		return entry.Name
 	}
 	return ""

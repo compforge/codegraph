@@ -23,8 +23,11 @@ build.go、build_graph.go                 # 范围构建、诊断及原子发布
 build_extract.go                         # 有界并行提取、容量预留及确定性汇总
 query.go                                # 只读查询及领域结果还原
 internal/
-  extract/                              # grammar 识别、通用声明与各语言词法/marker 事实
-  resolve/                              # Namespace 索引、Go 包绑定、模块候选、调用与置信依据
+  analysis/                             # 公共事实、实体引用、直接成员索引与阶段契约
+  pipeline/                             # parser 生命周期与 Organize → Bind → Resolve 阶段屏障
+  language/                             # 内置语言注册及能力声明
+    golang/、python/、ecmascript/         # 语言专有提取、组织、绑定与关系规则
+    generic/、syntax/、module/            # 通用 outline、共享语法及模块绑定算法
   graphstore/                           # GoGraph、查询限制及引擎值转换
 graph_test.go、example_test.go           # 契约测试与可执行示例
 multilanguage_test.go、language_extension_test.go # 多语言隔离、能力边界与 grammar 扩展
@@ -41,10 +44,13 @@ docs/kernel.md                          # 稳定模型、主流程与设计依�
 5. AST 与图引擎内部类型不穿透公共 API；消费者通过 `Find`、`Node`、`RelationsFrom`、`RelationsTo` 或 Cypher 消费图事实；局部分析与未解析引用必须保留可辨识的覆盖信息。
    执行失败由 error 表达；候选关系使用 confidence 与 basis，信息缺口以局部诊断保留。局部缺口不否定无关事实，不自动触发消费者的全量回退。
 6. 同一 Graph 只容纳同一源码快照；Document.ID 与对应 Document 节点 ID 相同。入队任务可提前返回单文件事实，后台构建跨文件关系并原子发布；Wait 只等待已提交工作完成。新增语言解析先声明能力并补契约测试；仅识别 grammar 不表示引用已解析，不得跨语言按同名猜测关系。
-7. 验证入口为 `make lint test build`，测试启用 race detector。
-8. 根目录 `VERSION` 记录项目版本，格式为 `X.Y.Z`。任何代码文件变更（含测试代码、增删及重命名）必须在同一提交同步 bump `VERSION`，默认递增 patch；纯文档变更无需 bump。
+7. Core 拥有构建阶段、预算和原子发布；语言实现通过阶段接口返回事实、关系与诊断。语言专有证据由对应实现拥有，语法树只在 Extract 调用期间借用。直接成员统一由 contains 建索引，词法作用域不由 contains 推导。
+8. 验证入口为 `make lint test build`，测试启用 race detector。
+9. 根目录 `VERSION` 记录项目版本，格式为 `X.Y.Z`。任何代码文件变更（含测试代码、增删及重命名）必须在同一提交同步 bump `VERSION`，默认递增 patch；纯文档变更无需 bump。
 
 ## References
+
+- [语言构建流程](docs/language-pipeline.md) — 阶段职责、语言接口与接入契约。
 
 - [命名空间组织](docs/namespaces.md) — 逻辑概念、嵌套、源码贡献与语言绑定边界。
 - [内核设计](docs/kernel.md) — 模型、构建与查询流程、依赖边界和验证状态。

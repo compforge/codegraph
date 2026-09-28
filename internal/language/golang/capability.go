@@ -1,0 +1,10 @@
+package golang
+
+import (
+	"github.com/compforge/codegraph/internal/analysis"
+	"github.com/odvcencio/gotreesitter/grammars"
+)
+
+func Describe(entry grammars.LangEntry) analysis.Capability {
+	return analysis.Capability{Language: "go", Organizations: []string{"Package"}, Declarations: []string{"Function", "Method", "Struct", "Interface", "Field", "Type", "TypeAlias", "Variable", "Constant"}, Relations: []string{"declares", "contains", "imports", "calls", "references", "extends", "implements"}, Markers: []string{"spec", "case", "rule", "link", "doc"}, Limitations: []string{"static package functions plus candidate receiver methods, embedded-interface method lookup and syntax-bound callable aliases; no runtime dispatch proof", "references use lexical binding or candidate name matches within Go packages and same-file module declarations", "variables and constants require a single declared name", "members are extracted only from named struct/interface literals; anonymous nested types and promoted members are not expanded", "interface embedding binds extends; same-package direct method names produce candidate implements without signature, pointer-set or promoted-method checking; empty and embedded/type-term interfaces are excluded from inference", "build tags and compiler type checking are not evaluated", "marker syntax: declaration comments using +kind=payload or +kind:payload"}}
+}

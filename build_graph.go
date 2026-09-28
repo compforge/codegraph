@@ -9,9 +9,9 @@ import (
 	"path"
 	"sort"
 
-	"github.com/compforge/codegraph/internal/extract"
+	"github.com/compforge/codegraph/internal/analysis"
 	"github.com/compforge/codegraph/internal/graphstore"
-	"github.com/compforge/codegraph/internal/resolve"
+	"github.com/compforge/codegraph/internal/pipeline"
 )
 
 // DocumentID identifies a document node by its snapshot-relative logical path.
@@ -28,7 +28,7 @@ func identity(parts ...any) string {
 	return fmt.Sprintf("%x", h[:])
 }
 
-func location(f extract.Facts, span extract.Span) Location {
+func location(f analysis.Facts, span analysis.Span) Location {
 	line := sort.Search(len(f.LineStarts), func(i int) bool { return f.LineStarts[i] > span.Start })
 	endLine := sort.Search(len(f.LineStarts), func(i int) bool { return f.LineStarts[i] > span.End })
 	if endLine == 0 {
@@ -37,10 +37,10 @@ func location(f extract.Facts, span extract.Span) Location {
 	return Location{Path: f.Path, StartByte: span.Start, EndByte: span.End, Line: line, Column: span.Start - f.LineStarts[line-1] + 1, EndLine: endLine, EndColumn: span.End - f.LineStarts[endLine-1] + 1}
 }
 
-func (g *Graph) assemble(ctx context.Context, files map[string]extract.Facts, failures map[string]Diagnostic) (map[string]Node, map[string]Relation, BuildReport, error) {
+func (g *Graph) assemble(ctx context.Context, files map[string]analysis.Facts, failures map[string]Diagnostic) (map[string]Node, map[string]Relation, BuildReport, error) {
 	nodes := map[string]Node{}
 	relations := map[string]Relation{}
-	ids := map[resolve.Ref]string{}
+	ids := map[analysis.Ref]string{}
 	report := BuildReport{Snapshot: g.snapshot, Documents: sortedFiles(files)}
 	for _, d := range failures {
 		report.Diagnostics = append(report.Diagnostics, d)
@@ -56,13 +56,16 @@ func (g *Graph) assemble(ctx context.Context, files map[string]extract.Facts, fa
 		id := identity(source, target, kind, loc.Path, loc.StartByte, loc.EndByte)
 		relations[id] = Relation{ID: id, Source: source, Target: target, Kind: kind, Confidence: confidence, Basis: basis, Location: loc}
 	}
-	namespaces, err := resolve.BuildNamespaces(ctx, files, g.opts.ModulePath)
+	index, issues, err := pipeline.Builtins(ctx, files, g.opts.ModulePath, g.opts.MaxNodes-len(nodes), g.opts.MaxRelations)
 	if err != nil {
+		if errors.Is(err, analysis.ErrEdgeLimit) || errors.Is(err, pipeline.ErrNodeLimit) {
+			err = fmt.Errorf("%w: %v", ErrBuildBudget, err)
+		}
 		return nil, nil, report, err
 	}
-	for key, unit := range namespaces.Units {
+	for key, unit := range index.Units {
 		id := "namespace:" + identity(key)
-		ids[resolve.Ref{Namespace: key}] = id
+		ids[analysis.OrganizationRef(key)] = id
 		nodes[id] = Node{ID: id, Kind: NodeKind(unit.Kind), Name: unit.Name, QualifiedName: unit.QualifiedName, Language: unit.Language}
 	}
 
@@ -78,42 +81,23 @@ func (g *Graph) assemble(ctx context.Context, files map[string]extract.Facts, fa
 			return nil, nil, report, fmt.Errorf("%w: declaration graph size", ErrBuildBudget)
 		}
 		fid := DocumentID(p)
-		ids[resolve.Ref{Path: p, Declaration: -1}] = fid
-		nodes[fid] = Node{ID: fid, Kind: DocumentKind, Name: path.Base(p), Language: f.Language, Location: locationPtr(f, extract.Span{Start: 0, End: len(f.Source)})}
+		ids[analysis.SourceRef(p, -1)] = fid
+		nodes[fid] = Node{ID: fid, Kind: DocumentKind, Name: path.Base(p), Language: f.Language, Location: locationPtr(f, analysis.Span{Start: 0, End: len(f.Source)})}
 		for i, d := range f.Declarations {
 			kind, err := declarationKind(d.Kind)
 			if err != nil {
 				return nil, nil, report, fmt.Errorf("%s: %w", p, err)
 			}
 			id := declarationID(p, kind, d.QualifiedName, d.Start)
-			ids[resolve.Ref{Path: p, Declaration: i}] = id
+			ids[analysis.SourceRef(p, i)] = id
 			n := Node{ID: id, Kind: kind, Name: d.Name, QualifiedName: d.QualifiedName, Language: f.Language, Location: locationPtr(f, d.Span)}
 			for _, m := range d.Comments {
 				n.Markers = append(n.Markers, Marker{Kind: MarkerKind(m.Kind), Text: m.Text, Location: location(f, m.Span)})
 			}
 			nodes[id] = n
 		}
-		for i, d := range f.Declarations {
-			target := ids[resolve.Ref{Path: p, Declaration: i}]
-			addEdge(fid, target, Declares, Exact, "source_declaration", location(f, d.Span))
-			if d.Parent >= 0 {
-				addEdge(ids[resolve.Ref{Path: p, Declaration: d.Parent}], target, Contains, Exact, "declaration", location(f, d.Span))
-			} else if key := namespaces.ByDocument[p]; key != "" && d.Receiver == "" {
-				addEdge(ids[resolve.Ref{Namespace: key}], target, Contains, Exact, "namespace_member", location(f, d.Span))
-			}
-		}
 	}
-	if len(relations)+len(namespaces.Edges) > g.opts.MaxRelations {
-		return nil, nil, report, fmt.Errorf("%w: organization graph size", ErrBuildBudget)
-	}
-	edges, issues, err := resolve.Resolve(ctx, files, g.opts.ModulePath, namespaces, g.opts.MaxRelations-len(relations)-len(namespaces.Edges))
-	if err != nil {
-		if errors.Is(err, resolve.ErrEdgeLimit) {
-			err = fmt.Errorf("%w: %v", ErrBuildBudget, err)
-		}
-		return nil, nil, report, err
-	}
-	edges = append(namespaces.Edges, edges...)
+	edges := index.Edges
 	for _, e := range edges {
 		if ids[e.Source] == "" || ids[e.Target] == "" {
 			return nil, nil, report, fmt.Errorf("unpublished relation endpoint: %+v", e)
@@ -190,7 +174,7 @@ func (g *Graph) materialize(ctx context.Context, nodes map[string]Node, relation
 	return s, nil
 }
 
-func locationPtr(f extract.Facts, span extract.Span) *Location {
+func locationPtr(f analysis.Facts, span analysis.Span) *Location {
 	loc := location(f, span)
 	return &loc
 }
