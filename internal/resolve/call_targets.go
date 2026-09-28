@@ -11,7 +11,7 @@ import (
 // +why=`Syntax-based receiver and alias hints are candidates even when only one loaded target matches`
 func resolveCallTargets(ctx context.Context, f extract.Facts, call extract.Call, files map[string]extract.Facts, module string, methods *methodIndex, limit int) ([]Edge, error) {
 	var edges []Edge
-	source := Ref{f.Path, enclosingDeclaration(f, call.Span)}
+	source := Ref{Path: f.Path, Declaration: enclosingDeclaration(f, call.Span)}
 	// Structured receiver projections extend the existing named-type path; keep
 	// its direct/inherited evidence when no projection is needed.
 	projected := false
@@ -77,17 +77,17 @@ func resolveCallTargets(ctx context.Context, f extract.Facts, call extract.Call,
 						continue
 					}
 					if hint.Kind == "function" && d.Kind == "function" && d.Parent == -1 {
-						targets = append(targets, Ref{name, i})
+						targets = append(targets, Ref{Path: name, Declaration: i})
 					}
 					if hint.Kind == "method" && d.Kind == "method" && (hint.ReceiverType == "" || d.Receiver == hint.ReceiverType || d.Parent >= 0 && target.Declarations[d.Parent].Name == hint.ReceiverType) {
-						targets = append(targets, Ref{name, i})
+						targets = append(targets, Ref{Path: name, Declaration: i})
 					}
 				}
 			}
 
 			if hint.Kind == "method" && hint.ReceiverType != "" {
 				var roots []Ref
-				for _, target := range goTypeTargets(f, hint.ReceiverType, hint.Module, files, methods.names, module) {
+				for _, target := range goTypeTargets(f, hint.ReceiverType, hint.Module, files, methods.namespaces, module) {
 					roots = append(roots, target.Ref)
 				}
 				found, err := methods.lookup(ctx, roots, hint.Name, strings.HasSuffix(f.Path, "_test.go"), limit-len(edges))
@@ -103,7 +103,7 @@ func resolveCallTargets(ctx context.Context, f extract.Facts, call extract.Call,
 				}
 			}
 		} else {
-			binder := moduleBinder{ctx, files, limit - len(edges)}
+			binder := moduleBinder{ctx, files, limit - len(edges), methods.namespaces}
 			typeName := hint.ReceiverType
 			if hint.Kind == "constructor" {
 				typeName = hint.Name
@@ -116,7 +116,7 @@ func resolveCallTargets(ctx context.Context, f extract.Facts, call extract.Call,
 					for owner := enclosingDeclaration(f, call.Span); owner >= 0; owner = f.Declarations[owner].Parent {
 						d := f.Declarations[owner]
 						if d.Kind == "class" && d.Name == typeName {
-							classes = append(classes, Ref{f.Path, owner})
+							classes = append(classes, Ref{Path: f.Path, Declaration: owner})
 							break
 						}
 					}
@@ -124,7 +124,7 @@ func resolveCallTargets(ctx context.Context, f extract.Facts, call extract.Call,
 				lexicalClass := len(classes) > 0
 				for i, d := range f.Declarations {
 					if !lexicalClass && hint.Module == "" && d.Parent == -1 && d.Name == typeName && d.Kind == "class" {
-						classes = append(classes, Ref{f.Path, i})
+						classes = append(classes, Ref{Path: f.Path, Declaration: i})
 					}
 				}
 				imported, _, err := binder.useTargets(f, typeName, hint.Module, call.Span)
@@ -132,7 +132,7 @@ func resolveCallTargets(ctx context.Context, f extract.Facts, call extract.Call,
 					return nil, err
 				}
 				for _, target := range imported {
-					if target.Declaration >= 0 && files[target.Path].Declarations[target.Declaration].Kind == "class" {
+					if target.IsDeclaration() && files[target.Path].Declarations[target.Declaration].Kind == "class" {
 						classes = append(classes, target.Ref)
 					}
 				}
@@ -151,7 +151,7 @@ func resolveCallTargets(ctx context.Context, f extract.Facts, call extract.Call,
 			} else if hint.ReceiverType == "" {
 				for i, d := range f.Declarations {
 					if d.Kind == "method" && d.Name == hint.Name {
-						targets = append(targets, Ref{f.Path, i})
+						targets = append(targets, Ref{Path: f.Path, Declaration: i})
 					}
 				}
 			}

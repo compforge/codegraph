@@ -98,7 +98,7 @@ func (g *Graph) FindAsync(path string, kind NodeKind, qualifiedName string) (pon
 			nodes = append(nodes, Node{
 				ID:   declarationID(path, d.Kind, d.QualifiedName, d.Location.StartByte),
 				Kind: d.Kind, Name: d.Name, QualifiedName: d.QualifiedName,
-				Language: facts.Language, Location: d.Location,
+				Language: facts.Language, Location: &d.Location,
 				Markers: append([]Marker(nil), d.Markers...),
 			})
 		}

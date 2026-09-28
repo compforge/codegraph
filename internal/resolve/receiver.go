@@ -25,7 +25,7 @@ func receiverIndex(files map[string]extract.Facts, names []string) map[receiverK
 			switch d.Kind {
 			case "struct", "interface", "type", "type_alias":
 				key := receiverKey{path.Dir(name), f.Package, d.Name}
-				index[key] = append(index[key], Ref{name, i})
+				index[key] = append(index[key], Ref{Path: name, Declaration: i})
 			}
 		}
 	}

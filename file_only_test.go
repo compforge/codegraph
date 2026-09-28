@@ -29,13 +29,13 @@ func TestDocumentOnlyDocumentsEnterGraph(t *testing.T) {
 	if f.Kind != DocumentKind || f.Language != "" || f.Name != "notes.cg-unrecognized" {
 		t.Fatalf("file-only node = %+v", f)
 	}
-	if got := query(t, g, `MATCH (:Document {path:'notes.cg-unrecognized'})-[:contains]->(n) RETURN n`, nil); len(got) != 0 {
+	if got := query(t, g, `MATCH (:Document {path:'notes.cg-unrecognized'})-[:declares]->(n) RETURN n`, nil); len(got) != 0 {
 		t.Fatalf("file-only document parsed declarations: %v", got)
 	}
 	if got := query(t, g, `MATCH (f:Document) RETURN f`, nil); len(got) != 2 {
 		t.Fatalf("mixed batch file nodes = %v", got)
 	}
-	if got := query(t, g, `MATCH (:Document {path:'main.go'})-[:contains]->(n:Function {name:'Entry'}) RETURN n`, nil); len(got) != 1 {
+	if got := query(t, g, `MATCH (:Document {path:'main.go'})-[:declares]->(n:Function {name:'Entry'}) RETURN n`, nil); len(got) != 1 {
 		t.Fatalf("grammar-backed document lost extraction: %v", got)
 	}
 }

@@ -24,6 +24,10 @@ func evaluate(o *oracle, a observed) evaluation {
 	nodeKeys := map[string]string{}
 	found := map[string]bool{}
 	for _, n := range a.Nodes {
+		if n.Location == nil {
+			e.Unassessed["organization/"+string(n.Kind)]++
+			continue
+		}
 		if n.Kind == cg.DocumentKind {
 			continue
 		}
@@ -36,7 +40,7 @@ func evaluate(o *oracle, a observed) evaluation {
 		}
 		if key == "" {
 			e.metric("declarations/all").Unexpected++
-			e.Findings = append(e.Findings, finding{Category: "unexpected_declaration", Site: location(n.Location), Actual: n.Name})
+			e.Findings = append(e.Findings, finding{Category: "unexpected_declaration", Site: location(*n.Location), Actual: n.Name})
 		} else {
 			if found[key] {
 				e.metric("declarations/all").Unexpected++

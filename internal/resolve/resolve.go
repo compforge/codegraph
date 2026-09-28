@@ -17,7 +17,12 @@ var ErrEdgeLimit = errors.New("relation limit reached")
 type Ref struct {
 	Path        string
 	Declaration int
-} // -1 identifies the file
+	// Namespace identifies an organization endpoint; Path/Declaration are unused.
+	Namespace string
+} // Declaration -1 identifies a Document when Namespace is empty
+
+func (r Ref) IsDeclaration() bool { return r.Namespace == "" && r.Declaration >= 0 }
+
 type Edge struct {
 	Source, Target          Ref
 	Kind, Confidence, Basis string
@@ -44,7 +49,7 @@ func ImportDir(module, imp string) (string, bool) {
 }
 
 // Resolve retains ambiguity as candidate edges; it never guesses receiver types.
-func Resolve(ctx context.Context, files map[string]extract.Facts, module string, limit int) ([]Edge, []Issue, error) {
+func Resolve(ctx context.Context, files map[string]extract.Facts, module string, namespaces *NamespaceIndex, limit int) ([]Edge, []Issue, error) {
 	names := make([]string, 0, len(files))
 	for n := range files {
 		names = append(names, n)
@@ -54,7 +59,7 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 
 	// Calls depend on bound base types, including bases supplied in later batches.
 	// Resolve type evidence once before lookup, without publishing intermediate state.
-	edges, issues, err := resolveTypeRelations(ctx, files, names, module, limit)
+	edges, issues, err := resolveTypeRelations(ctx, files, names, module, namespaces, limit)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -63,6 +68,7 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 		return nil, nil, err
 	}
 
+	methods.namespaces = namespaces
 	add := func(e Edge) error {
 		if len(edges) >= limit {
 			return ErrEdgeLimit
@@ -102,28 +108,29 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 				confidence = "candidate"
 			}
 			for _, owner := range targets {
-				if err := add(Edge{owner, Ref{name, i}, "contains", confidence, "receiver_declaration", name, d.Span}); err != nil {
+				if err := add(Edge{owner, Ref{Path: name, Declaration: i}, "contains", confidence, "receiver_declaration", name, d.Span}); err != nil {
 					return nil, nil, err
 				}
 			}
 		}
 		imports := map[string][]string{}
 		for _, imp := range f.Imports {
-			dir, local := ImportDir(module, imp.Path)
-			var targets []string
-			if local {
-				for _, n := range names {
-					if files[n].Language == "go" && path.Dir(n) == dir && !strings.HasSuffix(n, "_test.go") {
-						targets = append(targets, n)
-					}
-				}
-			}
+			targets := namespaces.GoImportFiles(module, imp.Path)
 			if len(targets) == 0 {
 				issues = append(issues, Issue{name, "unresolved_import", imp.Path, "imports", imp.Span})
 			}
+			confidence := "exact"
+			if namespaces.PackageCount(targets) > 1 {
+				confidence = "candidate"
+			}
+			seenPackages := map[string]bool{}
 			for _, target := range targets {
-				if err := add(Edge{Ref{name, -1}, Ref{target, -1}, "imports", "exact", "module_import", name, imp.Span}); err != nil {
-					return nil, nil, err
+				key := namespaces.ByDocument[target]
+				if !seenPackages[key] {
+					if err := add(Edge{Ref{Path: name, Declaration: -1}, Ref{Namespace: key}, "imports", confidence, "package_import", name, imp.Span}); err != nil {
+						return nil, nil, err
+					}
+					seenPackages[key] = true
 				}
 				alias := imp.Alias
 				if alias == "" {
@@ -136,7 +143,7 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 			if err := ctx.Err(); err != nil {
 				return nil, nil, err
 			}
-			source := Ref{name, -1}
+			source := Ref{Path: name, Declaration: -1}
 			best := len(f.Source) + 1
 			for i, d := range f.Declarations {
 				if d.Start <= call.Start && d.End >= call.End && d.End-d.Start < best {
@@ -165,15 +172,7 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 			basis := "imported_function"
 			if call.Receiver == "" {
 				basis = "package_function"
-				candidateFiles = nil
-				for _, n := range names {
-					if files[n].Language == "go" && path.Dir(n) == path.Dir(name) && files[n].Package == f.Package {
-						if strings.HasSuffix(n, "_test.go") && !strings.HasSuffix(name, "_test.go") {
-							continue
-						}
-						candidateFiles = append(candidateFiles, n)
-					}
-				}
+				candidateFiles = namespaces.ScopeFiles(f)
 				candidateFiles = append(candidateFiles, imports["."]...)
 			}
 			seen := map[Ref]bool{}
@@ -185,7 +184,7 @@ func Resolve(ctx context.Context, files map[string]extract.Facts, module string,
 					if n != name && path.Dir(n) != path.Dir(name) && !exported(d.Name) {
 						continue
 					}
-					r := Ref{n, i}
+					r := Ref{Path: n, Declaration: i}
 					if !seen[r] {
 						candidates = append(candidates, r)
 						seen[r] = true

@@ -93,12 +93,7 @@ func resolveModule(ctx context.Context, f extract.Facts, files map[string]extrac
 		if err := ctx.Err(); err != nil {
 			return nil, nil, err
 		}
-		var targets []string
-		for _, candidate := range ImportPaths(f, imp) {
-			if target, ok := files[candidate]; ok && compatibleLanguage(f.Language, target.Language) {
-				targets = append(targets, candidate)
-			}
-		}
+		targets := methods.namespaces.ModulePaths(f, imp)
 		confidence := "exact"
 		if len(targets) == 0 {
 			issues = append(issues, Issue{f.Path, "unresolved_import", imp.Path, "imports", imp.Span})
@@ -106,12 +101,12 @@ func resolveModule(ctx context.Context, f extract.Facts, files map[string]extrac
 			confidence = "candidate"
 		}
 		for _, target := range targets {
-			if err := add(Edge{Ref{f.Path, -1}, Ref{target, -1}, "imports", confidence, "source_module", f.Path, imp.Span}); err != nil {
+			if err := add(Edge{Ref{Path: f.Path, Declaration: -1}, methods.namespaces.ModuleRef(target), "imports", confidence, "source_module", f.Path, imp.Span}); err != nil {
 				return nil, nil, err
 			}
 		}
 	}
-	binder := moduleBinder{ctx, files, limit - len(edges)}
+	binder := moduleBinder{ctx, files, limit - len(edges), methods.namespaces}
 	symbolEdges, gaps, err := binder.importEdges(f)
 	if err != nil {
 		return nil, nil, err
@@ -122,7 +117,7 @@ func resolveModule(ctx context.Context, f extract.Facts, files map[string]extrac
 		if err := ctx.Err(); err != nil {
 			return nil, nil, err
 		}
-		source := Ref{f.Path, -1}
+		source := Ref{Path: f.Path, Declaration: -1}
 		best := len(f.Source) + 1
 		var targets []Ref
 		for i, d := range f.Declarations {
@@ -131,7 +126,7 @@ func resolveModule(ctx context.Context, f extract.Facts, files map[string]extrac
 				best = d.End - d.Start
 			}
 			if d.Parent == -1 && d.Kind == "function" && d.Name == call.Name {
-				targets = append(targets, Ref{f.Path, i})
+				targets = append(targets, Ref{Path: f.Path, Declaration: i})
 			}
 		}
 		supplement, err := resolveCallTargets(ctx, f, call, files, "", methods, limit-len(edges))
@@ -149,7 +144,7 @@ func resolveModule(ctx context.Context, f extract.Facts, files map[string]extrac
 			}
 			found := false
 			for _, target := range imported {
-				if files[target.Path].Declarations[target.Declaration].Kind != "function" {
+				if !target.IsDeclaration() || files[target.Path].Declarations[target.Declaration].Kind != "function" {
 					continue
 				}
 				found = true

@@ -4,6 +4,7 @@ type RelationKind string
 
 const (
 	Contains   RelationKind = "contains"
+	Declares   RelationKind = "declares"
 	Imports    RelationKind = "imports"
 	Calls      RelationKind = "calls"
 	References RelationKind = "references"

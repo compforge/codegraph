@@ -21,18 +21,19 @@ HTTP 服务和可视化页面归调用方。比如 repocli view 捕获当前工�
 Graph、Node、Relation 是通用图结构；CodeGraph 的代码领域语义由节点类别、关系类别及其属性表达。
 因此，理解 CodeGraph 既要看图如何组织，也要看节点代表什么代码对象、关系表达什么代码事实。
 
-在 Node 层面，Document 表达源码材料，symbol（代码声明）包括 Class、Struct、Interface、
-Function、Method 等具体对象。Document 输入对象提供路径和内容，入图后具有对应的 Document 节点；
-symbol 是代码声明的统称，各声明以具体 Node.Kind 入图。Go API 使用 DocumentKind 常量表示
-Document 节点类别，其值与 Cypher 标签均为 "Document"。
+在 Node 层面，Document 表达源码材料，Symbol 表达代码声明，Namespace 表达组织名称及成员的
+语言单元。Symbol 与 Namespace 是可重叠的逻辑概念，各对象以 Package、Module、Class、Function 等
+具体 Node.Kind 入图；不增加上位标签或三分类字段。具体 Namespace Kind 仅表示语言自身的 namespace
+声明。Go API 使用 DocumentKind 常量表示 Document 节点类别，其值与 Cypher 标签均为 "Document"。
+组织层级与身份规则见[命名空间组织](namespaces.md)。
 
 在 Relation 层面，代码领域赋予边具体含义：imports 表达导入依赖，implements 表达接口实现，
-extends 表达类型继承，calls 表达调用，references 表达引用，contains 表达声明归属。
+extends 表达类型继承，calls 表达调用，references 表达引用，declares 表达源码声明或贡献，contains 表达直接语义归属。
 这些关系及其来源位置、confidence 和 basis，让通用图结构成为可查询、可解释的代码关系证据。
 
 - Graph 对应一个源码快照下已构建的局部图。范围外的文件不等于不存在关系。
-- Node.Kind 直接表达 Document、Struct、Interface、Field、Method、Function、Type、TypeAlias 等具体类别。
-- Relation 即有向 Edge，Kind 包括 contains、imports、calls、references、extends、implements。
+- Node.Kind 直接表达 Document、Package、Module、Struct、Interface、Field、Method、Function、Type、TypeAlias 等具体类别。
+- Relation 即有向 Edge，Kind 包括 declares、contains、imports、calls、references、extends、implements。
 - Relation 有独立身份，允许递归自环，以及相同端点之间不同关系或不同调用位置的多条边。
 - Path 与 Subgraph 沿用图的概念，保留参与查询的节点、关系及其证据，不只返回文件名集合。
 
@@ -45,7 +46,8 @@ Document 表达提供给图的一份源码材料，由快照内的逻辑路径�
 Git revision 或内存；获取材料与选择材料由消费者负责，提取代码事实和解析关系由 CodeGraph 负责。
 路径提供稳定身份、语言识别和相对 import 上下文，不要求实际文件存在。快照身份统一归 Graph 所有。
 
-每份输入材料对应一个 Document 节点，解析出的 Function、Struct 等声明通过 contains 归属到它。
+每份输入材料对应一个 Document 节点，通过 declares 指向源码内的声明及组织贡献；
+Package、Module 等节点通过 contains 组织直接成员，Namespace 可以递归嵌套。
 review unit、候选测试、changed 等消费策略不进入 Document。
 
 `AddDocuments` 将显式批次入队并启动后台构图，`AddDocument` 返回单文件事实的 ResultTask。
@@ -72,18 +74,19 @@ Python 源码额外记录语句级上下文事实：保持执行顺序与作用�
 
 ### 具体类别与声明归属
 
-每个节点的具体 Kind 是唯一的图分类，同时映射为 `kind` 属性和 Cypher 标签；symbol 仅作为代码
-声明的统称，不形成上位图标签或第二套分类字段。通用遍历使用无标签节点模式，精确查询使用具体标签。
+每个节点的具体 Kind 是唯一的图分类，同时映射为 `kind` 属性和 Cypher 标签；Symbol 与 Namespace
+作为逻辑概念，不形成上位图标签或第二套分类字段。通用遍历使用无标签节点模式，精确查询使用具体标签。
 公开类别表达代码语义，不照搬底层 AST 类型；新增类别与语言提取能力一起声明和验证。
 
 Struct、Interface 表达直接以对应语法声明的类型；Type 表达 `type ID int` 等其他命名类型，
 TypeAlias 表达显式别名，不因右侧是结构体而丢失别名语义。没有类型检查证据时不推断底层类别。
 
 字段和接口中的显式方法有独立节点身份、位置、marker 与关系。`contains` 的 `declaration` 依据
-表达词法归属：文件包含顶层声明，结构体包含字段，接口包含声明的方法，函数包含局部类型声明。
+表达声明内的归属：结构体包含字段，接口包含声明的方法，函数包含局部类型声明。
+包级声明通过 `namespace_member` 归属 Package / Module；所有声明的源码来源独立由 declares 表达。
 同组字段分别成节点，不互相包含；内嵌结构体字段按其类型的非限定名称命名。
 
-接收者方法保留文件词法归属，并通过 `receiver_declaration` 依据关联已加载的包级接收者类型。
+接收者方法保留 declares 源码贡献，并通过 `receiver_declaration` 依据关联已加载的包级接收者类型。
 类型与方法可以跨文件；嵌套局部同名类型不参与匹配。唯一目标为 exact，多个目标为 candidate，
 缺少目标记录未解析诊断。关系位置指向方法声明，不指向接收者类型所在文件。该关系只说明
 声明归属，不代表已解析接收者调用或已验证编译器类型约束。
@@ -147,6 +150,7 @@ codegraph/
 │   │   └── go_declarations.go # Go 声明分类、成员与词法归属
 │   ├── resolve/               # 作用域、import 与引用目标解析
 │   │   ├── resolve.go
+│   │   ├── namespaces.go      # 语言组织身份、嵌套、贡献及成员索引
 │   │   ├── modules.go         # 源码模块路径候选及本地调用
 │   │   └── receiver.go        # 包级接收者类型索引
 │   └── graphstore/            # GoGraph 适配、属性编码、边身份与结果转换
@@ -171,8 +175,8 @@ internal 按实际职责组织，不预建多后端框架，也不引入 cmd、s
    不是图必须认识的业务对象，也不是唯一构图方式。
 2. CodeGraph 在范围内消费源码材料，通过 gotreesitter 提取声明、引用、import 和注释事实。
    适配层在释放语法树之前保留独立的事实与位置。
-3. 构建具体类别节点及 contains 等已知关系，将 marker 绑定到所属声明节点。
-4. 结合语言作用域与依赖规则解析引用目标，构建带置信依据的关系，记录未解析和范围受限诊断。
+3. 建立 Namespace 索引、具体类别节点、declares 与 contains 关系，将 marker 绑定到源码声明。
+4. 复用组织索引，结合语言作用域与依赖规则解析引用目标，构建带置信依据的关系，记录未解析和范围受限诊断。
 5. 通过 Go API 将节点与关系写入内嵌 GoGraph，完成当前构建批次，再提供一致的只读查询。
 6. 消费者使用 Cypher 查询关联节点、关系、路径或子图，结合构建覆盖情况形成业务结果。
 
@@ -220,7 +224,8 @@ goraphdb 更偏持久化数据库，其当前普通 MATCH 执行与变长路径�
 
 常见的消费者定位不必拼接内部 ID：`Find(path, kind, qualifiedName)` 按源码位置返回声明，
 `Node` 按源码身份读取单节点，`RelationsFrom` / `RelationsTo` 提供有界邻接。它们与 Cypher
-共享同一 detached 投影和排序语义；消费者可以把 diff 的行范围映射到 `Location.EndLine`，
+共享同一 detached 投影和排序语义。组织节点没有单一 Location，按 Document 的 declares 邻接定位；
+有源码位置的节点可把 diff 的行范围映射到 `Location.EndLine`，
 不需要再次解析 AST 或复制 CodeGraph 的身份算法。
 
 例如，查询两跳以内、每条边均符合条件的调用路径：
@@ -248,7 +253,7 @@ LIMIT 不是遍历工作量的完整边界。预算或取消造成的失败必�
 ### 语言能力与共同内核
 
 Graph、Node、Relation、快照、预算和 Cypher 不依赖具体语言。文件识别复用 gotreesitter registry，
-通用适配器将 outline 转为具体类别和词法 contains；没有固定的语言白名单。新 grammar 可使用上游
+通用适配器将 outline 转为具体类别、declares 来源和声明内部 contains；没有固定的语言白名单。新 grammar 可使用上游
 注册机制接入，AST 在事实提取后释放，不进入公开模型。未知声明类别保持诊断，不引入 Symbol 兜底分类。
 
 语法可用性、声明提取和引用解析是不同层次。Languages 只枚举注册项；Capabilities 按语言声明类别、
@@ -284,7 +289,7 @@ CCR 则根据 diff 定位入口，查询声明、关系和 marker 等证据，�
 依赖与工具链版本以 [go.mod](../go.mod) 为准，语言能力以 `Capabilities()` 与契约测试为准。
 当前 Go 适配器提取函数、方法、结构体、接口、字段、其他命名类型、类型别名、单名称变量和常量及声明注释，解析同包函数
 及模块内 import 函数调用。只提取命名 struct/interface 字面量的直接成员，不展开匿名嵌套类型、接口
-嵌入产生的继承方法或提升成员。Capabilities 的 Declarations 使用公共 NodeKind 声明实际提取种类。
+嵌入产生的继承方法或提升成员。Capabilities 的 Declarations 使用公共 NodeKind 声明实际提取种类，Organizations 声明材料组织能力。
 接收者与语法绑定的函数别名可形成候选调用；未知回调及未建模闭包体中的调用保留诊断。
 第三方模块、build tags 和类型检查不在当前能力范围。
 Python、JavaScript、TypeScript、TSX 提取 outline 声明、局部函数调用、源码 import 和前置注释 marker。
@@ -343,7 +348,8 @@ Lambda 默认值中的调用属于创建函数时的表达式，函数体调用�
 
 ### 模块符号绑定
 
-文件级 imports 保留模块依赖，具名导入及显式转导出另生成指向最终声明的 imports 关系，
+Go 文件 imports 指向 Package，Python 文件 imports 指向 Module / Package；JS/TS 的模块依赖仍指向 Document。
+具名导入及显式转导出另生成指向最终声明的 imports 关系，
 来源是导入所在 Document 或最内层声明。引用和函数调用共用同一绑定解析，关系位置保留各自的使用证据。
 JS/TS 通过显式公开名称、default、namespace 和 re-export 链定位声明；显式导出优先于星号转导出，
 星号转导出不传播 default。Python from-import 与模块 alias 使用加载范围内的模块候选，

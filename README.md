@@ -18,7 +18,7 @@ No separate database service or mandatory disk persistence. The project has not 
 
 ## Capabilities and limits
 
-- Extracts **Go** functions, methods, structs, interfaces, fields, other named types, type aliases, and single-name variables and constants, with contains, imports, static package-function calls, and candidate receiver/method-alias calls.
+- Extracts **Go** functions, methods, structs, interfaces, fields, other named types, type aliases, and single-name variables and constants, with declares, contains, imports, static package-function calls, and candidate receiver/method-alias calls.
 - Extracts **Python, JavaScript, TypeScript, and TSX** declarations, lexical containment, local source imports, explicit module bindings and unshadowed local/imported function calls, candidate class constructors and receiver methods, and declaration-comment markers.
 - Accepts other gotreesitter-registered languages through a shared syntax/outline adapter. Missing outlines, unsupported declaration categories, and unavailable reference resolution produce explicit diagnostics.
 - Records documents without a registered grammar as file-level nodes without parsing; the coverage gap stays visible as an `unsupported_language` diagnostic.
@@ -50,12 +50,14 @@ describe evidence within these declared limits, not compiler or runtime equivale
 
 ## Node kinds
 
-`Node.Kind` is also the node's Cypher label: `Document`, `Struct`, `Interface`, `Field`, `Method`,
+`Node.Kind` is also the node's Cypher label: `Document`, `Package`, `Module`, `Struct`, `Interface`, `Field`, `Method`,
 `Function`, `Type`, `TypeAlias`, `Class`, `Variable`, `Enum`, and other concrete declaration categories.
 Use `DocumentKind` for the document node category in Go; `Document` is the input struct.
 Available categories vary by language; consult `Capabilities(language)`. `Type` covers other named types such as `type ID int`;
 `TypeAlias` represents explicit aliases such as `type Alias = ID`. Categories describe declarations,
-not inferred underlying types. “Symbol” is a term for code declarations, not a graph kind or label.
+not inferred underlying types. “Symbol” describes code declarations; “Namespace” describes how languages organize names. These are logical
+concepts, not additional labels or mutually exclusive categories. The concrete `Namespace` kind represents
+a language's explicit namespace declaration.
 
 Fields and explicitly declared interface methods are independent nodes with their own locations
 and markers. Query members directly:
@@ -65,10 +67,22 @@ MATCH (s:Struct)-[:contains]->(f:Field)
 RETURN s, f
 ```
 
-`contains` records lexical ownership. Receiver methods also have a `contains` edge from their
+`declares` connects a Document to its source declarations and package/module contributions.
+`contains` connects semantic owners to direct members, including nested Python packages/modules.
+Go packages span multiple files; their directory hierarchy does not imply package nesting.
+Receiver methods have a `contains` edge from their
 receiver type when it is found in the loaded package, including across files. The relation's `basis`
 distinguishes `declaration` from `receiver_declaration`; ambiguous receivers produce candidate edges,
 and unresolved receivers produce diagnostics. Anonymous nested types and promoted members are not expanded.
+
+For example, find the members of a Go package and their source documents:
+
+```cypher
+MATCH (:Package {name:$package})-[:contains]->(member)<-[:declares]-(source:Document)
+RETURN member, source
+```
+
+See [namespace organization](docs/namespaces.md) for identity, nesting, and language coverage.
 
 ## Quick start
 
@@ -179,14 +193,17 @@ for _, entry := range entries {
 ```
 
 `Find` is ordered by source position; `Node`, `RelationsFrom`, and `RelationsTo` return detached values.
-Node locations include both start and end line/column, so diff consumers do not need to parse source again
+Organization nodes have no single source location (`Node.Location == nil`); use incoming `declares` edges
+to find their source contributions. `Find`/`FindAsync` remain source-declaration lookups. Located nodes
+include both start and end line/column, so diff consumers do not need to parse source again
 just to map a changed range to a declaration. An empty kind or qualified name is a wildcard.
 
 ## Language extension
 
 Language recognition is not a fixed CodeGraph allowlist. Register additional grammars through
 gotreesitter's `grammars.Register` / `RegisterExtension` before building graphs. The shared adapter uses
-the grammar's tags and ownership rules to create concrete declaration nodes and `contains` relations.
+the grammar's tags and ownership rules to create concrete declarations, `declares` source contributions
+and `contains` relations between declarations.
 Syntax trees stay internal. Unknown declaration categories are reported instead of becoming a generic
 `Symbol` node. Reference resolution requires language-specific binding rules; outline-only languages always
 report partial coverage. The executable [extension test](language_extension_test.go) demonstrates this boundary.

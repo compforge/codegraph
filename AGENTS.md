@@ -7,7 +7,7 @@ CodeGraph 是可内嵌的代码属性图 Go 库，从调用方提供的源码快
 影响判定、评审组织、测试选择及执行策略由消费者负责。
 
 实现组合 GoGraph 的属性图/Cypher、gotreesitter 的语法与事实提取、pond 的有界异步调度，
-自身拥有代码身份、关系绑定、证据及快照发布契约；仓库读取、HTTP 服务和可视化归消费者。
+自身拥有代码身份、Namespace 组织、关系绑定、证据及快照发布契约；仓库读取、HTTP 服务和可视化归消费者。
 根包提供语言无关的公共 API；Go、Python、JS/TS 有语言专有适配，其他注册 grammar 走通用声明提取。
 语法可用性与关系解析能力分别报告，具体覆盖以 `Capabilities()` 与契约测试为准。
 
@@ -24,7 +24,7 @@ build_extract.go                         # 有界并行提取、容量预留及�
 query.go                                # 只读查询及领域结果还原
 internal/
   extract/                              # grammar 识别、通用声明与各语言词法/marker 事实
-  resolve/                              # Go 包绑定、模块路径候选、本地调用与置信依据
+  resolve/                              # Namespace 索引、Go 包绑定、模块候选、调用与置信依据
   graphstore/                           # GoGraph、查询限制及引擎值转换
 graph_test.go、example_test.go           # 契约测试与可执行示例
 multilanguage_test.go、language_extension_test.go # 多语言隔离、能力边界与 grammar 扩展
@@ -34,17 +34,19 @@ docs/kernel.md                          # 稳定模型、主流程与设计依�
 
 ## 关键约定
 
-1. 核心模型沿用 Graph、Node、Relation；Node.Kind 表达 Document、Struct、Interface、Field、Method、Function 等具体类别，直接映射为唯一节点标签。symbol 只是文档与代码中的统称，不进入图分类。
-2. spec、case、rule、link、doc 属于核心 marker 类型；关系的 confidence 描述证据强度，basis 记录建立关系的依据。路径证据聚合、距离衰减与业务阈值由消费者决定。
-3. Document 是本库拥有的源码材料概念，既作为输入，也以同名节点类别入图；材料获取与选择由调用方负责。本库提供代码事实及节点、关系、路径和子图的通用查询；受影响文件的判定与排序、评审组织、测试选择及执行回退留在消费方。
-4. AST 与图引擎内部类型不穿透公共 API；消费者通过 `Find`、`Node`、`RelationsFrom`、`RelationsTo` 或 Cypher 消费图事实；局部分析与未解析引用必须保留可辨识的覆盖信息。
+1. 核心模型沿用 Graph、Node、Relation；Node.Kind 表达 Document、Struct、Interface、Field、Method、Function 等具体类别，直接映射为唯一节点标签。Symbol 与 Namespace 是逻辑概念，不新增上位标签或互斥三分类；Package、Module、语言自身的 Namespace 使用具体 Kind。
+2. `declares` 从 Document 指向源码声明或组织贡献；`contains` 表达直接语义归属，允许 Namespace 嵌套。跨文件组织身份不依赖首个成员；单一位置缺失时沿 declares 读取证据。
+3. spec、case、rule、link、doc 属于核心 marker 类型；关系的 confidence 描述证据强度，basis 记录建立关系的依据。路径证据聚合、距离衰减与业务阈值由消费者决定。
+4. Document 是本库拥有的源码材料概念，既作为输入，也以同名节点类别入图；材料获取与选择由调用方负责。本库提供代码事实及节点、关系、路径和子图的通用查询；受影响文件的判定与排序、评审组织、测试选择及执行回退留在消费方。
+5. AST 与图引擎内部类型不穿透公共 API；消费者通过 `Find`、`Node`、`RelationsFrom`、`RelationsTo` 或 Cypher 消费图事实；局部分析与未解析引用必须保留可辨识的覆盖信息。
    执行失败由 error 表达；候选关系使用 confidence 与 basis，信息缺口以局部诊断保留。局部缺口不否定无关事实，不自动触发消费者的全量回退。
-5. 同一 Graph 只容纳同一源码快照；Document.ID 与对应 Document 节点 ID 相同。入队任务可提前返回单文件事实，后台构建跨文件关系并原子发布；Wait 只等待已提交工作完成。新增语言解析先声明能力并补契约测试；仅识别 grammar 不表示引用已解析，不得跨语言按同名猜测关系。
-6. 验证入口为 `make lint test build`，测试启用 race detector。
-7. 根目录 `VERSION` 记录项目版本，格式为 `X.Y.Z`。任何代码文件变更（含测试代码、增删及重命名）必须在同一提交同步 bump `VERSION`，默认递增 patch；纯文档变更无需 bump。
+6. 同一 Graph 只容纳同一源码快照；Document.ID 与对应 Document 节点 ID 相同。入队任务可提前返回单文件事实，后台构建跨文件关系并原子发布；Wait 只等待已提交工作完成。新增语言解析先声明能力并补契约测试；仅识别 grammar 不表示引用已解析，不得跨语言按同名猜测关系。
+7. 验证入口为 `make lint test build`，测试启用 race detector。
+8. 根目录 `VERSION` 记录项目版本，格式为 `X.Y.Z`。任何代码文件变更（含测试代码、增删及重命名）必须在同一提交同步 bump `VERSION`，默认递增 patch；纯文档变更无需 bump。
 
 ## References
 
+- [命名空间组织](docs/namespaces.md) — 逻辑概念、嵌套、源码贡献与语言绑定边界。
 - [内核设计](docs/kernel.md) — 模型、构建与查询流程、依赖边界和验证状态。
 - [真实仓库评测](docs/corpus.md) — 固定语料、独立参照、评分口径及验证入口；评测策略留在测试层。
 

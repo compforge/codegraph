@@ -75,10 +75,10 @@ func goReceiverValues(ctx context.Context, source extract.Facts, hint *extract.G
 			var roots []Ref
 			if shape.Bound {
 				if shape.Target >= 0 {
-					roots = append(roots, Ref{value.source.Path, shape.Target})
+					roots = append(roots, Ref{Path: value.source.Path, Declaration: shape.Target})
 				}
 			} else if shape.Name != "" {
-				for _, target := range goTypeTargets(value.source, shape.Name, shape.Module, files, methods.names, module) {
+				for _, target := range goTypeTargets(value.source, shape.Name, shape.Module, files, methods.namespaces, module) {
 					roots = append(roots, target.Ref)
 				}
 			}

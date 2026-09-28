@@ -163,12 +163,15 @@ func Capabilities(languages ...string) []Capability {
 			continue
 		}
 		if entry.Name == "go" {
-			out = append(out, Capability{Language: "go", Declarations: []NodeKind{Function, Method, Struct, Interface, Field, Type, TypeAlias, Variable, Constant}, Relations: []RelationKind{Contains, Imports, Calls, References, Extends, Implements}, Markers: []MarkerKind{Spec, Case, Rule, Link, Doc}, Limitations: []string{"static package functions plus candidate receiver methods, embedded-interface method lookup and syntax-bound callable aliases; no runtime dispatch proof", "references use lexical binding or candidate name matches within Go packages and same-file module declarations", "variables and constants require a single declared name", "members are extracted only from named struct/interface literals; anonymous nested types and promoted members are not expanded", "interface embedding binds extends; same-package direct method names produce candidate implements without signature, pointer-set or promoted-method checking; empty and embedded/type-term interfaces are excluded from inference", "build tags and compiler type checking are not evaluated", "marker syntax: declaration comments using +kind=payload or +kind:payload"}})
+			out = append(out, Capability{Language: "go", Organizations: []NodeKind{Package}, Declarations: []NodeKind{Function, Method, Struct, Interface, Field, Type, TypeAlias, Variable, Constant}, Relations: []RelationKind{Declares, Contains, Imports, Calls, References, Extends, Implements}, Markers: []MarkerKind{Spec, Case, Rule, Link, Doc}, Limitations: []string{"static package functions plus candidate receiver methods, embedded-interface method lookup and syntax-bound callable aliases; no runtime dispatch proof", "references use lexical binding or candidate name matches within Go packages and same-file module declarations", "variables and constants require a single declared name", "members are extracted only from named struct/interface literals; anonymous nested types and promoted members are not expanded", "interface embedding binds extends; same-package direct method names produce candidate implements without signature, pointer-set or promoted-method checking; empty and embedded/type-term interfaces are excluded from inference", "build tags and compiler type checking are not evaluated", "marker syntax: declaration comments using +kind=payload or +kind:payload"}})
 			continue
 		}
-		cap := Capability{Language: entry.Name, Relations: []RelationKind{Contains}, Limitations: []string{"outline is limited to grammar tags; runtime omissions are diagnostics"}}
+		cap := Capability{Language: entry.Name, Relations: []RelationKind{Declares, Contains}, Limitations: []string{"outline is limited to grammar tags; runtime omissions are diagnostics"}}
 		for _, kind := range extract.DeclarationKinds(*entry) {
 			cap.Declarations = append(cap.Declarations, NodeKind(kind))
+		}
+		if entry.Name == "python" {
+			cap.Organizations = []NodeKind{Package, Module}
 		}
 		if extract.ModuleLanguage(entry.Name) {
 			cap.Relations = append(cap.Relations, Imports, Calls, References, Extends)
@@ -207,9 +210,11 @@ func Language(name string) string {
 }
 
 type Capability struct {
-	Language     string
-	Declarations []NodeKind
-	Relations    []RelationKind
-	Markers      []MarkerKind
-	Limitations  []string
+	// Organizations lists language units assembled from source contributions.
+	Organizations []NodeKind
+	Language      string
+	Declarations  []NodeKind
+	Relations     []RelationKind
+	Markers       []MarkerKind
+	Limitations   []string
 }

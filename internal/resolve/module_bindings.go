@@ -13,20 +13,16 @@ type bindingTarget struct {
 }
 
 type moduleBinder struct {
-	ctx   context.Context
-	files map[string]extract.Facts
-	limit int
+	ctx        context.Context
+	files      map[string]extract.Facts
+	limit      int
+	namespaces *NamespaceIndex
 }
 
 type exportKey struct{ Path, Name string }
 
 func (b moduleBinder) importTargets(f extract.Facts, imp extract.Import, name string, seen map[exportKey]bool) ([]bindingTarget, error) {
-	var paths []string
-	for _, p := range ImportPaths(f, imp) {
-		if target, ok := b.files[p]; ok && compatibleLanguage(f.Language, target.Language) {
-			paths = append(paths, p)
-		}
-	}
+	paths := b.namespaces.ModulePaths(f, imp)
 	var out []bindingTarget
 	for _, p := range paths {
 		targets, err := b.exportTargets(p, name, seen)
@@ -72,9 +68,15 @@ func (b moduleBinder) exportTargets(p, name string, seen map[exportKey]bool) ([]
 		}
 	}
 	if explicit {
-		for i, d := range f.Declarations {
-			if d.Parent == -1 && d.Name == local {
-				out = append(out, bindingTarget{Ref{p, i}, "exact"})
+		if key := b.namespaces.ByDocument[p]; key != "" {
+			for _, ref := range b.namespaces.Members[key][local] {
+				out = append(out, bindingTarget{ref, "exact"})
+			}
+		} else {
+			for i, d := range f.Declarations {
+				if d.Parent == -1 && d.Name == local {
+					out = append(out, bindingTarget{Ref{Path: p, Declaration: i}, "exact"})
+				}
 			}
 		}
 	}
@@ -157,11 +159,11 @@ func (b moduleBinder) useTargets(f extract.Facts, name, receiver string, span ex
 			}
 			matched = true
 			if binding.Namespace && receiver == "" {
-				paths := ImportPaths(f, imp)
+				paths := b.namespaces.ModulePaths(f, imp)
 				var modules []bindingTarget
 				for _, p := range paths {
 					if target, ok := b.files[p]; ok && compatibleLanguage(f.Language, target.Language) {
-						modules = append(modules, bindingTarget{Ref{p, -1}, "exact"})
+						modules = append(modules, bindingTarget{b.namespaces.ModuleRef(p), "exact"})
 					}
 				}
 				if len(modules) > 1 || f.Language == "python" && imp.Relative == 0 {
@@ -217,7 +219,7 @@ func (b moduleBinder) importEdges(f extract.Facts) ([]Edge, []Issue, error) {
 				if binding.ReExport {
 					basis = "re_export"
 				}
-				edges = append(edges, Edge{Ref{f.Path, enclosingDeclaration(f, binding.Span)}, target.Ref, "imports", target.Confidence, basis, f.Path, binding.Span})
+				edges = append(edges, Edge{Ref{Path: f.Path, Declaration: enclosingDeclaration(f, binding.Span)}, target.Ref, "imports", target.Confidence, basis, f.Path, binding.Span})
 			}
 		}
 	}

@@ -13,7 +13,7 @@ func resolveReferences(ctx context.Context, files map[string]extract.Facts, name
 	var issues []Issue
 	for _, name := range names {
 		f := files[name]
-		binder := moduleBinder{ctx, files, limit - len(edges)}
+		binder := moduleBinder{ctx, files, limit - len(edges), methods.namespaces}
 		for _, r := range f.References {
 			if err := ctx.Err(); err != nil {
 				return nil, nil, err
@@ -23,7 +23,7 @@ func resolveReferences(ctx context.Context, files map[string]extract.Facts, name
 			if r.Key != nil {
 				var ordinary bool
 				var err error
-				targets, ordinary, err = goCompositeKeyTargets(ctx, f, r, files, names, module, limit-len(edges))
+				targets, ordinary, err = goCompositeKeyTargets(ctx, f, r, files, methods.namespaces, module, limit-len(edges))
 				if err != nil {
 					return nil, nil, err
 				}
@@ -32,7 +32,7 @@ func resolveReferences(ctx context.Context, files map[string]extract.Facts, name
 						if len(edges) >= limit {
 							return nil, nil, ErrEdgeLimit
 						}
-						edges = append(edges, Edge{Ref{name, r.Owner}, target, "references", "candidate", "composite_field", name, r.Span})
+						edges = append(edges, Edge{Ref{Path: name, Declaration: r.Owner}, target, "references", "candidate", "composite_field", name, r.Span})
 					}
 					if len(targets) == 0 {
 						issues = append(issues, Issue{name, "unresolved_reference", r.Name, "references", r.Span})
@@ -46,7 +46,7 @@ func resolveReferences(ctx context.Context, files map[string]extract.Facts, name
 					return nil, nil, err
 				}
 				for _, target := range found {
-					edges = append(edges, Edge{Ref{name, r.Owner}, target, "references", "candidate", "receiver_type", name, r.Span})
+					edges = append(edges, Edge{Ref{Path: name, Declaration: r.Owner}, target, "references", "candidate", "receiver_type", name, r.Span})
 				}
 				if len(found) == 0 {
 					issues = append(issues, Issue{name, "unresolved_reference", r.Name, "references", r.Span})
@@ -55,7 +55,7 @@ func resolveReferences(ctx context.Context, files map[string]extract.Facts, name
 			}
 			if r.Bound {
 				if r.Target >= 0 {
-					targets = append(targets, Ref{name, r.Target})
+					targets = append(targets, Ref{Path: name, Declaration: r.Target})
 					confidence, basis = "exact", "lexical_binding"
 				}
 			} else if extract.ModuleLanguage(f.Language) {
@@ -68,7 +68,7 @@ func resolveReferences(ctx context.Context, files map[string]extract.Facts, name
 						if len(edges) >= limit {
 							return nil, nil, ErrEdgeLimit
 						}
-						edges = append(edges, Edge{Ref{name, r.Owner}, target.Ref, "references", target.Confidence, "imported_binding", name, r.Span})
+						edges = append(edges, Edge{Ref{Path: name, Declaration: r.Owner}, target.Ref, "references", target.Confidence, "imported_binding", name, r.Span})
 					}
 					if len(imported) == 0 {
 						issues = append(issues, Issue{name, "unresolved_reference", r.Name, "references", r.Span})
@@ -81,7 +81,7 @@ func resolveReferences(ctx context.Context, files map[string]extract.Facts, name
 					if !local {
 						continue
 					}
-					for _, targetPath := range names {
+					for _, targetPath := range methods.namespaces.GoImportFiles(module, imp.Path) {
 						target := files[targetPath]
 						alias := imp.Alias
 						if alias == "" {
@@ -92,14 +92,14 @@ func resolveReferences(ctx context.Context, files map[string]extract.Facts, name
 						}
 						for i, d := range target.Declarations {
 							if d.Parent == -1 && d.Receiver == "" && d.Name == r.Name && exported(d.Name) {
-								targets = append(targets, Ref{targetPath, i})
+								targets = append(targets, Ref{Path: targetPath, Declaration: i})
 							}
 						}
 					}
 				}
 				basis = "imported_name"
 			} else if r.Receiver == "" {
-				for _, targetPath := range names {
+				for _, targetPath := range methods.namespaces.ScopeFiles(f) {
 					target := files[targetPath]
 					// Go package scope can cross files. Other languages stay file-local until
 					// explicit module bindings are resolved; never pair across languages.
@@ -108,7 +108,7 @@ func resolveReferences(ctx context.Context, files map[string]extract.Facts, name
 					}
 					for i, d := range target.Declarations {
 						if d.Parent == -1 && d.Receiver == "" && d.Name == r.Name {
-							targets = append(targets, Ref{targetPath, i})
+							targets = append(targets, Ref{Path: targetPath, Declaration: i})
 						}
 					}
 				}
@@ -117,7 +117,7 @@ func resolveReferences(ctx context.Context, files map[string]extract.Facts, name
 				if len(edges) >= limit {
 					return nil, nil, ErrEdgeLimit
 				}
-				edges = append(edges, Edge{Ref{name, r.Owner}, target, "references", confidence, basis, name, r.Span})
+				edges = append(edges, Edge{Ref{Path: name, Declaration: r.Owner}, target, "references", confidence, basis, name, r.Span})
 			}
 			// Imported module identifiers are not declaration references themselves.
 			moduleName := false

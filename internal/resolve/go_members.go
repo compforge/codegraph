@@ -56,10 +56,10 @@ func goMemberReferenceTargets(ctx context.Context, f extract.Facts, ref extract.
 		var roots []Ref
 		if hint.Bound {
 			if hint.Target >= 0 {
-				roots = append(roots, Ref{source.Path, hint.Target})
+				roots = append(roots, Ref{Path: source.Path, Declaration: hint.Target})
 			}
 		} else if hint.Name != "" {
-			for _, target := range goTypeTargets(source, hint.Name, hint.Module, files, methods.names, module) {
+			for _, target := range goTypeTargets(source, hint.Name, hint.Module, files, methods.namespaces, module) {
 				roots = append(roots, target.Ref)
 			}
 		}
@@ -76,7 +76,7 @@ func goMemberReferenceTargets(ctx context.Context, f extract.Facts, ref extract.
 			}
 			for i, d := range typ.Declarations {
 				if d.Parent == root.Declaration && d.Kind == "field" && d.Name == ref.Name {
-					if err := add(Ref{root.Path, i}); err != nil {
+					if err := add(Ref{Path: root.Path, Declaration: i}); err != nil {
 						return err
 					}
 				}
