@@ -1,10 +1,12 @@
-# Go 真实仓库评测
+# 真实仓库评测
 
 评测回答两个问题：给定源码范围中哪些事实被提取出来，哪些引用和调用被连接到了正确目标。
 仓库材料、参照生成、评分与回归门禁由 `tests/corpus` 独立测试模块负责，通过 CodeGraph 公共 API
 消费事实。它不改变运行时图模型，也不向 BuildReport 增加全局完整性结论。
 
-## 语料与参照
+## Go 语料与参照
+
+Python 语料及其独立参照见 [Python 仓库评测](python-corpus.md)，与 Go 共用快照、图观察、评分和基线机制。
 
 `tests/corpus/repos.json` 固定 go-stdx、agentgo、repocli 的完整 commit 和源码压缩包 SHA-256。
 下载内容必须通过校验；缓存只保存压缩包，每次运行解压到独立临时目录。源码保留原始许可证。
@@ -21,7 +23,7 @@ testdata、嵌套 module 等不混入已评估分母。此 profile 不代表所�
 参照加载或类型检查失败会保留 error 报告并使命令失败，不把残缺参照当成完整空答案。
 参照目标使用源码路径与标识符字节位置，比较时不依赖 CodeGraph 生成的 ID。
 
-## 评分口径
+## Go 评分口径
 
 | 测量 | 分母和比较内容 |
 |---|---|
@@ -53,12 +55,14 @@ CodeGraph 接口相互一致当成语义正确的 ground truth。
 
 ```sh
 make lint test build                     # 库测试和评测器本地契约；真实仓库评测显示 skipped
-make test-corpus                         # 三个固定仓库，允许下载源码及 Go 依赖
+make test-corpus                         # 全部 Go / Python 固定仓库，允许下载源码及 Go 依赖
+make test-python-corpus                  # python-stdx、agentue，仅静态分析源码
 make test-corpus CORPUS=go-stdx,agentgo    # 精确选择语料
 ```
 
 只加载源码、类型检查和构图，不执行目标仓库的 init、业务测试或服务。每仓最多运行五分钟；构图与
-查询有显式预算。无需模型凭据、数据库或 Kubernetes 环境。普通 Go 测试仍需要其正常的模块依赖缓存。
+查询有显式预算。无需模型凭据、数据库或 Kubernetes 环境。普通 Go 测试仍需要其正常的模块依赖缓存。评测器的 Python 契约测试需要 CPython 3.11+；
+`make fix` / `make lint` 还需要 PATH 中的 Ruff。`PYTHON` 可指定解释器路径。
 
 默认产物在 gitignored `.corpus-results/<repo>/`，可通过 `CORPUS_REPORT_DIR` 指定：
 

@@ -1,0 +1,271 @@
+[
+  {
+    "relation": "references",
+    "source": {
+      "path": "src/python_stdx/asyncio/watchdog.py",
+      "line": 37,
+      "text": "LoopStall",
+      "name": "LoopStall"
+    },
+    "class": "internal",
+    "reason": "Annotation directly names the module-local dataclass; its body has no rebinding of this name.",
+    "target": {
+      "path": "src/python_stdx/asyncio/watchdog.py",
+      "qualifiedName": "LoopStall"
+    }
+  },
+  {
+    "relation": "references",
+    "source": {
+      "path": "src/python_stdx/asyncio/watchdog.py",
+      "line": 100,
+      "text": "LoopStall",
+      "name": "LoopStall"
+    },
+    "class": "internal",
+    "reason": "Constructor expression directly names the module-local class; generated dataclass methods are not targets.",
+    "target": {
+      "path": "src/python_stdx/asyncio/watchdog.py",
+      "qualifiedName": "LoopStall"
+    }
+  },
+  {
+    "relation": "references",
+    "source": {
+      "path": "src/python_stdx/asyncio/watchdog.py",
+      "line": 74,
+      "text": "self._watch",
+      "name": "_watch"
+    },
+    "class": "internal",
+    "reason": "Method value on the lexically declared receiver; assess the declared member, not thread execution.",
+    "target": {
+      "path": "src/python_stdx/asyncio/watchdog.py",
+      "qualifiedName": "EventLoopWatchdog._watch"
+    }
+  },
+  {
+    "relation": "references",
+    "source": {
+      "path": "src/python_stdx/asyncio/watchdog.py",
+      "line": 101,
+      "text": "self._notify_stall",
+      "name": "_notify_stall"
+    },
+    "class": "internal",
+    "reason": "partial receives this declared instance method; no claim about eventual callback execution.",
+    "target": {
+      "path": "src/python_stdx/asyncio/watchdog.py",
+      "qualifiedName": "EventLoopWatchdog._notify_stall"
+    }
+  },
+  {
+    "relation": "calls",
+    "source": {
+      "path": "src/python_stdx/asyncio/watchdog.py",
+      "line": 107,
+      "text": "callback()",
+      "name": "callback"
+    },
+    "class": "runtime_dispatch",
+    "reason": "Callback selected from partial or caller-supplied recovery hook; no unique runtime target."
+  },
+  {
+    "relation": "calls",
+    "source": {
+      "path": "src/python_stdx/asyncio/watchdog.py",
+      "line": 113,
+      "text": "self._on_stall(stall)",
+      "name": "self._on_stall"
+    },
+    "class": "runtime_dispatch",
+    "reason": "Callback assigned from a constructor argument."
+  },
+  {
+    "relation": "calls",
+    "source": {
+      "path": "src/python_stdx/asyncio/watchdog.py",
+      "line": 71,
+      "text": "self._clock()",
+      "name": "self._clock"
+    },
+    "class": "runtime_dispatch",
+    "reason": "Clock can be supplied by the caller."
+  },
+  {
+    "relation": "calls",
+    "source": {
+      "path": "src/python_stdx/redis/_connector.py",
+      "line": 47,
+      "text": "self.connect()",
+      "name": "self.connect"
+    },
+    "class": "internal",
+    "reason": "Async context entry calls the declared instance method.",
+    "target": {
+      "path": "src/python_stdx/redis/_connector.py",
+      "qualifiedName": "RedisConnector.connect"
+    }
+  },
+  {
+    "relation": "references",
+    "source": {
+      "path": "src/python_stdx/redis/_connector.py",
+      "line": 47,
+      "text": "self.connect",
+      "name": "connect"
+    },
+    "class": "internal",
+    "reason": "Async context entry calls the declared instance method.",
+    "target": {
+      "path": "src/python_stdx/redis/_connector.py",
+      "qualifiedName": "RedisConnector.connect"
+    }
+  },
+  {
+    "relation": "calls",
+    "source": {
+      "path": "src/python_stdx/redis/_connector.py",
+      "line": 50,
+      "text": "self.aclose()",
+      "name": "self.aclose"
+    },
+    "class": "internal",
+    "reason": "Async context exit calls the declared instance method.",
+    "target": {
+      "path": "src/python_stdx/redis/_connector.py",
+      "qualifiedName": "RedisConnector.aclose"
+    }
+  },
+  {
+    "relation": "references",
+    "source": {
+      "path": "src/python_stdx/redis/_connector.py",
+      "line": 50,
+      "text": "self.aclose",
+      "name": "aclose"
+    },
+    "class": "internal",
+    "reason": "Async context exit calls the declared instance method.",
+    "target": {
+      "path": "src/python_stdx/redis/_connector.py",
+      "qualifiedName": "RedisConnector.aclose"
+    }
+  },
+  {
+    "relation": "references",
+    "source": {
+      "path": "src/python_stdx/redis/_connector.py",
+      "line": 22,
+      "text": "RedisConnectionConfig",
+      "name": "RedisConnectionConfig"
+    },
+    "class": "internal",
+    "reason": "Explicit from-import from the included config module.",
+    "target": {
+      "path": "src/python_stdx/redis/_config.py",
+      "qualifiedName": "RedisConnectionConfig"
+    }
+  },
+  {
+    "relation": "references",
+    "source": {
+      "path": "src/python_stdx/redis/_connector.py",
+      "line": 27,
+      "text": "RedisClient",
+      "name": "RedisClient"
+    },
+    "class": "internal",
+    "reason": "Explicit from-import names the included RedisClient class.",
+    "target": {
+      "path": "src/python_stdx/redis/_client.py",
+      "qualifiedName": "RedisClient"
+    }
+  },
+  {
+    "relation": "calls",
+    "source": {
+      "path": "src/python_stdx/redis/_connector.py",
+      "line": 26,
+      "text": "create_backend(config, self._lifetime)",
+      "name": "create_backend"
+    },
+    "class": "internal",
+    "reason": "Explicit import of a module-level function, called without local rebinding.",
+    "target": {
+      "path": "src/python_stdx/redis/_backend.py",
+      "qualifiedName": "create_backend"
+    }
+  },
+  {
+    "relation": "references",
+    "source": {
+      "path": "src/python_stdx/redis/_connector.py",
+      "line": 26,
+      "text": "create_backend",
+      "name": "create_backend"
+    },
+    "class": "internal",
+    "reason": "Explicit import of a module-level function, called without local rebinding.",
+    "target": {
+      "path": "src/python_stdx/redis/_backend.py",
+      "qualifiedName": "create_backend"
+    }
+  },
+  {
+    "relation": "references",
+    "source": {
+      "path": "src/python_stdx/asyncio/stream.py",
+      "line": 38,
+      "text": "_AcloseOnceAsyncIterator",
+      "name": "_AcloseOnceAsyncIterator"
+    },
+    "class": "internal",
+    "reason": "Local class constructor name; scope contains no competing binding.",
+    "target": {
+      "path": "src/python_stdx/asyncio/stream.py",
+      "qualifiedName": "_AcloseOnceAsyncIterator"
+    }
+  },
+  {
+    "relation": "calls",
+    "source": {
+      "path": "src/python_stdx/asyncio/stream.py",
+      "line": 72,
+      "text": "_shield_close(close)",
+      "name": "_shield_close"
+    },
+    "class": "internal",
+    "reason": "Module-level async helper called by an instance method.",
+    "target": {
+      "path": "src/python_stdx/asyncio/stream.py",
+      "qualifiedName": "_shield_close"
+    }
+  },
+  {
+    "relation": "references",
+    "source": {
+      "path": "src/python_stdx/asyncio/stream.py",
+      "line": 72,
+      "text": "_shield_close",
+      "name": "_shield_close"
+    },
+    "class": "internal",
+    "reason": "Module-level async helper called by an instance method.",
+    "target": {
+      "path": "src/python_stdx/asyncio/stream.py",
+      "qualifiedName": "_shield_close"
+    }
+  },
+  {
+    "relation": "calls",
+    "source": {
+      "path": "src/python_stdx/asyncio/stream.py",
+      "line": 76,
+      "text": "close()",
+      "name": "close"
+    },
+    "class": "runtime_dispatch",
+    "reason": "Callable is a parameter obtained through getattr; no static runtime target."
+  }
+]

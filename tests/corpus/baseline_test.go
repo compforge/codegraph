@@ -32,6 +32,29 @@ func evaluatorHash(t *testing.T) string {
 		}
 		fmt.Fprintf(h, "%s\x00%x\n", name, sha256.Sum256(data))
 	}
+	err = filepath.WalkDir("python", func(name string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if strings.HasPrefix(d.Name(), ".") || d.Name() == "__pycache__" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(name, ".py") && !strings.HasSuffix(name, ".json") {
+			return nil
+		}
+		data, err := os.ReadFile(name)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(h, "%s\x00%x\n", filepath.ToSlash(name), sha256.Sum256(data))
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
