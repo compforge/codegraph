@@ -2,6 +2,7 @@ package ecmascript
 
 import (
 	"context"
+	"strings"
 
 	"github.com/compforge/codegraph/internal/analysis"
 	"github.com/compforge/codegraph/internal/language/module"
@@ -12,16 +13,27 @@ import (
 
 type Adapter struct{}
 
+// query owns the declaration shapes supported by this adapter. Method names
+// must immediately precede parameters (or type parameters): a modifier can be
+// exposed as an extra property_identifier, including an incorrect name field.
 func query(entry grammars.LangEntry) string {
-	q := grammars.ResolveTagsQuery(entry)
-	q += "\n(variable_declarator name: (identifier) @name) @definition.variable"
-	// These bindings have no variable_declarator wrapper. Capture only the
-	// identifier, and require a declaration keyword to exclude for (x of xs).
-	q += `
+	q := `
+(function_declaration name: (identifier) @name) @definition.function
+(generator_function_declaration name: (identifier) @name) @definition.function
+(method_definition [(property_identifier) (private_property_identifier)] @name . (comment)* . [(formal_parameters) (type_parameters)]) @definition.method
+(variable_declarator name: (identifier) @name) @definition.variable
 (for_in_statement kind: ["var" "let" "const"] left: (identifier) @name @definition.variable)
 (catch_clause parameter: (identifier) @name @definition.variable)`
-	if entry.Name != "javascript" {
-		q += "\n(type_alias_declaration name: (type_identifier) @name) @definition.type_alias"
+	if entry.Name == "javascript" {
+		// JavaScript has no type_parameters node in its grammar.
+		q = strings.ReplaceAll(q, "[(formal_parameters) (type_parameters)]", "(formal_parameters)")
+		q += "\n(class_declaration name: (identifier) @name) @definition.class"
+	} else {
+		q += `
+(class_declaration name: (type_identifier) @name) @definition.class
+(interface_declaration name: (type_identifier) @name) @definition.interface
+(enum_declaration name: (identifier) @name) @definition.type
+(type_alias_declaration name: (type_identifier) @name) @definition.type_alias`
 	}
 	return q
 }
@@ -30,6 +42,7 @@ func (Adapter) Extract(ctx context.Context, f Facts, tree *gts.Tree, entry gramm
 	f, err := (syntax.ModuleExtractor{Dialect: Dialect{}}).Extract(ctx, f, tree, entry)
 	if err == nil {
 		refineControlBindings(&f, tree)
+		refineCallableReferences(&f, tree)
 	}
 	return f, err
 }

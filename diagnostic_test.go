@@ -10,28 +10,51 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
-// +case=`An omitted declaration preserves imports, exports and unrelated nodes`
+// +case=`An omitted declaration preserves unrelated nodes and module facts from other documents`
 func TestOutlineGapPreservesUsableFacts(t *testing.T) {
 	ctx := context.Background()
-	source := "import { work } from './work';\nexport { work as task };\nclass Agent { private async *retry(text: string): AsyncGenerator<Event> {} }\nexport function healthy() {}\n"
+	// Deliberately ambiguous query: diagnostics must remain testable when a
+	// real language's previously ambiguous declarations become supported.
+	entry := *grammars.DetectLanguageByName("python")
+	entry.Name, entry.Extensions = "codegraph-conflicting-outline", []string{".cggap"}
+	entry.TagsQuery = `(function_definition name: (identifier) @name) @definition.function
+(function_definition parameters: (parameters (identifier) @name)) @definition.function`
+	grammars.Register(entry)
+	source := "def retry(text):\n    pass\ndef healthy():\n    pass\n"
 	g, err := New("rev", Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	document := Document{Path: "agent.ts", Content: []byte(source)}
+	document := Document{Path: "agent.cggap", Content: []byte(source)}
 	facts, err := g.AddDocument(ctx, document).Wait()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(facts.Imports) == 0 || facts.Exports["task"] != "work" {
-		t.Fatalf("outline gap discarded module facts: %+v", facts)
+	module := Document{Path: "app.ts", Content: []byte("import { work } from './work'; export { work as task };")}
+	moduleFacts, err := g.AddDocument(ctx, module).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(moduleFacts.Imports) == 0 || moduleFacts.Exports["task"] != "work" {
+		t.Fatalf("outline gap discarded module facts: %+v", moduleFacts)
 	}
 	if err := g.AddDocuments(ctx, Document{Path: "work.ts", Content: []byte("export function work() {}")}); err != nil {
 		t.Fatal(err)
 	}
 	report, err := g.Wait(ctx)
-	// Reference coverage is independent of declaration coverage.
-	report.Diagnostics = withoutReferenceDiagnostics(report.Diagnostics)
+	// The generic extension also reports unsupported resolution. This test
+	// isolates the declaration receipt from unrelated capability diagnostics.
+	declarations := func(items []Diagnostic) []Diagnostic {
+		var result []Diagnostic
+		for _, item := range items {
+			if item.Subject == DeclarationsSubject {
+				result = append(result, item)
+			}
+		}
+		return result
+	}
+	report.Diagnostics = declarations(report.Diagnostics)
+	facts.Issues = declarations(facts.Issues)
 	if err != nil || len(report.Diagnostics) != 1 {
 		t.Fatal(report, err)
 	}
@@ -43,10 +66,10 @@ func TestOutlineGapPreservesUsableFacts(t *testing.T) {
 	if d.Location.Path != document.Path || d.Location.StartByte != 0 || d.Location.EndByte != len(source) {
 		t.Fatalf("upstream counters must describe the document, not a guessed declaration: %+v", d.Location)
 	}
-	if len(g.Find("agent.ts", Function, "healthy")) != 1 {
+	if len(g.Find(document.Path, Function, "healthy")) != 1 {
 		t.Fatal("unrelated declaration disappeared")
 	}
-	edges := g.RelationsFrom(document.ID(), Imports)
+	edges := g.RelationsFrom(module.ID(), Imports)
 	moduleEdge := false
 	for _, edge := range edges {
 		target, ok := g.Node(edge.Target)
