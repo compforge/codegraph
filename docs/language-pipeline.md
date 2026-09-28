@@ -31,6 +31,8 @@ Binder 与 Resolver 将输入索引视为只读，其关系结果由 Core 登记
 ## 语言接入
 
 `internal/analysis/stages.go` 定义阶段接口，`internal/language` 统一注册实现与能力说明。
+具体阶段实现集中在 `language/adapters/`；适配器复用的语法与绑定算法位于 `language/syntax/`、
+`language/module/`，共享组件依赖分析契约，由各适配器提供语言策略。
 新增语言选择需要实现的阶段，并把实际能力和限制放入同一个注册项；Core 的阶段编排不识别具体语言名。
 仅注册 grammar 的语言继续使用通用 outline，报告关系解析覆盖缺口。
 

@@ -26,8 +26,10 @@ internal/
   analysis/                             # 公共事实、实体引用、直接成员索引与阶段契约
   pipeline/                             # parser 生命周期与 Organize → Bind → Resolve 阶段屏障
   language/                             # 内置语言注册及能力声明
-    golang/、python/、ecmascript/         # 语言专有提取、组织、绑定与关系规则
-    generic/、syntax/、module/            # 通用 outline、共享语法及模块绑定算法
+    adapters/                           # 阶段接口的具体实现
+      golang/、python/、ecmascript/       # 语言专有提取、组织、绑定与关系规则
+      generic/                          # 通用 grammar 兜底适配器
+    syntax/、module/                     # 共享语法提取及模块绑定算法
   graphstore/                           # GoGraph、查询限制及引擎值转换
 graph_test.go、example_test.go           # 契约测试与可执行示例
 multilanguage_test.go、language_extension_test.go # 多语言隔离、能力边界与 grammar 扩展

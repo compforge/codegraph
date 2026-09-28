@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/compforge/codegraph/internal/analysis"
-	"github.com/compforge/codegraph/internal/language/ecmascript"
-	"github.com/compforge/codegraph/internal/language/generic"
-	"github.com/compforge/codegraph/internal/language/golang"
-	"github.com/compforge/codegraph/internal/language/python"
+	"github.com/compforge/codegraph/internal/language/adapters/ecmascript"
+	"github.com/compforge/codegraph/internal/language/adapters/generic"
+	"github.com/compforge/codegraph/internal/language/adapters/golang"
+	"github.com/compforge/codegraph/internal/language/adapters/python"
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
