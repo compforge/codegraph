@@ -79,7 +79,7 @@ func enrichGo(f *Facts) error {
 		}
 	}
 	assignments := goAssignments(file)
-	enrichGoCallTargets(f, callNodes, closures, assignments)
+	enrichGoCallTargets(f, callNodes, closures, assignments, goTypeDescriber(f, fset))
 	extractGoReferences(f, file, fset, assignments)
 	extractGoTypeRelations(f, file, fset)
 	return nil
