@@ -93,7 +93,7 @@ func analyzeOutline(ctx context.Context, f Facts, tree *gts.Tree, entry grammars
 		case "call", "call_expression", "new_expression":
 			callNodes[span] = n
 		case "lambda", "arrow_function", "function_expression", "generator_function":
-			closures = append(closures, span)
+			closures = append(closures, moduleClosureSpan(n, tree.Language()))
 		}
 	})
 	for _, c := range facts.Calls {

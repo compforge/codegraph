@@ -35,11 +35,30 @@ func hasBindingConflict(tree *gts.Tree, call *gts.Node, target Declaration, name
 			}
 			return
 		}
+		// Python signature expressions use the enclosing scope. Only the body
+		// sees this function's parameter bindings and local assignments.
+		signature := (typ == "function_definition" || typ == "lambda") && contains &&
+			!nodeContains(n.ChildByFieldName("body", lang), call)
+		if typ == "parameters" || typ == "lambda_parameters" {
+			owner := ancestors[len(ancestors)-1]
+			inBody := nodeContains(owner.ChildByFieldName("body", lang), call)
+			for i := 0; i < n.NamedChildCount(); i++ {
+				parameter := n.NamedChild(i)
+				if id := pythonParameterName(parameter, lang); inBody && id != nil && id.Text(source) == name {
+					conflict = true
+					return
+				}
+				visitPythonParameterExpressions(parameter, lang, func(expr *gts.Node) {
+					visit(expr, append(ancestors, n, parameter))
+				})
+			}
+			return
+		}
 		if typ == "identifier" && n.Text(source) == name {
 			for i := len(ancestors) - 1; i >= 0; i-- {
 				p := ancestors[i]
 				switch p.Type(lang) {
-				case "function_definition", "function_declaration":
+				case "function_definition", "function_declaration", "lambda":
 					if id := p.ChildByFieldName("name", lang); id != nil && id.StartByte() == n.StartByte() {
 						if p.StartByte() != uint32(target.Start) || p.EndByte() != uint32(target.End) {
 							conflict = true
@@ -51,7 +70,7 @@ func hasBindingConflict(tree *gts.Tree, call *gts.Node, target Declaration, name
 						conflict = true
 					}
 					return
-				case "parameters", "formal_parameters", "lambda_parameters", "import_statement", "import_from_statement",
+				case "formal_parameters", "import_statement", "import_from_statement",
 					"global_statement", "nonlocal_statement", "named_expression", "for_in_statement", "for_statement",
 					"with_item", "except_clause", "delete_statement", "catch_clause", "list_comprehension", "dictionary_comprehension", "set_comprehension", "generator_expression":
 					conflict = true
@@ -69,7 +88,11 @@ func hasBindingConflict(tree *gts.Tree, call *gts.Node, target Declaration, name
 			}
 		}
 		for i := 0; i < n.NamedChildCount(); i++ {
-			visit(n.NamedChild(i), append(ancestors, n))
+			child := n.NamedChild(i)
+			if signature && (child == n.ChildByFieldName("body", lang) || child == n.ChildByFieldName("name", lang)) {
+				continue
+			}
+			visit(child, append(ancestors, n))
 		}
 	}
 	visit(tree.RootNode(), nil)
