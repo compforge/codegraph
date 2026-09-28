@@ -5,7 +5,8 @@ Agent SDK 和示例插件，覆盖跨 workspace 导入、类型与值引用、�
 固定 commit 和压缩包 SHA-256 见 [repos.json](../tests/corpus/typescript/repos.json)，
 源码范围见 [doctor.json](../tests/corpus/typescript/doctor.json)。首次测量见
 [测量记录](../tests/corpus/typescript/first-run.md)，循环与 catch 声明修复的复测见
-[控制语句绑定复测](../tests/corpus/typescript/control-bindings.md)。
+[控制语句绑定复测](../tests/corpus/typescript/control-bindings.md)，剩余声明缺口的修复见
+[生成器与私有方法声明复测](../tests/corpus/typescript/callable-declarations.md)。
 
 ## 输入与独立参照
 

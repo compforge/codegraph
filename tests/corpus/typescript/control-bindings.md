@@ -49,3 +49,5 @@ make test-typescript-corpus \
 ```
 
 产物仍包括 summary.md、report.json、oracle.json 和 graph.json；原始 JSON 不纳入 Git。
+
+剩余 9 个声明缺口的修复与复测见 [生成器与私有方法声明复测](callable-declarations.md)。
