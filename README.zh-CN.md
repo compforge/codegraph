@@ -10,7 +10,7 @@ CodeGraph 组合 gotreesitter 的解析与事实提取、GoGraph 的属性图与
 Struct、Interface、Field、Method、Function 等具体类别，关系包括调用、导入和包含等；
 声明节点保存 spec、case、rule、link、doc 等结构化意图标记。
 
-直接依赖 gotreesitter `v0.55.0`、GoGraph `v0.15.0`，要求 Go 1.26 或更高版本。
+直接依赖 gotreesitter `v0.55.1`、GoGraph `v0.15.0`，要求 Go 1.26 或更高版本。
 无需独立数据库服务，无强制落盘。本仓库尚未首次发布。
 
 支持调用方显式提供 gitlink：保留子仓路径和固定 commit，导入关系停在子仓边界，不展开子仓源码。详见 [gitlink 材料](docs/gitlinks.md)。
