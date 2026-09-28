@@ -28,7 +28,7 @@ func TestGoMemberReferenceReceivers(t *testing.T) {
 		{"defined-interface", "type Named Interface; var local Named;", "local.Work", "Interface.Work"},
 		{"embedded-interface", "var local Combined;", "local.Work", "Interface.Work"},
 		{"unknown-return", "", "Make().Value", ""},
-		{"unknown-member-chain", "", "box.Child.Value", ""},
+		{"member-chain", "", "box.Child.Value", "Box.Value"},
 		{"unknown-parameter", "", "unknown.Value", ""},
 		{"builtin-spelling", "", "box.close", "Box.close"},
 		{"deduplicate", "local := Box{}; local = Box{};", "local.Value", "Box.Value"},

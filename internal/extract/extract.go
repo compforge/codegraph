@@ -67,8 +67,10 @@ type Call struct {
 // These detached syntax hints may resolve after more files load.
 type GoType struct {
 	Kind, Name, Module string
-	Target             int  // same-file type declaration, -1 when not represented
-	Bound              bool // a lexical type shadows package-level names
+	Element, Key       *GoType   // container element and map key types
+	Inputs             []*GoType // receiver operands for member and element projections
+	Target             int       // same-file type declaration, -1 when not represented
+	Bound              bool      // a lexical type shadows package-level names
 }
 
 // Reference is a lexical identifier use, independently of whether a target exists.
