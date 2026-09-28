@@ -61,7 +61,7 @@ func TestSourceGraph(t *testing.T) {
 	if a.ID == b.ID || a.Location.StartByte == b.Location.StartByte {
 		t.Fatalf("parallel calls collapsed: %+v %+v", a, b)
 	}
-	if a.Confidence != Exact || a.Basis != "imported_function" {
+	if a.Confidence != Exact || a.Evidence[0].Basis != "imported_function" {
 		t.Fatal(a)
 	}
 	if rows[0]["f"].(Node).Kind != DocumentKind || rows[0]["b"].(Node).Name != "Work" {

@@ -54,7 +54,7 @@ func loadOracle(ctx context.Context, root string) (*oracle, []cg.Document, []inp
 	if len(pkgs) == 0 {
 		return nil, nil, nil, fmt.Errorf("oracle found no packages")
 	}
-	o := &oracle{Declarations: map[string]declaration{}, References: map[string]occurrence{}, Calls: map[string]occurrence{}, Imports: map[string]occurrence{}, ExcludedReferences: map[string]occurrence{}}
+	o := &oracle{Organizations: map[string]organization{}, Owners: map[string]string{}, Declarations: map[string]declaration{}, References: map[string]occurrence{}, Calls: map[string]occurrence{}, Imports: map[string]occurrence{}, ExcludedReferences: map[string]occurrence{}}
 	documents := map[string]cg.Document{}
 	for _, p := range pkgs {
 		if p.Module == nil || p.TypesInfo == nil {
@@ -79,12 +79,34 @@ func loadOracle(ctx context.Context, root string) (*oracle, []cg.Document, []inp
 			rel = filepath.ToSlash(rel)
 			documents[rel] = cg.Document{Path: rel, Content: data}
 			collectDeclarations(o, p, file, root)
+			unit := o.Organizations[p.PkgPath]
+			if unit.Contributions == nil {
+				unit = organization{Kind: cg.Package, Name: p.Name, QualifiedName: p.PkgPath, Contributions: map[string]site{}}
+			}
+			unit.Contributions[rel] = sourceSite(p.Fset, root, file.Package, file.Name.End())
+			o.Organizations[p.PkgPath] = unit
 		}
 	}
 	// Uses can point to a declaration in a later package; collect all definitions first.
 	for _, p := range pkgs {
 		for _, file := range p.Syntax {
 			collectOccurrences(o, p, file, root)
+			for _, decl := range file.Decls {
+				if fn, ok := decl.(*ast.FuncDecl); ok && fn.Recv != nil {
+					obj, _ := p.TypesInfo.Defs[fn.Name].(*types.Func)
+					if obj == nil {
+						continue
+					}
+					recv := obj.Type().(*types.Signature).Recv().Type()
+					if ptr, ok := recv.(*types.Pointer); ok {
+						recv = ptr.Elem()
+					}
+					if named, ok := recv.(*types.Named); ok {
+						target, _ := objectTarget(o, p, root, named.Obj())
+						o.Owners[sourceSite(p.Fset, root, fn.Name.Pos(), fn.Name.End()).key()] = target
+					}
+				}
+			}
 		}
 	}
 	var docs []cg.Document
@@ -118,6 +140,7 @@ func loadOracle(ctx context.Context, root string) (*oracle, []cg.Document, []inp
 		inventory = append(inventory, inputFile{rel, state, fmt.Sprintf("%x", sha256.Sum256(data))})
 		return nil
 	})
+	completeOrganizations(o, docs)
 	return o, docs, inventory, err
 }
 

@@ -93,6 +93,8 @@ def collect(root: Path, source_root: str) -> dict:
         )
     }
     oracle["module"] = ""
+    oracle["organizations"] = {}
+    module_imports = []
     inventory, symbols, selectors = [], {}, {"references": {}, "calls": {}}
 
     for path in sorted(root.rglob("*.py")):
@@ -109,6 +111,24 @@ def collect(root: Path, source_root: str) -> dict:
         if not included:
             continue
         source = Source(relative.as_posix(), data)
+        unit_id = "unit:" + source.path
+        package = relative.name == "__init__.py"
+        parts = [relative.parent.name if package else relative.stem]
+        parent_dir = relative.parent.parent if package else relative.parent
+        scan = parent_dir
+        while (root / scan / "__init__.py").is_file() and scan != Path("."):
+            parts.insert(0, scan.name)
+            scan = scan.parent
+        parent = "unit:" + (parent_dir / "__init__.py").as_posix()
+        oracle["organizations"][unit_id] = {
+            "kind": "Package" if package else "Module",
+            "name": relative.parent.name if package else relative.stem,
+            "qualifiedName": ".".join(parts),
+            "contributions": {
+                source.path: {"path": source.path, "start": 0, "end": len(data)}
+            },
+            "parent": parent if parent != unit_id else "",
+        }
 
         def occurrence(
             group: str, node: ast.AST, name: str, site: dict | None = None
@@ -176,12 +196,41 @@ def collect(root: Path, source_root: str) -> dict:
             elif isinstance(node, ast.Import):
                 for alias in node.names:
                     occurrence("imports", alias, alias.name)
+                    module_imports.append(
+                        (source.path, key(source.site(alias)), alias.name, 0)
+                    )
             elif isinstance(node, ast.ImportFrom):
                 occurrence("imports", node, "." * node.level + (node.module or ""))
+                module_imports.append(
+                    (source.path, key(source.site(node)), node.module or "", node.level)
+                )
             for child in ast.iter_child_nodes(node):
                 visit(child, owners)
 
         visit(source.tree)
+    units = oracle["organizations"]
+    for unit in units.values():
+        if unit["parent"] not in units:
+            unit["parent"] = ""
+    for source_path, occurrence_key, module, level in module_imports:
+        base = Path(source_path).parent if level else prefix
+        if not level:
+            # The selected package directory is an inventory boundary. Its
+            # parent, above package initializers, is the conventional import root.
+            while (root / base / "__init__.py").is_file() and base != Path("."):
+                base = base.parent
+        for _ in range(max(0, level - 1)):
+            base = base.parent
+        stem = base / module.replace(".", "/")
+        candidates = [
+            "unit:" + str(stem) + ".py",
+            "unit:" + (stem / "__init__.py").as_posix(),
+        ]
+        matches = [candidate for candidate in candidates if candidate in units]
+        if len(matches) == 1:
+            oracle["imports"][occurrence_key].update(
+                {"class": "internal", "target": matches[0]}
+            )
     if not any(item["state"] == "included" for item in inventory):
         raise ValueError("no Python source documents")
     return {

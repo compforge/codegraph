@@ -138,7 +138,7 @@ func Local(){ type Box struct{} }
 		t.Fatal(rows)
 	}
 	edge, method := rows[0]["r"].(Relation), rows[0]["m"].(Node)
-	if method.ID != before.ID || edge.Location != *method.Location || edge.Location.Path != "methods.go" || edge.Confidence != Exact || edge.Basis != "receiver_declaration" {
+	if method.ID != before.ID || edge.Location != *method.Location || edge.Location.Path != "methods.go" || edge.Confidence != Exact || edge.Evidence[0].Basis != "receiver_declaration" {
 		t.Fatal(edge, method)
 	}
 	if rows[0]["b"].(Node).QualifiedName != "Box" {

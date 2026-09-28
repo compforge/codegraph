@@ -7,7 +7,7 @@ import (
 	"github.com/compforge/codegraph/internal/analysis"
 )
 
-type session struct{ scope analysis.Scope }
+type session struct{ scope analysis.BuildScope }
 
 func (s session) Resolve(ctx context.Context, index *analysis.Index, limit int) ([]Edge, []Gap, error) {
 	files, names, module := s.scope.Files, s.scope.Names, s.scope.Module

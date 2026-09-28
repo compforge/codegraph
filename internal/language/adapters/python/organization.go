@@ -9,7 +9,7 @@ import (
 	"github.com/compforge/codegraph/internal/analysis"
 )
 
-func (Adapter) Organize(ctx context.Context, scope analysis.Scope) (analysis.Organization, error) {
+func (Adapter) Organize(ctx context.Context, scope analysis.BuildScope) (analysis.Organization, error) {
 	files := scope.Files
 	units := map[string]analysis.Entity{}
 	roots := map[string]string{}

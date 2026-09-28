@@ -39,12 +39,7 @@ func query(entry grammars.LangEntry) string {
 }
 func (Adapter) Extract(ctx context.Context, f Facts, tree *gts.Tree, entry grammars.LangEntry) (Facts, error) {
 	entry.TagsQuery = query(entry)
-	f, err := (syntax.ModuleExtractor{Dialect: Dialect{}}).Extract(ctx, f, tree, entry)
-	if err == nil {
-		refineControlBindings(&f, tree)
-		refineCallableReferences(&f, tree)
-	}
-	return f, err
+	return (syntax.ModuleExtractor{Dialect: Dialect{}}).Extract(ctx, f, tree, entry)
 }
 func (Adapter) Compatible(lang string) bool {
 	return lang == "javascript" || lang == "typescript" || lang == "tsx"
@@ -60,6 +55,6 @@ func (Adapter) ExportName(f Facts, name string) (string, bool) {
 	return s, ok
 }
 func (Adapter) NestedImport(imp analysis.Import) bool { return false }
-func (a Adapter) Bind(ctx context.Context, s analysis.Scope, index *analysis.Index, limit int) (analysis.Binding, error) {
+func (a Adapter) Bind(ctx context.Context, s analysis.BuildScope, index *analysis.Index, limit int) (analysis.BindResult, error) {
 	return (module.Binder{Policy: a}).Bind(ctx, s, index, limit)
 }

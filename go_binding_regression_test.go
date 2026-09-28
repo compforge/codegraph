@@ -127,7 +127,7 @@ func TestGoCompositeKeyBinding(t *testing.T) {
 					if n.Kind != tc.kind || n.Name != tc.target {
 						t.Fatalf("wrong key binding: %+v", row)
 					}
-					if n.Kind == Field && (e.Confidence != Candidate || e.Basis != "composite_field") {
+					if n.Kind == Field && (e.Confidence != Candidate || e.Evidence[0].Basis != "composite_field") {
 						t.Fatal(e)
 					}
 				case valueStart:

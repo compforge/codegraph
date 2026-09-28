@@ -12,17 +12,17 @@ type Extractor interface {
 	Extract(context.Context, Facts, *gts.Tree, grammars.LangEntry) (Facts, error)
 }
 type Organizer interface {
-	Organize(context.Context, Scope) (Organization, error)
+	Organize(context.Context, BuildScope) (Organization, error)
 }
 
 // Binder completes names, types and receiver ownership before any resolver runs.
 type Binder interface {
-	Bind(context.Context, Scope, *Index, int) (Binding, error)
+	Bind(context.Context, BuildScope, *Index, int) (BindResult, error)
 }
 type RelationResolver interface {
 	Resolve(context.Context, *Index, int) ([]Edge, []Gap, error)
 }
-type Binding struct {
+type BindResult struct {
 	Edges    []Edge
 	Issues   []Gap
 	Resolver RelationResolver

@@ -27,19 +27,19 @@ type Organization struct {
 	Roots    map[string]Ref
 	Edges    []Edge
 }
-type Scope struct {
+type BuildScope struct {
 	Files  map[string]Facts
 	Names  []string
 	Module string
 }
 
-func NewScope(files map[string]Facts, module string) Scope {
+func NewBuildScope(files map[string]Facts, module string) BuildScope {
 	names := make([]string, 0, len(files))
 	for p := range files {
 		names = append(names, p)
 	}
 	sort.Strings(names)
-	return Scope{Files: files, Names: names, Module: module}
+	return BuildScope{Files: files, Names: names, Module: module}
 }
 
 // Index owns all entities and relation evidence for one build. Namespace views
@@ -50,12 +50,14 @@ type Index struct {
 	Roots         map[string]Ref
 	Gitlinks      map[string]Ref
 	Edges         []Edge
+	edgeIDs       map[edgeKey]int
+	EvidenceCount int
 	members       map[Ref]map[string][]Ref
-	contributions map[Ref][]Edge
+	contributions map[Ref][]int
 }
 
 func NewIndex(files map[string]Facts) *Index {
-	return &Index{Files: files, Entities: map[Ref]Entity{}, Roots: map[string]Ref{}, Gitlinks: map[string]Ref{}, members: map[Ref]map[string][]Ref{}, contributions: map[Ref][]Edge{}}
+	return &Index{edgeIDs: map[edgeKey]int{}, Files: files, Entities: map[Ref]Entity{}, Roots: map[string]Ref{}, Gitlinks: map[string]Ref{}, members: map[Ref]map[string][]Ref{}, contributions: map[Ref][]int{}}
 }
 
 // RegisterEntities records organization endpoints and roots. The pipeline adds
@@ -69,10 +71,13 @@ func (x *Index) RegisterEntities(o Organization) {
 	}
 }
 func (x *Index) Add(e Edge) {
-	x.Edges = append(x.Edges, e)
+	if !x.registerEdge(e) {
+		return
+	}
+	e = x.Edges[len(x.Edges)-1]
 	switch e.Kind {
 	case "declares":
-		x.contributions[e.Target] = append(x.contributions[e.Target], e)
+		x.contributions[e.Target] = append(x.contributions[e.Target], len(x.Edges)-1)
 	case "contains":
 		name := x.Entities[e.Target].Name
 		if x.members[e.Source] == nil {

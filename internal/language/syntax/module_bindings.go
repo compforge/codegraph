@@ -14,8 +14,8 @@ func (x ModuleExtractor) importBindingForUse(f *Facts, name, receiver string, sp
 			if b.ReExport || b.Local != local || b.Namespace != (receiver != "") {
 				continue
 			}
-			owner := ReferenceOwner(f, b.Span)
-			if owner >= 0 && (f.Declarations[owner].Start > span.Start || f.Declarations[owner].End < span.End) {
+			visible := x.lexical.Lookup(local, span)
+			if len(visible) != 1 || visible[0].Kind != "import" || visible[0].Span != b.Span {
 				continue
 			}
 			return b, true
@@ -38,6 +38,11 @@ func (x ModuleExtractor) bindModuleUses(f *Facts, tree *gts.Tree) {
 	})
 	for i := range f.References {
 		r := &f.References[i]
+		if r.Member && r.Receiver == "" {
+			r.Bound = true
+			r.Target = -1
+			continue
+		}
 		receiver := r.Receiver
 		if receiver == "" {
 			for _, imp := range f.Imports {
@@ -46,6 +51,14 @@ func (x ModuleExtractor) bindModuleUses(f *Facts, tree *gts.Tree) {
 						receiver = r.Name
 					}
 				}
+			}
+		}
+		if receiver != "" {
+			visible := x.lexical.Lookup(receiver, r.Span)
+			if len(visible) > 0 && (len(visible) != 1 || visible[0].Kind != "import") {
+				r.Bound = true
+				r.Target = -1
+				continue
 			}
 		}
 		b, ok := x.importBindingForUse(f, r.Name, receiver, r.Span)

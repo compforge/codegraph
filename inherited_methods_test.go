@@ -29,7 +29,7 @@ func TestInheritedMethodCalls(t *testing.T) {
 					continue
 				}
 				count++
-				if r.Confidence != Candidate || r.Basis != "inherited_method" || target.QualifiedName != "Base.run" && target.QualifiedName != "Base.Run" {
+				if r.Confidence != Candidate || r.Evidence[0].Basis != "inherited_method" || target.QualifiedName != "Base.run" && target.QualifiedName != "Base.Run" {
 					t.Fatal(r, target)
 				}
 			}
@@ -59,7 +59,7 @@ func TestInheritedMethodOverrideAndMultipleBases(t *testing.T) {
 			if r.Kind == Calls {
 				target, _ := g.Node(r.Target)
 				if target.Kind == Method {
-					if r.Basis != tc.basis || r.Confidence != Candidate {
+					if r.Evidence[0].Basis != tc.basis || r.Confidence != Candidate {
 						t.Fatal(r)
 					}
 					found[target.QualifiedName] = true
@@ -96,7 +96,7 @@ func TestInheritedMethodImportedBaseIncremental(t *testing.T) {
 			n, _ := g.Node(r.Target)
 			if n.Kind == Method {
 				count++
-				if n.Location.Path != "base.ts" || r.Basis != "inherited_method" || r.Location.Path != "main.ts" {
+				if n.Location.Path != "base.ts" || r.Evidence[0].Basis != "inherited_method" || r.Location.Path != "main.ts" {
 					t.Fatal(r, n)
 				}
 			}
@@ -176,7 +176,7 @@ func TestNestedInheritedReceiver(t *testing.T) {
 			if target.Kind == Method {
 				count++
 				source, _ := g.Node(r.Source)
-				if source.QualifiedName != "Outer.Child.entry" || target.QualifiedName != "Base.run" || r.Basis != "inherited_method" {
+				if source.QualifiedName != "Outer.Child.entry" || target.QualifiedName != "Base.run" || r.Evidence[0].Basis != "inherited_method" {
 					t.Fatal(source, target, r)
 				}
 			}

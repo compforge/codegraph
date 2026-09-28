@@ -32,6 +32,6 @@ func (Adapter) ExportName(f Facts, name string) (string, bool) { return name, tr
 func (Adapter) NestedImport(imp analysis.Import) bool {
 	return imp.Alias == "" && strings.Contains(imp.Path, ".")
 }
-func (a Adapter) Bind(ctx context.Context, s analysis.Scope, index *analysis.Index, limit int) (analysis.Binding, error) {
+func (a Adapter) Bind(ctx context.Context, s analysis.BuildScope, index *analysis.Index, limit int) (analysis.BindResult, error) {
 	return (module.Binder{Policy: a}).Bind(ctx, s, index, limit)
 }

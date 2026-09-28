@@ -50,7 +50,7 @@ func newNamespaces(index *analysis.Index) *NamespaceIndex {
 	return x
 }
 
-func (Adapter) Organize(ctx context.Context, scope analysis.Scope) (analysis.Organization, error) {
+func (Adapter) Organize(ctx context.Context, scope analysis.BuildScope) (analysis.Organization, error) {
 	units := map[string]analysis.Entity{}
 	roots := map[string]analysis.Ref{}
 	var edges []Edge

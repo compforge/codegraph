@@ -1,12 +1,9 @@
 package codegraph
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"sync"
-
-	"github.com/compforge/codegraph/internal/language"
 
 	"github.com/compforge/codegraph/internal/pipeline"
 
@@ -76,22 +73,6 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 				next++
 				continue
 			}
-			if document.Gitlink != "" {
-				facts := pipeline.DocumentOnly(name, nil)
-				facts.Gitlink = document.Gitlink
-				staged[name] = facts
-				total += document.size()
-				next++
-				continue
-			}
-			if language.Detect(name) == nil {
-				facts := pipeline.DocumentOnly(name, bytes.Clone(data))
-				facts.Issues = append(facts.Issues, analysis.Issue{Code: "unsupported_language", Message: "no registered grammar for file", Subject: "document", Span: analysis.Span{End: len(data)}})
-				staged[name] = facts
-				total += document.size()
-				next++
-				continue
-			}
 			batch = append(batch, document)
 			reserved += document.size()
 			next++
@@ -134,10 +115,7 @@ func (g *Graph) extractBatch(ctx context.Context, documents []Document) []extrac
 			return
 		}
 		document := documents[i]
-		if parseObserver != nil {
-			parseObserver(document.Path)
-		}
-		results[i].facts, results[i].err = pipeline.Analyze(ctx, document.Path, bytes.Clone(document.Content), g.opts.ParseTimeout)
+		results[i].facts, results[i].err = g.extractMaterial(ctx, document)
 	}
 	if len(documents) == 1 {
 		run(0)

@@ -30,6 +30,18 @@ Package/Module、显式 Namespace 和 Class 通过相同视图查成员与源码
 Binder 与 Resolver 将输入索引视为只读，其关系结果由 Core 登记；失败或取消返回错误，整个批次不发布。
 候选目标保留 confidence 与 basis，已识别的遮蔽阻止同名回退，未解析引用保留局部诊断。
 
+## 共享索引
+
+`BuildScope` 是本轮材料集合；`Scope` 是源码可见范围，`Binding` 是该范围的名称绑定。
+原阶段返回对象命名为 `BindResult`，包含关系贡献、诊断及本轮 Resolver。
+Python/ECMAScript 的 dialect 在单文件提取中登记脱离 AST 的 Lexicon，后续引用、调用和
+接收者类型线索共享其查找结果；语言实现负责声明位置、父级跳转、参数和块等规则。
+
+所有阶段贡献进入 `Index.Add`：按 Source/Target/Kind/源码位置登记 occurrence，合并、去重、排序
+Evidence，并派生 confidence。Namespace 的成员与源码贡献由同一登记结果投影。
+不同 Kind 或源码位置不能去重；来源不同的证据不能最后写入覆盖。语言阶段提供单条贡献时可用
+内部 Edge 的 Basis/Confidence 简写，聚合后以 Evidence 为准。
+
 ## 语言接入
 
 `internal/analysis/stages.go` 定义阶段接口，`internal/language` 统一注册实现与能力说明。
@@ -41,7 +53,7 @@ Binder 与 Resolver 将输入索引视为只读，其关系结果由 Core 登记
 Go、Python、ECMAScript 各自拥有语义规则；共享算法由它们显式调用：
 
 - 通用 outline 与 marker 提取保持一个实现。
-- Python 和 JS/TS 共享模块语法遍历，通过 dialect 接口提供参数、签名、接收者和基类等差异。
+- Python 和 JS/TS 共享模块语法遍历，通过 dialect 接口提供词法登记、参数表达式、接收者和基类等差异。
 - 模块绑定共享转导出与候选汇总算法，路径、兼容语言和导出策略由各自实现提供。
 - Go 的类型形状与传播证据位于 Go 模块，通过强类型的 Extension 携带，不进入公共 Node。
 

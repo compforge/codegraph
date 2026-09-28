@@ -23,7 +23,7 @@ func evaluatorHash(t *testing.T) string {
 	h := sha256.New()
 	for _, entry := range entries {
 		name := entry.Name()
-		if entry.IsDir() || !(strings.HasSuffix(name, ".go") || name == "go.mod" || name == "go.sum" || name == "repos.json") {
+		if entry.IsDir() || !(strings.HasSuffix(name, ".go") || name == "repos.json") {
 			continue
 		}
 		data, err := os.ReadFile(name)
@@ -100,8 +100,14 @@ func compareBaseline(base, current runReport) ([]string, error) {
 	if base.Status != "measured" || current.Status != "measured" || base.Evaluation == nil || current.Evaluation == nil {
 		return nil, fmt.Errorf("baseline comparison requires two measured runs")
 	}
-	if base.SchemaVersion != current.SchemaVersion || base.Repository != current.Repository || base.Profile != current.Profile || base.Toolchain != current.Toolchain || base.EvaluatorSHA256 != current.EvaluatorSHA256 || !reflect.DeepEqual(base.Inputs, current.Inputs) {
-		return nil, fmt.Errorf("baseline identity mismatch: input, oracle toolchain, evaluator and profile must match")
+	if base.SchemaVersion != current.SchemaVersion {
+		return nil, fmt.Errorf("baseline schema mismatch; explicitly re-evaluate artifacts with the same schema")
+	}
+	if !reflect.DeepEqual(base.Input, current.Input) {
+		return nil, fmt.Errorf("baseline input identity mismatch")
+	}
+	if !reflect.DeepEqual(base.Evaluator, current.Evaluator) {
+		return nil, fmt.Errorf("baseline evaluator identity mismatch")
 	}
 	var regressions []string
 	for key, prior := range base.Evaluation.Measurements {
@@ -139,14 +145,14 @@ func compareBaseline(base, current runReport) ([]string, error) {
 }
 
 func TestBaselineRejectsDriftAndDetectsLoss(t *testing.T) {
-	base := runReport{SchemaVersion: 1, Status: "measured", EvaluatorSHA256: "same", Evaluation: &evaluation{Measurements: map[string]*measurement{"declarations/all": {Expected: 10, Found: 9}}, Bindings: map[cg.RelationKind]*bindings{cg.Calls: {Expected: 3, Hit: 3}}}}
+	base := runReport{SchemaVersion: 2, Status: "measured", Evaluator: EvaluatorIdentity{SourceSHA256: "same"}, Evaluation: &evaluation{Measurements: map[string]*measurement{"declarations/all": {Expected: 10, Found: 9}}, Bindings: map[cg.RelationKind]*bindings{cg.Calls: {Expected: 3, Hit: 3}}}}
 	current := base
 	current.Evaluation = &evaluation{Measurements: map[string]*measurement{"declarations/all": {Expected: 10, Found: 8}}, Bindings: map[cg.RelationKind]*bindings{cg.Calls: {Expected: 3, Hit: 2}}}
 	r, err := compareBaseline(base, current)
 	if err != nil || len(r) != 2 {
 		t.Fatal(r, err)
 	}
-	current.EvaluatorSHA256 = "different"
+	current.Evaluator.SourceSHA256 = "different"
 	if _, err := compareBaseline(base, current); err == nil {
 		t.Fatal("accepted a different oracle")
 	}

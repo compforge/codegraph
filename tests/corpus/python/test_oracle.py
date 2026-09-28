@@ -109,6 +109,24 @@ class Box:
         )
         self.assertEqual(result["oracle"]["references"], {})
 
+    def test_package_organization_and_import_root(self):
+        self.write("src/pkg/__init__.py", "")
+        self.write("src/pkg/nested/__init__.py", "")
+        self.write(
+            "src/pkg/nested/work.py",
+            "from . import util\nimport asyncio\nfrom pkg.nested import util\n",
+        )
+        self.write("src/pkg/nested/util.py", "def run(): pass\n")
+        self.write("src/pkg/asyncio/__init__.py", "")
+        result = collect(self.root, "src/pkg")["oracle"]
+        unit = result["organizations"]["unit:src/pkg/nested/work.py"]
+        self.assertEqual(unit["qualifiedName"], "pkg.nested.work")
+        self.assertEqual(unit["parent"], "unit:src/pkg/nested/__init__.py")
+        imports = list(result["imports"].values())
+        self.assertEqual(imports[0]["target"], "unit:src/pkg/nested/__init__.py")
+        self.assertEqual(imports[1]["class"], "unknown")
+        self.assertEqual(imports[2]["target"], "unit:src/pkg/nested/__init__.py")
+
 
 if __name__ == "__main__":
     unittest.main()

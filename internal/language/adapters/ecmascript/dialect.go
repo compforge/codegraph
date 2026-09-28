@@ -95,7 +95,6 @@ func (Dialect) Enrich(f *Facts, tree *gts.Tree) {
 func (Dialect) Parameters(n *gts.Node, lang *gts.Language) ([]*gts.Node, []syntax.ParameterExpression, bool) {
 	return nil, nil, false
 }
-func (Dialect) SignatureScope(n, use *gts.Node, lang *gts.Language) bool { return false }
 func (Dialect) Self(f *Facts, tree *gts.Tree, owner int, receiver string) bool {
 	return receiver == "this"
 }

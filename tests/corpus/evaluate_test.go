@@ -25,7 +25,9 @@ func evaluate(o *oracle, a observed) evaluation {
 	found := map[string]bool{}
 	for _, n := range a.Nodes {
 		if n.Location == nil {
-			e.Unassessed["organization/"+string(n.Kind)]++
+			if o.Organizations == nil {
+				e.Unassessed["organization/"+string(n.Kind)]++
+			}
 			continue
 		}
 		if n.Kind == cg.DocumentKind {
@@ -64,6 +66,8 @@ func evaluate(o *oracle, a observed) evaluation {
 			e.Findings = append(e.Findings, finding{Category: "missing_declaration/" + gap(a.Report.Diagnostics, d.Span, ""), Site: d.NameSite, Expected: string(d.Kind) + " " + d.Name})
 		}
 	}
+	compareOrganizations(&e, o, a, nodeKeys)
+	compareSemanticRelations(&e, o, a, nodeKeys)
 	references, calls, imports := map[string]bool{}, map[string]bool{}, map[string]bool{}
 	for _, f := range a.Facts {
 		for _, r := range f.References {
@@ -100,7 +104,7 @@ func evaluate(o *oracle, a observed) evaluation {
 	// Imports, containment and type edges stay in the raw graph. Their semantic
 	// comparison is not implemented by this profile and cannot count as passes.
 	for _, r := range a.Relations {
-		if r.Kind != cg.References && r.Kind != cg.Calls {
+		if o.Organizations == nil && r.Kind != cg.References && r.Kind != cg.Calls {
 			e.Unassessed["relation/"+string(r.Kind)]++
 		}
 	}
@@ -184,7 +188,7 @@ func compareBindings(e *evaluation, kind cg.RelationKind, truth map[string]occur
 			}
 		}
 		if !correct {
-			e.Findings = append(e.Findings, finding{Category: "target_difference/" + string(kind), Site: want.Site, Expected: want.Target, Actual: edge.Target, Confidence: edge.Confidence, Basis: edge.Basis})
+			e.Findings = append(e.Findings, finding{Category: "target_difference/" + string(kind), Site: want.Site, Expected: want.Target, Actual: edge.Target, Confidence: edge.Confidence, Evidence: edge.Evidence})
 		}
 	}
 	for _, set := range candidates {

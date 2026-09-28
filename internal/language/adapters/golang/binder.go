@@ -7,14 +7,14 @@ import (
 	"github.com/compforge/codegraph/internal/analysis"
 )
 
-func (Adapter) Bind(ctx context.Context, scope analysis.Scope, index *analysis.Index, limit int) (analysis.Binding, error) {
+func (Adapter) Bind(ctx context.Context, scope analysis.BuildScope, index *analysis.Index, limit int) (analysis.BindResult, error) {
 	edges, issues, err := bind(ctx, scope, index, limit)
 	if err != nil {
-		return analysis.Binding{}, err
+		return analysis.BindResult{}, err
 	}
-	return analysis.Binding{Edges: edges, Issues: issues, Resolver: session{scope}}, nil
+	return analysis.BindResult{Edges: edges, Issues: issues, Resolver: session{scope}}, nil
 }
-func bind(ctx context.Context, scope analysis.Scope, index *analysis.Index, limit int) ([]Edge, []Gap, error) {
+func bind(ctx context.Context, scope analysis.BuildScope, index *analysis.Index, limit int) ([]Edge, []Gap, error) {
 	files, names, module := scope.Files, scope.Names, scope.Module
 	namespaces := newNamespaces(index)
 	edges, issues, err := resolveTypeRelations(ctx, files, names, module, namespaces, limit)

@@ -43,7 +43,7 @@ func (g *Graph) project(v any) (any, error) {
 			if !ok {
 				return nil, fmt.Errorf("unknown relation %s", v.ID)
 			}
-			return r, nil
+			return cloneRelation(r), nil
 		}
 		n, ok := g.nodes[v.ID]
 		if !ok {
