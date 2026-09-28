@@ -65,3 +65,5 @@ make test-python-corpus \
 
 原始产物在 `.corpus-results/python-stdx/` 与 `.corpus-results/agentue/`，复测产物在
 `.corpus-results/recheck/`。评分边界与环境前提见 [Python 评测说明](../../../docs/python-corpus.md)。
+
+导入路径绑定修复的结果与基线门禁审阅见[导入绑定复测](import-bindings.md)。
