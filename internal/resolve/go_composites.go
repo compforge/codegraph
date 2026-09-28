@@ -14,8 +14,8 @@ func goCompositeKeyTargets(ctx context.Context, f extract.Facts, ref extract.Ref
 	seen := map[Ref]bool{}
 	unique := map[Ref]bool{}
 	resolved := map[Ref]bool{}
-	var visit func(extract.Facts, *extract.GoCompositeType, *Ref) (bool, error)
-	visit = func(source extract.Facts, hint *extract.GoCompositeType, owner *Ref) (bool, error) {
+	var visit func(extract.Facts, *extract.GoType, *Ref) (bool, error)
+	visit = func(source extract.Facts, hint *extract.GoType, owner *Ref) (bool, error) {
 		if err := ctx.Err(); err != nil {
 			return false, err
 		}

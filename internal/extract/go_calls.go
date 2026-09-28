@@ -32,28 +32,28 @@ func goTypeHint(e ast.Expr) (string, string) {
 	return "", ""
 }
 
-func goObjectTypes(id *ast.Ident, assignments map[*ast.Object][]ast.Expr, seen map[*ast.Object]bool) []CallTarget {
+func goObjectTypeExpressions(id *ast.Ident, assignments map[*ast.Object][]ast.Expr, seen map[*ast.Object]bool) []ast.Expr {
 	if id.Obj == nil || seen[id.Obj] {
 		return nil
 	}
 	seen[id.Obj] = true
 	defer delete(seen, id.Obj)
-	var types []CallTarget
+	var types []ast.Expr
 	add := func(e ast.Expr) {
 		if alias, ok := e.(*ast.Ident); ok && alias.Obj != nil {
-			types = append(types, goObjectTypes(alias, assignments, seen)...)
+			types = append(types, goObjectTypeExpressions(alias, assignments, seen)...)
 			return
 		}
-		name, module := goTypeHint(e)
+		name, _ := goTypeHint(e)
 		if name != "" {
-			types = append(types, CallTarget{ReceiverType: name, Module: module})
+			types = append(types, e)
 		}
 	}
 	switch decl := id.Obj.Decl.(type) {
 	case *ast.Field:
 		add(decl.Type)
 	case *ast.TypeSpec:
-		types = append(types, CallTarget{ReceiverType: id.Name})
+		types = append(types, id)
 	case *ast.ValueSpec:
 		if decl.Type != nil {
 			add(decl.Type)
@@ -68,6 +68,17 @@ func goObjectTypes(id *ast.Ident, assignments map[*ast.Object][]ast.Expr, seen m
 		}
 	}
 	return types
+}
+
+func goObjectTypes(id *ast.Ident, assignments map[*ast.Object][]ast.Expr, seen map[*ast.Object]bool) []CallTarget {
+	var hints []CallTarget
+	for _, expr := range goObjectTypeExpressions(id, assignments, seen) {
+		name, module := goTypeHint(expr)
+		if name != "" {
+			hints = append(hints, CallTarget{ReceiverType: name, Module: module})
+		}
+	}
+	return hints
 }
 
 func goCallableTargets(expr ast.Expr, basis string, seen map[*ast.Object]bool, assignments map[*ast.Object][]ast.Expr) []CallTarget {
@@ -120,25 +131,7 @@ func goCallableTargets(expr ast.Expr, basis string, seen map[*ast.Object]bool, a
 	return nil
 }
 
-func enrichGoCallTargets(f *Facts, file *ast.File, nodes map[Span]*ast.CallExpr, closures []Span) {
-	assignments := map[*ast.Object][]ast.Expr{}
-	ast.Inspect(file, func(n ast.Node) bool {
-		switch n := n.(type) {
-		case *ast.AssignStmt:
-			for i, lhs := range n.Lhs {
-				if id, ok := lhs.(*ast.Ident); ok && id.Obj != nil && i < len(n.Rhs) {
-					assignments[id.Obj] = append(assignments[id.Obj], n.Rhs[i])
-				}
-			}
-		case *ast.ValueSpec:
-			for i, id := range n.Names {
-				if id.Obj != nil && i < len(n.Values) {
-					assignments[id.Obj] = append(assignments[id.Obj], n.Values[i])
-				}
-			}
-		}
-		return true
-	})
+func enrichGoCallTargets(f *Facts, nodes map[Span]*ast.CallExpr, closures []Span, assignments map[*ast.Object][]ast.Expr) {
 	for i := range f.Calls {
 		call := &f.Calls[i]
 		hidden := false
@@ -161,4 +154,26 @@ func enrichGoCallTargets(f *Facts, file *ast.File, nodes map[Span]*ast.CallExpr,
 		}
 		call.Targets = goCallableTargets(node.Fun, "callable_binding", map[*ast.Object]bool{}, assignments)
 	}
+}
+
+func goAssignments(file *ast.File) map[*ast.Object][]ast.Expr {
+	assignments := map[*ast.Object][]ast.Expr{}
+	ast.Inspect(file, func(n ast.Node) bool {
+		switch n := n.(type) {
+		case *ast.AssignStmt:
+			for i, lhs := range n.Lhs {
+				if id, ok := lhs.(*ast.Ident); ok && id.Obj != nil && i < len(n.Rhs) {
+					assignments[id.Obj] = append(assignments[id.Obj], n.Rhs[i])
+				}
+			}
+		case *ast.ValueSpec:
+			for i, id := range n.Names {
+				if id.Obj != nil && i < len(n.Values) {
+					assignments[id.Obj] = append(assignments[id.Obj], n.Values[i])
+				}
+			}
+		}
+		return true
+	})
+	return assignments
 }

@@ -78,8 +78,9 @@ func enrichGo(f *Facts) error {
 			c.Blocked = true
 		}
 	}
-	enrichGoCallTargets(f, file, callNodes, closures)
-	extractGoReferences(f, file, fset)
+	assignments := goAssignments(file)
+	enrichGoCallTargets(f, callNodes, closures, assignments)
+	extractGoReferences(f, file, fset, assignments)
 	extractGoTypeRelations(f, file, fset)
 	return nil
 }
