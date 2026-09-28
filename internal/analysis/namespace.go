@@ -13,4 +13,10 @@ func (n Namespace) Members(name string) []Ref  { return n.index.members[n.Owner]
 
 // Contributions preserves each source location, including repeated contributions
 // from one document. It does not infer provenance from membership descendants.
-func (n Namespace) Contributions() []Edge { return n.index.contributions[n.Owner] }
+func (n Namespace) Contributions() []Edge {
+	var out []Edge
+	for _, i := range n.index.contributions[n.Owner] {
+		out = append(out, n.index.Edges[i])
+	}
+	return out
+}

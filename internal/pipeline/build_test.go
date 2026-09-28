@@ -9,15 +9,15 @@ import (
 	"github.com/compforge/codegraph/internal/analysis"
 )
 
-type organizerFunc func(context.Context, analysis.Scope) (analysis.Organization, error)
+type organizerFunc func(context.Context, analysis.BuildScope) (analysis.Organization, error)
 
-func (f organizerFunc) Organize(c context.Context, s analysis.Scope) (analysis.Organization, error) {
+func (f organizerFunc) Organize(c context.Context, s analysis.BuildScope) (analysis.Organization, error) {
 	return f(c, s)
 }
 
-type binderFunc func(context.Context, analysis.Scope, *analysis.Index, int) (analysis.Binding, error)
+type binderFunc func(context.Context, analysis.BuildScope, *analysis.Index, int) (analysis.BindResult, error)
 
-func (f binderFunc) Bind(c context.Context, s analysis.Scope, i *analysis.Index, n int) (analysis.Binding, error) {
+func (f binderFunc) Bind(c context.Context, s analysis.BuildScope, i *analysis.Index, n int) (analysis.BindResult, error) {
 	return f(c, s, i, n)
 }
 
@@ -42,18 +42,18 @@ func TestLanguageStagesAndSharedMembership(t *testing.T) {
 	var events []string
 	lookup := func(name string) analysis.Adapter {
 		return analysis.Adapter{
-			Organizer: organizerFunc(func(ctx context.Context, s analysis.Scope) (analysis.Organization, error) {
+			Organizer: organizerFunc(func(ctx context.Context, s analysis.BuildScope) (analysis.Organization, error) {
 				events = append(events, "organize:"+name)
 				p := s.Names[0]
 				key := "package:" + name
 				return analysis.Organization{Entities: []analysis.Entity{{Ref: analysis.SyntheticRef(key), Kind: "Package", Name: name, Language: name}}, Roots: map[string]analysis.Ref{p: analysis.SyntheticRef(key)}, Edges: []analysis.Edge{{Source: analysis.DocumentRef(p), Target: analysis.SyntheticRef(key), Kind: "declares", Path: p}}}, nil
 			}),
-			Binder: binderFunc(func(ctx context.Context, s analysis.Scope, index *analysis.Index, limit int) (analysis.Binding, error) {
+			Binder: binderFunc(func(ctx context.Context, s analysis.BuildScope, index *analysis.Index, limit int) (analysis.BindResult, error) {
 				events = append(events, "bind:"+name)
 				if len(index.Roots) != 2 {
 					t.Fatal("bind ran before all organizations were available")
 				}
-				result := analysis.Binding{Resolver: resolverFunc(func(ctx context.Context, index *analysis.Index, limit int) ([]analysis.Edge, []analysis.Gap, error) {
+				result := analysis.BindResult{Resolver: resolverFunc(func(ctx context.Context, index *analysis.Index, limit int) ([]analysis.Edge, []analysis.Gap, error) {
 					events = append(events, "resolve:"+name)
 					if got := index.Namespace(owner).Members("run"); !reflect.DeepEqual(got, []analysis.Ref{member}) {
 						t.Fatalf("receiver member unavailable: %v", got)
@@ -70,7 +70,7 @@ func TestLanguageStagesAndSharedMembership(t *testing.T) {
 			}),
 		}
 	}
-	index, _, err := Build(context.Background(), analysis.NewScope(files, ""), 20, 20, lookup)
+	index, _, err := Build(context.Background(), analysis.NewBuildScope(files, ""), 20, 20, 100, lookup)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,17 +118,17 @@ func TestStageFailureAndBudgetReturnNoIndex(t *testing.T) {
 			}
 			lookup := func(string) analysis.Adapter {
 				return analysis.Adapter{
-					Organizer: organizerFunc(func(context.Context, analysis.Scope) (analysis.Organization, error) {
+					Organizer: organizerFunc(func(context.Context, analysis.BuildScope) (analysis.Organization, error) {
 						if phase == "organize" {
 							return analysis.Organization{}, failure
 						}
 						return analysis.Organization{}, nil
 					}),
-					Binder: binderFunc(func(context.Context, analysis.Scope, *analysis.Index, int) (analysis.Binding, error) {
+					Binder: binderFunc(func(context.Context, analysis.BuildScope, *analysis.Index, int) (analysis.BindResult, error) {
 						if phase == "bind" {
-							return analysis.Binding{}, failure
+							return analysis.BindResult{}, failure
 						}
-						return analysis.Binding{Resolver: resolverFunc(func(context.Context, *analysis.Index, int) ([]analysis.Edge, []analysis.Gap, error) {
+						return analysis.BindResult{Resolver: resolverFunc(func(context.Context, *analysis.Index, int) ([]analysis.Edge, []analysis.Gap, error) {
 							if phase == "resolve" {
 								return nil, nil, failure
 							}
@@ -137,7 +137,7 @@ func TestStageFailureAndBudgetReturnNoIndex(t *testing.T) {
 					}),
 				}
 			}
-			index, _, err := Build(ctx, analysis.NewScope(files, ""), nodes, edges, lookup)
+			index, _, err := Build(ctx, analysis.NewBuildScope(files, ""), nodes, edges, 100, lookup)
 			if index != nil || !errors.Is(err, expected) {
 				t.Fatalf("index=%v error=%v want=%v", index, err, expected)
 			}
@@ -156,7 +156,7 @@ func TestDeclaredNamespaceRootAndLaterOrganization(t *testing.T) {
 	}
 	root, child := analysis.DeclarationRef("a.probe", 0), analysis.SyntheticRef("module:b")
 	lookup := func(name string) analysis.Adapter {
-		return analysis.Adapter{Organizer: organizerFunc(func(context.Context, analysis.Scope) (analysis.Organization, error) {
+		return analysis.Adapter{Organizer: organizerFunc(func(context.Context, analysis.BuildScope) (analysis.Organization, error) {
 			if name == "alpha" {
 				return analysis.Organization{Roots: map[string]analysis.Ref{"a.probe": root}, Edges: []analysis.Edge{
 					{Source: root, Target: child, Kind: "contains", Path: "a.probe"},
@@ -167,7 +167,7 @@ func TestDeclaredNamespaceRootAndLaterOrganization(t *testing.T) {
 			}}, nil
 		})}
 	}
-	index, _, err := Build(context.Background(), analysis.NewScope(files, ""), 5, 5, lookup)
+	index, _, err := Build(context.Background(), analysis.NewBuildScope(files, ""), 5, 5, 100, lookup)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,5 +191,27 @@ func TestDeclaredNamespaceRootAndLaterOrganization(t *testing.T) {
 		if e.Kind == "contains" && e.Source.IsDocument() {
 			t.Fatal("source material became a member owner")
 		}
+	}
+}
+
+func TestRelationAndEvidenceBudgetsAreSeparate(t *testing.T) {
+	files := map[string]analysis.Facts{"a": {Path: "a", Language: "fixture"}, "b": {Path: "b", Language: "fixture"}}
+	lookup := func(string) analysis.Adapter {
+		return analysis.Adapter{Binder: binderFunc(func(_ context.Context, _ analysis.BuildScope, _ *analysis.Index, limit int) (analysis.BindResult, error) {
+			if limit < 2 {
+				return analysis.BindResult{}, analysis.ErrEvidenceLimit
+			}
+			e := analysis.Edge{Source: analysis.DocumentRef("a"), Target: analysis.DocumentRef("b"), Kind: "imports", Path: "a", Basis: "first", Confidence: "candidate"}
+			other := e
+			other.Basis = "second"
+			return analysis.BindResult{Edges: []analysis.Edge{e, other}}, nil
+		})}
+	}
+	index, _, err := Build(context.Background(), analysis.NewBuildScope(files, ""), 2, 1, 2, lookup)
+	if err != nil || len(index.Edges) != 1 || index.EvidenceCount != 2 {
+		t.Fatal(index, err)
+	}
+	if _, _, err := Build(context.Background(), analysis.NewBuildScope(files, ""), 2, 1, 1, lookup); err == nil {
+		t.Fatal("evidence budget ignored")
 	}
 }

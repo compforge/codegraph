@@ -90,3 +90,13 @@ test("constructors and computed names remain in the independent declaration inve
   assert.ok(declarations.some((d) => d.reason === "computed_name" && d.name === "[Symbol.iterator]"));
   assert.ok(declarations.some((d) => d.name === "value" && d.reason === "parameter"));
 });
+
+test("file module identities and imports come from compiler sources", (t) => {
+ const root=fixture(t,{"tsconfig.json":config,"src/main.ts":'import {work} from "./nested/lib"; work(); work();',"src/nested/lib.ts":"export function work(){}"});
+ const {oracle:o}=analyze(root,profile);
+ assert.equal(o.organizations["unit:src/nested/lib.ts"].qualifiedName,"src/nested/lib");
+ assert.equal(Object.values(o.imports)[0].target,"unit:src/nested/lib.ts");
+ const calls=Object.values(o.calls);assert.equal(calls.length,2);assert.notEqual(keyForTest(calls[0].site),keyForTest(calls[1].site));
+ assert.equal(calls[0].target,calls[1].target);
+});
+const keyForTest = s => `${s.path}:${s.start}:${s.end}`;

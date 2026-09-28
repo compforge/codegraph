@@ -28,6 +28,9 @@ func (x ModuleExtractor) Extract(ctx context.Context, f Facts, tree *gts.Tree, e
 		}
 		f.Imports = append(f.Imports, recorded)
 	}
+	x.enrichModuleSyntax(&f, tree)
+	x.lexical = x.Dialect.Lexical(&f, tree)
+	f.Lexical = x.lexical
 	// Retain ancestry from downward traversal. Some grammars materialize hidden
 	// nodes whose Parent chain ends before the visible lexical scope.
 	callNodes := map[Span]*gts.Node{}
@@ -71,7 +74,6 @@ func (x ModuleExtractor) Extract(ctx context.Context, f Facts, tree *gts.Tree, e
 		}
 		f.Calls = append(f.Calls, call)
 	}
-	x.enrichModuleSyntax(&f, tree)
 	x.extractModuleReferences(&f, tree)
 	x.bindModuleUses(&f, tree)
 	x.enrichModuleCallTargets(&f, tree)

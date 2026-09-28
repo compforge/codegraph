@@ -68,7 +68,7 @@ func (g *Graph) adjacent(id string, incoming bool, kinds ...RelationKind) []Rela
 		if len(allowed) > 0 && !allowed[relation.Kind] {
 			continue
 		}
-		relations = append(relations, relation)
+		relations = append(relations, cloneRelation(relation))
 	}
 	sort.Slice(relations, func(i, j int) bool {
 		if relations[i].Location.Path != relations[j].Location.Path {

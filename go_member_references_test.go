@@ -58,7 +58,7 @@ func TestGoMemberReferenceReceivers(t *testing.T) {
 					continue
 				}
 				count++
-				if target.QualifiedName != tc.target || edge.Confidence != Candidate || edge.Basis != "receiver_type" {
+				if target.QualifiedName != tc.target || edge.Confidence != Candidate || edge.Evidence[0].Basis != "receiver_type" {
 					t.Fatalf("unexpected member binding: %+v", row)
 				}
 			}

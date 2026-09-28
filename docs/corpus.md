@@ -46,8 +46,12 @@ testdata、嵌套 module 等不混入已评估分母。此 profile 不代表所�
 目标召回分母；但如果误连到本仓库目标，仍能发现与编译器答案的差异。
 
 未命中的内部目标按同位置的关系诊断、文档级诊断和静默遗漏分别统计。诊断数下降不是通过条件。
-声明归属、关系来源节点、basis 的语义、imports/declares/contains/extends/implements 的绑定、marker、
-运行时完整调用图当前没有独立评分；未评估关系数量保留在报告中。
+Package/Module 使用独立来源身份、名称、限定名和完整贡献文件集合核对；declares、contains、
+已支持的源码模块 imports，以及内部引用/调用的来源和发生位置由 `relation_occurrences/*` 单独评分。
+Go 接收者归属来自 go/types；同组字段是兄弟成员。Python 包树来自源文件与 initializer，
+只在明确源码包布局下评估 import 目标，不把纳入语料的目录误当搜索根。TS 模块 import 目标来自编译器。
+组织评测不读取生产 Organizer，也不复刻 CodeGraph ID。类型关系、符号转导入、Evidence 的推导语义、
+marker 与运行时完整调用图仍未评估；Evidence 合并、置信派生和复制隔离由库契约测试覆盖。
 
 查询验证将节点和关系的 Cypher 投影与公共访问器逐项比较。这证明已发布证据可以读出，不把两个
 CodeGraph 接口相互一致当成语义正确的 ground truth。
@@ -89,7 +93,17 @@ make test-corpus CORPUS=go-stdx \
   CORPUS_REPORT_DIR=/path/to/new-report
 ```
 
-比较要求仓库快照、文件清单、profile、工具链（含对应语言解释器或编译器）、评测器摘要及 schema 一致。分母变化会拒绝比较；
+报告 schema 2 分离三种身份：
+
+- InputIdentity：仓库固定快照、profile 与材料清单及内容摘要。
+- EvaluatorIdentity：评分/oracle 源码、工具链、实际 evaluator 依赖闭包。Go oracle 记录
+  go/packages 及传递依赖的版本、校验和和所用源码摘要（本地 replace 的内容变化也可识别）；
+  TypeScript 编译器依赖由锁文件与实际版本约束。
+- SubjectIdentity：被测 CodeGraph 的 revision、改动摘要、源码摘要及构建依赖信息。
+
+比较要求 InputIdentity、EvaluatorIdentity 和 schema 一致，允许 SubjectIdentity 改变。
+单独升级 parser 不会再误判为 oracle 变化；如果升级同时改变 oracle 的共享依赖，则仍拒绝比较。
+分母变化会拒绝比较；
 召回下降、额外输出增加、错误 exact 增加、候选膨胀或静默目标缺口增加会触发回归门禁。
 错误 exact 的零容忍条件独立存在，不能通过接受失败基线将其绕过。
 
@@ -99,4 +113,24 @@ make test-corpus CORPUS=go-stdx \
 参照器自身的契约覆盖错误目标注入、删除输出后分母不变、动态分派未评估、字段键与类型同名、链式
 调用与导入别名、类型加载失败、输入平台过滤、基线身份漂移及压缩包路径边界。
 
-组织节点单独记录为未评估项，不混入源码声明分母；组织层级、贡献与身份契约由 `namespaces_test.go` 验证。
+组织节点使用 `organizations/*` 分母，不混入源码声明分母。删除某个 occurrence、改错组织身份、
+重复一条关系的破坏性用例验证评分器不会靠端点去重掩盖错误；Python 包嵌套与 TS 编译器模块导入
+有独立 oracle 契约。
+
+### 显式重评旧产物
+
+修改 oracle 或 schema 后，可以显式用当前 oracle 重新评分历史 `graph.json`，输出到新目录：
+
+```sh
+make test-corpus CORPUS_REEVALUATE_DIR=/path/to/original-report \
+  CORPUS_REPORT_DIR=/path/to/reevaluated-report
+make test-corpus CORPUS_BASELINE_DIR=/path/to/reevaluated-report \
+  CORPUS_REPORT_DIR=/path/to/new-report
+```
+
+重评仍校验输入身份，并重新生成独立 oracle；不重新运行旧版 CodeGraph。
+新报告沿用原 SubjectIdentity，记录原 graph/report 的 SHA-256。schema 1 的单 Basis 只在评测器
+读取旧产物时转换为一条 Evidence；库 API 不保留兼容字段。原报告与原图保持不变。
+新评测器引入了原图不含的信息时，相应指标只能描述可重评范围，不能补造历史证据。
+
+本轮新契约的六仓比较见 [0.8 评测记录](../tests/corpus/semantic-contracts.md)。

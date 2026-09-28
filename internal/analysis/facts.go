@@ -77,6 +77,7 @@ type TypeRelation struct {
 type Facts struct {
 	Path, Package, Language string
 	Gitlink                 string
+	Lexical                 *Lexicon
 	PackageSpan             Span
 	Source                  []byte
 	LineStarts              []int

@@ -224,7 +224,7 @@ func TestGoUnknownReceiverMethodCandidates(t *testing.T) {
 		t.Fatal(rows, g.Report())
 	}
 	for _, row := range rows {
-		if row["r"].(Relation).Confidence != Candidate || row["r"].(Relation).Basis != "method_name" {
+		if row["r"].(Relation).Confidence != Candidate || row["r"].(Relation).Evidence[0].Basis != "method_name" {
 			t.Fatal(row)
 		}
 	}

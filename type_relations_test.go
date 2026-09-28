@@ -119,7 +119,7 @@ func TestGoMethodSetCandidates(t *testing.T) {
 			count++
 			a, _ := g.Node(r.Source)
 			b, _ := g.Node(r.Target)
-			if a.Name != "A" || b.Name != "I" || b.Location.Path != "types.go" || r.Confidence != Candidate || r.Basis != "method_name_set" {
+			if a.Name != "A" || b.Name != "I" || b.Location.Path != "types.go" || r.Confidence != Candidate || r.Evidence[0].Basis != "method_name_set" {
 				t.Fatal(r, a, b)
 			}
 		}

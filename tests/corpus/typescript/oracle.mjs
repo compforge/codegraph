@@ -83,7 +83,7 @@ export function analyze(root, profile) {
   root = fs.realpathSync(root);
   if (!profile.projects?.length) throw new Error("profile requires projects");
   linkWorkspaces(root, profile.workspaces ?? []);
-  const oracle = { module: "", declarations: {}, references: {}, calls: {}, imports: {}, excludedReferences: {} };
+  const oracle = { organizations: {}, module: "", declarations: {}, references: {}, calls: {}, imports: {}, excludedReferences: {} };
   const sourceFiles = walk(root).filter((p) => sourceExtension.test(p));
   const inputs = new Map();
   const included = new Set();
@@ -147,6 +147,8 @@ export function analyze(root, profile) {
   for (const { program, names } of programs) for (const name of names) {
     const sf = program.getSourceFile(name);
     if (!sf) throw new Error(`compiler omitted ${name}`);
+    const relative = slash(path.relative(root, name));
+    oracle.organizations[`unit:${relative}`] = {kind:"Module", name:path.basename(name, path.extname(name)), qualifiedName:relative.slice(0,-path.extname(name).length), contributions:{[relative]:site(sf,0,sf.text.length)}};
     const visit = (node) => {
       const shape = declarationShape(node);
       const declarationName = ts.isConstructorDeclaration(node) ? node.getChildren(sf).find((child) => child.kind === ts.SyntaxKind.ConstructorKeyword) : node.name;
@@ -219,6 +221,9 @@ export function analyze(root, profile) {
         if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
           const m = node.moduleSpecifier, at = site(sf, m.getStart(sf), m.end);
           oracle.imports[key(at)] = { site: at, name: m.text, class: "source" };
+          const moduleSymbol = checker.getSymbolAtLocation(m);
+          const files = (moduleSymbol?.declarations ?? []).filter(ts.isSourceFile).filter(f => included.has(path.resolve(f.fileName)));
+          if (files.length === 1) Object.assign(oracle.imports[key(at)], {class:"internal", target:`unit:${slash(path.relative(root,files[0].fileName))}`});
         }
         ts.forEachChild(node, visit);
       };

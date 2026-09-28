@@ -52,13 +52,9 @@ func (g *Graph) assemble(ctx context.Context, files map[string]analysis.Facts, f
 				Language: Language(d.Location.Path), Location: &d.Location}
 		}
 	}
-	addEdge := func(source, target string, kind RelationKind, confidence Confidence, basis string, loc Location) {
-		id := identity(source, target, kind, loc.Path, loc.StartByte, loc.EndByte)
-		relations[id] = Relation{ID: id, Source: source, Target: target, Kind: kind, Confidence: confidence, Basis: basis, Location: loc}
-	}
-	index, issues, err := pipeline.Builtins(ctx, files, g.opts.ModulePath, g.opts.MaxNodes-len(nodes), g.opts.MaxRelations)
+	index, issues, err := pipeline.Builtins(ctx, files, g.opts.ModulePath, g.opts.MaxNodes-len(nodes), g.opts.MaxRelations, g.opts.MaxEvidence)
 	if err != nil {
-		if errors.Is(err, analysis.ErrEdgeLimit) || errors.Is(err, pipeline.ErrNodeLimit) {
+		if errors.Is(err, analysis.ErrEvidenceLimit) || errors.Is(err, analysis.ErrEdgeLimit) || errors.Is(err, pipeline.ErrNodeLimit) {
 			err = fmt.Errorf("%w: %v", ErrBuildBudget, err)
 		}
 		return nil, nil, report, err
@@ -101,7 +97,17 @@ func (g *Graph) assemble(ctx context.Context, files map[string]analysis.Facts, f
 		if ids[e.Source] == "" || ids[e.Target] == "" {
 			return nil, nil, report, fmt.Errorf("unpublished relation endpoint: %+v", e)
 		}
-		addEdge(ids[e.Source], ids[e.Target], RelationKind(e.Kind), Confidence(e.Confidence), e.Basis, location(files[e.Path], e.Span))
+		loc := location(files[e.Path], e.Span)
+		id := identity(ids[e.Source], ids[e.Target], e.Kind, loc.Path, loc.StartByte, loc.EndByte)
+		r := Relation{ID: id, Source: ids[e.Source], Target: ids[e.Target], Kind: RelationKind(e.Kind), Confidence: Confidence(e.Confidence), Location: loc}
+		for _, proof := range e.Evidence {
+			evidence := Evidence{Basis: proof.Basis, Confidence: Confidence(proof.Confidence)}
+			if proof.Location != nil {
+				evidence.Location = locationPtr(files[proof.Location.Path], proof.Location.Span)
+			}
+			r.Evidence = append(r.Evidence, evidence)
+		}
+		relations[id] = r
 	}
 	for _, i := range issues {
 		report.Diagnostics = append(report.Diagnostics, Diagnostic{Code: i.Code, Message: i.Reference,
@@ -168,7 +174,7 @@ func (g *Graph) materialize(ctx context.Context, nodes map[string]Node, relation
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		props := map[string]any{"id": r.ID, "kind": string(r.Kind), "source": r.Source, "target": r.Target, "confidence": string(r.Confidence), "basis": r.Basis, "path": r.Location.Path, "line": r.Location.Line, "column": r.Location.Column, "startByte": r.Location.StartByte, "endByte": r.Location.EndByte}
+		props := map[string]any{"id": r.ID, "kind": string(r.Kind), "source": r.Source, "target": r.Target, "confidence": string(r.Confidence), "bases": evidenceBases(r), "evidenceData": evidenceJSON(r), "path": r.Location.Path, "line": r.Location.Line, "column": r.Location.Column, "startByte": r.Location.StartByte, "endByte": r.Location.EndByte}
 		if err := s.AddEdge(r.Source, r.Target, string(r.Kind), props); err != nil {
 			return nil, err
 		}
@@ -180,3 +186,16 @@ func locationPtr(f analysis.Facts, span analysis.Span) *Location {
 	loc := location(f, span)
 	return &loc
 }
+
+// GoGraph properties support scalar lists, not nested maps. Full evidence is
+// available on RETURN r and as JSON; bases is a queryable scalar projection.
+func evidenceBases(r Relation) []string {
+	var bases []string
+	for _, e := range r.Evidence {
+		if len(bases) == 0 || bases[len(bases)-1] != e.Basis {
+			bases = append(bases, e.Basis)
+		}
+	}
+	return bases
+}
+func evidenceJSON(r Relation) string { b, _ := json.Marshal(r.Evidence); return string(b) }

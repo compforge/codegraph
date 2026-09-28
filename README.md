@@ -74,7 +74,7 @@ Go packages span multiple files; their directory hierarchy does not imply packag
 JS/TS files contribute Module nodes that own top-level declarations. Whole-module imports and namespace
 references target these Module nodes; use incoming `declares` edges to locate their source Documents.
 Receiver methods have a `contains` edge from their
-receiver type when it is found in the loaded package, including across files. The relation's `basis`
+receiver type when it is found in the loaded package, including across files. The relation's `Evidence[].Basis`
 distinguishes `declaration` from `receiver_declaration`; ambiguous receivers produce candidate edges,
 and unresolved receivers produce diagnostics. Anonymous nested types and promoted members are not expanded.
 
@@ -230,7 +230,7 @@ expressions are not evaluated.
 |---|---|
 | Node | id, kind, name, qualifiedName, language, path, line, column, endLine, endColumn, startByte, endByte, snapshot |
 | Declaration marker | markers (list of kinds), spec/case/rule/link/doc (lists of contents), markerData (full structure as JSON) |
-| Relation | id, kind, source, target, confidence, basis, path, line, column, startByte, endByte |
+| Relation | id, kind, source, target, confidence, bases, evidenceData, path, line, column, startByte, endByte |
 
 Confidence is `exact` or `candidate`, not a probability. `exact` means a unique syntactic binding
 within the loaded scope, subject to the declared language capabilities. Use `n.id` / `r.id` for
@@ -240,7 +240,7 @@ Source byte ranges are half-open; line numbers and byte columns are 1-based.
 Build and Wait return execution failures through `error`. A successful publication may contain
 candidate edges and local information gaps. `BuildReport.Diagnostics` identifies each gap's
 `subject` (document, declarations, relations, context, or resources), source range, and affected
-relation kind when known. Candidate edges retain `confidence` and `basis` without duplicate
+relation kind when known. Candidate edges retain confidence and per-proof `Evidence` without duplicate
 ambiguity diagnostics. Missing targets remain diagnostics; no target node is invented.
 
 Outline omissions expose structured `outline` counters. These count query candidates rather than
@@ -255,6 +255,17 @@ Other Cypher-specific value types return an error.
 - `Options.BuildConcurrency` bounds parallel document extraction per graph: `0` uses `min(GOMAXPROCS, 4)`, `1` is serial, and positive values set the worker limit. Negative values are rejected. Separate batches remain serialized; nodes and relations are assembled and published atomically after extraction. When building multiple graphs concurrently, callers should budget their combined worker count.
 - Options provide finite default budgets for file count, source size, node/edge count, parsing/query timeouts, path depth, and result size.
 - Query errors return no partial rows. Parse failures preserve Document identities with document diagnostics; usable facts from other documents are published. Budget failures, snapshot conflicts, and cancellation roll back the entire batch.
+
+### Relation evidence
+
+Relation identifies an occurrence by source, target, kind, and source path/byte range.
+Different kinds or locations remain parallel edges. Repeated derivations of one occurrence
+merge into a deterministic `Evidence` list (`Basis`, `Confidence`, optional supporting `Location`).
+`Relation.Confidence` is a derived read projection; candidate proofs never accumulate into exact.
+Conflicting exact call/reference targets retain a local diagnostic. The single `Relation.Basis`
+field is removed in 0.8. Query `r.bases` for filtering or `r.evidenceData` for full JSON;
+`RETURN r` yields the structured evidence. Accessors and queries return detached values.
+`Options.MaxEvidence` bounds total evidence independently of `MaxRelations`.
 
 ## Local validation
 

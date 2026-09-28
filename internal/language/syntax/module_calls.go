@@ -34,7 +34,6 @@ func (x ModuleExtractor) moduleTypeName(n *gts.Node, lang *gts.Language, source 
 }
 
 func (x ModuleExtractor) moduleReceiverHints(f *Facts, tree *gts.Tree, use *gts.Node, receiver string) []CallTarget {
-	lang := tree.Language()
 	owner := ReferenceOwner(f, Span{Start: int(use.StartByte()), End: int(use.EndByte())})
 	if owner >= 0 && f.Declarations[owner].Parent >= 0 {
 		class := f.Declarations[f.Declarations[owner].Parent]
@@ -46,42 +45,9 @@ func (x ModuleExtractor) moduleReceiverHints(f *Facts, tree *gts.Tree, use *gts.
 		}
 	}
 	var hints []CallTarget
-	Walk(tree.RootNode(), func(n *gts.Node) {
-		typ := n.Type(lang)
-		var binding *gts.Node
-		switch typ {
-		case "variable_declarator", "required_parameter", "optional_parameter":
-			binding = n.ChildByFieldName("name", lang)
-			if binding == nil {
-				binding = n.ChildByFieldName("pattern", lang)
-			}
-		case "assignment", "typed_parameter":
-			binding = n.ChildByFieldName("left", lang)
-			if binding == nil && n.NamedChildCount() > 0 {
-				binding = n.NamedChild(0)
-			}
-		}
-		if binding == nil || binding.Text(f.Source) != receiver {
-			return
-		}
-		scope := ReferenceOwner(f, Span{Start: int(n.StartByte()), End: int(n.EndByte())})
-		for scope >= 0 && (f.Declarations[scope].Kind == "variable" || f.Declarations[scope].Kind == "constant") {
-			scope = f.Declarations[scope].Parent
-		}
-		if scope >= 0 && (f.Declarations[scope].Start > int(use.StartByte()) || f.Declarations[scope].End < int(use.EndByte())) {
-			return
-		}
-		for _, field := range []string{"type", "value", "right"} {
-			value := n.ChildByFieldName(field, lang)
-			if value == nil {
-				continue
-			}
-			name, module := x.moduleTypeName(value, lang, f.Source)
-			if name != "" {
-				hints = append(hints, CallTarget{ReceiverType: name, Module: module, Kind: "method", Basis: "receiver_binding"})
-			}
-		}
-	})
+	for _, binding := range x.lexical.Lookup(receiver, NodeSpan(use)) {
+		hints = append(hints, binding.Hints...)
+	}
 	return hints
 }
 

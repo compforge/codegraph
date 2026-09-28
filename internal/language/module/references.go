@@ -47,7 +47,7 @@ func resolveReferences(ctx context.Context, files map[string]analysis.Facts, nam
 				}
 				edges = append(edges, Edge{Source: analysis.SourceRef(name, r.Owner), Target: target, Kind: "references", Confidence: confidence, Basis: basis, Path: name, Span: r.Span})
 			}
-			if len(targets) == 0 && !r.Bound {
+			if len(targets) == 0 {
 				issues = append(issues, Issue{Path: name, Code: "unresolved_reference", Reference: r.Name, Relation: "references", Span: r.Span})
 			}
 		}

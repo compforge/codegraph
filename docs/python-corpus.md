@@ -34,7 +34,8 @@ CPython 在隔离模式下运行测试层的参照脚本，只读取和解析源
 引用和调用的内部目标分母只包括审定清单，报告同时展示未审定使用位置和未评分图边。
 错误 exact 目标令门禁失败；candidate 的其他目标、静默缺口和局部诊断分别保留。
 生成的 dataclass/Pydantic 成员、装饰器变换、动态回调实现及运行时属性求值不冒充确定目标。
-声明归属、basis、imports/declares/contains/类型关系没有独立语义评分。
+Package/Module 身份、declares/contains、审定绑定的来源与位置、明确源码布局下的模块 imports 单独评分；
+Evidence 推导语义、类型关系与符号转导入仍未评估。
 
 `oracle.json` 保留独立事实及已审定目标；`graph.json` 保留 CodeGraph 的原始图和事实；
 `report.json` 给出分项指标与位置差异；`summary.md` 明确显示有限绑定分母和未评估范围。
@@ -60,4 +61,5 @@ make test-python-corpus CORPUS_BASELINE_DIR=/path/to/reviewed-reports
 
 参数注解与遮蔽修复的同基线结果见[注解绑定复测](../tests/corpus/python/annotation-bindings.md)。
 
-组织节点单独记录为未评估项，不混入源码声明分母；组织层级、贡献与身份契约由 `namespaces_test.go` 验证。
+组织身份、源码贡献、直接成员以及可由当前 profile 确定的源码模块导入，现由公共 corpus 评分器
+单独评估；同端点的不同关系和不同发生位置保留独立分母。身份与显式重评规则见[真实仓库评测](corpus.md)。

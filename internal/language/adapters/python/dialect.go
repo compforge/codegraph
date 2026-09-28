@@ -44,10 +44,6 @@ func (Dialect) Parameters(n *gts.Node, lang *gts.Language) (names []*gts.Node, e
 	}
 	return names, expressions, true
 }
-func (Dialect) SignatureScope(n, use *gts.Node, lang *gts.Language) bool {
-	typ := n.Type(lang)
-	return (typ == "function_definition" || typ == "lambda") && syntax.NodeContains(n, use) && !syntax.NodeContains(n.ChildByFieldName("body", lang), use)
-}
 func (Dialect) Self(f *Facts, tree *gts.Tree, owner int, receiver string) bool {
 	lang := tree.Language()
 	self := receiver == "this"

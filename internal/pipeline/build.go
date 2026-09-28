@@ -13,12 +13,12 @@ type Lookup func(string) analysis.Adapter
 
 // Build owns phase barriers: every language binds before any language resolves.
 // +why=`A later document or language batch may supply a base type needed by inherited member lookup`
-func Build(ctx context.Context, scope analysis.Scope, nodeLimit, edgeLimit int, lookup Lookup) (*analysis.Index, []analysis.Gap, error) {
+func Build(ctx context.Context, scope analysis.BuildScope, nodeLimit, edgeLimit, evidenceLimit int, lookup Lookup) (*analysis.Index, []analysis.Gap, error) {
 	index := analysis.NewIndex(scope.Files)
 	if err := index.AddSources(ctx, scope.Names); err != nil {
 		return nil, nil, err
 	}
-	groups := map[string]analysis.Scope{}
+	groups := map[string]analysis.BuildScope{}
 	for _, p := range scope.Names {
 		f := scope.Files[p]
 		s := groups[f.Language]
@@ -34,6 +34,9 @@ func Build(ctx context.Context, scope analysis.Scope, nodeLimit, edgeLimit int, 
 	check := func() error {
 		if err := ctx.Err(); err != nil {
 			return err
+		}
+		if index.EvidenceCount > evidenceLimit {
+			return analysis.ErrEvidenceLimit
 		}
 		if len(index.Edges) > edgeLimit {
 			return analysis.ErrEdgeLimit
@@ -72,7 +75,7 @@ func Build(ctx context.Context, scope analysis.Scope, nodeLimit, edgeLimit int, 
 	if err := check(); err != nil {
 		return nil, nil, err
 	}
-	var bindings []analysis.Binding
+	var bindings []analysis.BindResult
 	var issues []analysis.Gap
 	for _, name := range names {
 		if err := check(); err != nil {
@@ -82,7 +85,7 @@ func Build(ctx context.Context, scope analysis.Scope, nodeLimit, edgeLimit int, 
 		if b == nil {
 			continue
 		}
-		bound, err := b.Bind(ctx, groups[name], index, edgeLimit-len(index.Edges))
+		bound, err := b.Bind(ctx, groups[name], index, evidenceLimit-index.EvidenceCount)
 		if err != nil {
 			return nil, nil, fmt.Errorf("bind %s: %w", name, err)
 		}
@@ -99,7 +102,7 @@ func Build(ctx context.Context, scope analysis.Scope, nodeLimit, edgeLimit int, 
 		if b.Resolver == nil {
 			continue
 		}
-		edges, gaps, err := b.Resolver.Resolve(ctx, index, edgeLimit-len(index.Edges))
+		edges, gaps, err := b.Resolver.Resolve(ctx, index, evidenceLimit-index.EvidenceCount)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -111,11 +114,11 @@ func Build(ctx context.Context, scope analysis.Scope, nodeLimit, edgeLimit int, 
 	if err := check(); err != nil {
 		return nil, nil, err
 	}
-	return index, issues, nil
+	return index, append(issues, index.Conflicts()...), nil
 }
 
 var ErrNodeLimit = fmt.Errorf("node limit reached")
 
-func Builtins(ctx context.Context, files map[string]analysis.Facts, module string, nodes, edges int) (*analysis.Index, []analysis.Gap, error) {
-	return Build(ctx, analysis.NewScope(files, module), nodes, edges, language.Lookup)
+func Builtins(ctx context.Context, files map[string]analysis.Facts, module string, nodes, edges, evidence int) (*analysis.Index, []analysis.Gap, error) {
+	return Build(ctx, analysis.NewBuildScope(files, module), nodes, edges, evidence, language.Lookup)
 }

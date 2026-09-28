@@ -28,6 +28,7 @@ type Options struct {
 	ModulePath                           string
 	Scope                                []string
 	MaxDocuments, MaxNodes, MaxRelations int
+	MaxEvidence                          int
 	MaxDocumentBytes, MaxSourceBytes     int64
 	ParseTimeout, QueryTimeout           time.Duration
 	MaxQueryHops, MaxResultRows          int
@@ -78,7 +79,7 @@ func defaults(o *Options) error {
 	for _, pair := range []struct {
 		v   *int
 		def int
-	}{{&o.BuildConcurrency, min(runtime.GOMAXPROCS(0), 4)}, {&o.MaxDocuments, 256}, {&o.MaxNodes, 50000}, {&o.MaxRelations, 100000}, {&o.MaxQueryHops, 8}, {&o.MaxResultRows, 1000}} {
+	}{{&o.BuildConcurrency, min(runtime.GOMAXPROCS(0), 4)}, {&o.MaxDocuments, 256}, {&o.MaxNodes, 50000}, {&o.MaxRelations, 100000}, {&o.MaxEvidence, 1000000}, {&o.MaxQueryHops, 8}, {&o.MaxResultRows, 1000}} {
 		if *pair.v < 0 {
 			return errors.New("limits must not be negative")
 		}
@@ -138,7 +139,7 @@ func (g *Graph) Relations() []Relation {
 	defer g.mu.RUnlock()
 	out := make([]Relation, 0, len(g.relations))
 	for _, r := range g.relations {
-		out = append(out, r)
+		out = append(out, cloneRelation(r))
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out

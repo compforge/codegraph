@@ -54,6 +54,7 @@ func loadTypeScriptOracle(ctx context.Context, root, profile string) (*oracle, [
 		}
 		docs = append(docs, cg.Document{Path: input.Path, Content: data})
 	}
+	completeOrganizations(result.Oracle, docs)
 	return result.Oracle, docs, result.Inputs, result.Toolchain, nil
 }
 

@@ -61,7 +61,7 @@ RETURN s, f
 Go Package 跨文件组织声明，目录嵌套不代表包嵌套；Python 支持普通 Package 与文件 Module 的组织层级。
 JS/TS 文件贡献 Module 节点并组织顶层声明；整模块导入和模块名引用指向 Module，沿入向 `declares` 查源码 Document。
 接收者方法从已加载包内的接收者类型建立 `contains` 边，支持跨文件；
-关系的 `basis` 用 `declaration` 与 `receiver_declaration` 区分两种依据。接收者有多个候选时输出
+关系的 `Evidence[].Basis` 用 `declaration` 与 `receiver_declaration` 区分两种依据。接收者有多个候选时输出
 candidate 边，无法确定目标时保留诊断。不展开匿名嵌套类型或提升成员。
 
 例如，查询 Go 包的直接成员和源码来源：
@@ -203,7 +203,7 @@ Marker 绑定到 Go 声明文档注释，或 Python、JS/TS 声明前的 `#`、`
 |---|---|
 | Node | id、kind、name、qualifiedName、language、path、line、column、endLine、endColumn、startByte、endByte、snapshot |
 | 声明 marker | markers（种类列表）、spec/case/rule/link/doc（各自内容列表）、markerData（完整结构 JSON） |
-| Relation | id、kind、source、target、confidence、basis、path、line、column、startByte、endByte |
+| Relation | id、kind、source、target、confidence、bases、evidenceData、path、line、column、startByte、endByte |
 
 confidence 为 `exact` 或 `candidate`，不是概率。`exact` 指已加载范围内的唯一语法绑定，
 仍受声明的语言能力限制。身份使用 `n.id` / `r.id`；Cypher 的 `id(n)` 是引擎内部编号，不是源码身份。
@@ -221,11 +221,20 @@ Options 为文件数、源码体积、节点/边数量、解析/查询超时、�
 
 Build 和 Wait 通过 error 表达执行失败。成功发布的图可以包含候选关系和局部信息缺口。
 `BuildReport.Diagnostics` 标明每个缺口的 subject（文档、声明、关系、上下文或资源）、源码范围，
-以及已知的关系类别。候选边用 confidence 与 basis 表达不确定性；没有目标的引用保留诊断。
+以及已知的关系类别。候选边用 confidence 与逐项 Evidence 表达不确定性；没有目标的引用保留诊断。
 
 outline 遗漏通过结构化计数返回，计数描述查询候选，不代表源码中的全部声明。
 上游没有提供遗漏位置时，诊断使用完整文档范围；单纯的候选去重不作为缺口。
 已有导入和其他声明继续可用，由调用方决定这些信息如何参与自己的分析。
+
+### Relation 证据
+
+关系身份由来源、目标、类型与源码路径/字节位置组成。不同类型或位置保留为平行边；
+同一次发生的多条依据合并为确定性排序的 `Evidence` 列表，包含 Basis、Confidence 与可选支撑位置。
+`Relation.Confidence` 是证据的派生读投影，多个 candidate 不会累积成 exact；
+互相冲突的 exact 调用/引用目标保留局部诊断。0.8 移除单一 `Relation.Basis` 字段。
+Cypher 使用 `r.bases` 过滤依据、`r.evidenceData` 获取完整 JSON；`RETURN r` 返回结构化证据。
+访问器、查询及路径返回值深拷贝证据。`MaxEvidence` 与 `MaxRelations` 分别限制证据和关系数量。
 
 ## 本地验证
 

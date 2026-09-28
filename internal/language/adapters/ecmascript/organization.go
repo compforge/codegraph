@@ -10,7 +10,7 @@ import (
 
 // A file module identifies a supplied source unit. It does not assert runtime
 // loader mode, global-script sharing, or dependency configuration.
-func (Adapter) Organize(ctx context.Context, scope analysis.Scope) (analysis.Organization, error) {
+func (Adapter) Organize(ctx context.Context, scope analysis.BuildScope) (analysis.Organization, error) {
 	result := analysis.Organization{Roots: map[string]analysis.Ref{}}
 	for _, p := range scope.Names {
 		if err := ctx.Err(); err != nil {

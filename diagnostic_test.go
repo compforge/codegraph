@@ -140,7 +140,7 @@ func TestCandidateEvidenceAndUnresolvedLocations(t *testing.T) {
 		t.Fatal(imports)
 	}
 	for _, edge := range imports {
-		if edge.Confidence != Candidate || edge.Basis == "" {
+		if edge.Confidence != Candidate || edge.Evidence[0].Basis == "" {
 			t.Fatal(edge)
 		}
 	}

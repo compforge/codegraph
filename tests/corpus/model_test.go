@@ -32,14 +32,31 @@ type occurrence struct {
 	Reason string `json:"reason,omitempty"`
 }
 
+type organization struct {
+	Kind          cg.NodeKind     `json:"kind"`
+	Name          string          `json:"name"`
+	QualifiedName string          `json:"qualifiedName"`
+	Contributions map[string]site `json:"contributions"`
+	Parent        string          `json:"parent,omitempty"`
+}
+type semanticRelation struct {
+	Source string          `json:"source"`
+	Target string          `json:"target"`
+	Kind   cg.RelationKind `json:"kind"`
+	Site   site            `json:"site"`
+}
+
 type oracle struct {
-	Module             string                 `json:"module"`
-	Diagnostics        []compilerDiagnostic   `json:"diagnostics,omitempty"`
-	Declarations       map[string]declaration `json:"declarations"`
-	References         map[string]occurrence  `json:"references"`
-	Calls              map[string]occurrence  `json:"calls"`
-	Imports            map[string]occurrence  `json:"imports"`
-	ExcludedReferences map[string]occurrence  `json:"excludedReferences"`
+	Organizations      map[string]organization `json:"organizations,omitempty"`
+	Owners             map[string]string       `json:"owners,omitempty"`
+	Relations          []semanticRelation      `json:"relations,omitempty"`
+	Module             string                  `json:"module"`
+	Diagnostics        []compilerDiagnostic    `json:"diagnostics,omitempty"`
+	Declarations       map[string]declaration  `json:"declarations"`
+	References         map[string]occurrence   `json:"references"`
+	Calls              map[string]occurrence   `json:"calls"`
+	Imports            map[string]occurrence   `json:"imports"`
+	ExcludedReferences map[string]occurrence   `json:"excludedReferences"`
 }
 
 type measurement struct {
@@ -68,7 +85,7 @@ type finding struct {
 	Expected   string        `json:"expected,omitempty"`
 	Actual     string        `json:"actual,omitempty"`
 	Confidence cg.Confidence `json:"confidence,omitempty"`
-	Basis      string        `json:"basis,omitempty"`
+	Evidence   []cg.Evidence `json:"evidence,omitempty"`
 }
 
 type evaluation struct {

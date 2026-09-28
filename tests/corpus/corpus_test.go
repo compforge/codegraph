@@ -23,23 +23,39 @@ var corpusNames = flag.String("corpus", "", "pinned repositories: all or comma-s
 var reportDir = flag.String("report-dir", "../../.corpus-results", "corpus evidence output directory")
 var baselineDir = flag.String("baseline-dir", "", "optional previously reviewed report directory for regression comparison")
 
+type InputIdentity struct {
+	Repository repository  `json:"repository"`
+	Profile    string      `json:"profile"`
+	Files      []inputFile `json:"files"`
+}
+type EvaluatorIdentity struct {
+	SourceSHA256 string   `json:"sourceSHA256"`
+	Toolchain    string   `json:"toolchain"`
+	Dependencies []string `json:"dependencies"`
+}
+type SubjectIdentity struct {
+	Revision     string `json:"revision"`
+	DiffSHA256   string `json:"diffSHA256"`
+	SourceSHA256 string `json:"sourceSHA256"`
+	BuildInfo    string `json:"buildInfo"`
+}
+type artifactOrigin struct {
+	SchemaVersion int    `json:"schemaVersion"`
+	ReportSHA256  string `json:"reportSHA256"`
+	GraphSHA256   string `json:"graphSHA256"`
+}
 type runReport struct {
-	SchemaVersion         int         `json:"schemaVersion"`
-	Repository            repository  `json:"repository"`
-	Status                string      `json:"status"`
-	Error                 string      `json:"error,omitempty"`
-	Toolchain             string      `json:"toolchain"`
-	Profile               string      `json:"profile"`
-	CodeGraphRevision     string      `json:"codegraphRevision"`
-	CodeGraphDiffSHA256   string      `json:"codegraphDiffSHA256"`
-	EvaluatorSHA256       string      `json:"evaluatorSHA256"`
-	CodeGraphSourceSHA256 string      `json:"codegraphSourceSHA256"`
-	BuildInfo             string      `json:"buildInfo"`
-	Inputs                []inputFile `json:"inputs"`
-	Documents             int         `json:"documents"`
-	OracleDiagnostics     int         `json:"oracleDiagnostics,omitempty"`
-	Regressions           []string    `json:"regressions,omitempty"`
-	Evaluation            *evaluation `json:"evaluation,omitempty"`
+	ReevaluatedFrom   *artifactOrigin   `json:"reevaluatedFrom,omitempty"`
+	SchemaVersion     int               `json:"schemaVersion"`
+	Input             InputIdentity     `json:"input"`
+	Evaluator         EvaluatorIdentity `json:"evaluator"`
+	Subject           SubjectIdentity   `json:"subject"`
+	Status            string            `json:"status"`
+	Error             string            `json:"error,omitempty"`
+	Documents         int               `json:"documents"`
+	OracleDiagnostics int               `json:"oracleDiagnostics,omitempty"`
+	Regressions       []string          `json:"regressions,omitempty"`
+	Evaluation        *evaluation       `json:"evaluation,omitempty"`
 }
 
 // +case:id=go-corpus,expect=`Pinned source facts are measured against compiler facts, with gaps and unknowns retained`
@@ -47,8 +63,11 @@ func TestRepositories(t *testing.T) {
 	if *corpusNames == "" {
 		t.Skip("opt-in network corpus: make test-corpus")
 	}
-	if *baselineDir != "" {
-		base, err := filepath.Abs(*baselineDir)
+	for _, sourceDir := range []string{*baselineDir, *reevaluateDir} {
+		if sourceDir == "" {
+			continue
+		}
+		base, err := filepath.Abs(sourceDir)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -56,8 +75,14 @@ func TestRepositories(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		if resolved, err := filepath.EvalSymlinks(base); err == nil {
+			base = resolved
+		}
+		if resolved, err := filepath.EvalSymlinks(out); err == nil {
+			out = resolved
+		}
 		if base == out {
-			t.Fatal("baseline directory must differ from output directory")
+			t.Fatal("evidence source directory must differ from output directory")
 		}
 	}
 	repos, err := repositories()
@@ -98,21 +123,21 @@ func TestRepositories(t *testing.T) {
 			if err := os.MkdirAll(dir, 0755); err != nil {
 				t.Fatal(err)
 			}
-			r := runReport{SchemaVersion: 1, Repository: repo, Status: "error", Toolchain: runtime.Version(), Profile: "linux/amd64 CGO_ENABLED=0; production packages; root module; -mod=readonly"}
+			r := runReport{SchemaVersion: 2, Status: "error", Input: InputIdentity{Repository: repo, Profile: "linux/amd64 CGO_ENABLED=0; production packages; root module; -mod=readonly"}, Evaluator: EvaluatorIdentity{Toolchain: runtime.Version(), Dependencies: evaluatorDependencies(t)}}
 			if repo.Language == "python" {
-				r.Profile = "CPython AST; reviewed bindings; UTF-8; source root=" + repo.SourceRoot
+				r.Input.Profile = "CPython AST; reviewed bindings; UTF-8; source root=" + repo.SourceRoot
 			}
 			if repo.Language == "typescript" {
-				r.Profile = "TypeScript AST and static source bindings; original tsconfig; source workspaces only; no third-party packages; profile=typescript/" + repo.Name + ".json"
+				r.Input.Profile = "TypeScript AST and static source bindings; original tsconfig; source workspaces only; no third-party packages; profile=typescript/" + repo.Name + ".json"
 			}
 			if info, ok := debug.ReadBuildInfo(); ok {
-				r.BuildInfo = info.String()
+				r.Subject.BuildInfo = info.String()
 			}
-			r.CodeGraphRevision = gitOutput(t, "rev-parse", "HEAD")
+			r.Subject.Revision = gitOutput(t, "rev-parse", "HEAD")
 			diff := gitOutput(t, "diff", "HEAD", "--", ".", ":!tests/corpus", ":!docs", ":!AGENTS.md", ":!README.md", ":!README.zh-CN.md")
-			r.CodeGraphDiffSHA256 = fmt.Sprintf("%x", sha256.Sum256([]byte(diff)))
-			r.EvaluatorSHA256 = evaluatorHash(t)
-			r.CodeGraphSourceSHA256 = sourceHash(t)
+			r.Subject.DiffSHA256 = fmt.Sprintf("%x", sha256.Sum256([]byte(diff)))
+			r.Evaluator.SourceSHA256 = evaluatorHash(t)
+			r.Subject.SourceSHA256 = sourceHash(t)
 			defer func() {
 				writeJSON(t, filepath.Join(dir, "report.json"), r)
 				if err := os.WriteFile(filepath.Join(dir, "summary.md"), []byte(renderSummary(r)), 0644); err != nil {
@@ -130,11 +155,11 @@ func TestRepositories(t *testing.T) {
 			if repo.Language == "python" {
 				var version string
 				o, docs, inventory, version, err = loadPythonOracle(ctx, root, repo.SourceRoot, "python/"+repo.Name+".json")
-				r.Toolchain += "; CPython " + version
+				r.Evaluator.Toolchain += "; CPython " + version
 			} else if repo.Language == "typescript" {
 				var version string
 				o, docs, inventory, version, err = loadTypeScriptOracle(ctx, root, "typescript/"+repo.Name+".json")
-				r.Toolchain += "; " + version
+				r.Evaluator.Toolchain += "; " + version
 			} else {
 				o, docs, inventory, err = loadOracle(ctx, root)
 			}
@@ -142,10 +167,15 @@ func TestRepositories(t *testing.T) {
 				r.Error = err.Error()
 				t.Fatal(err)
 			}
-			r.Inputs, r.Documents = inventory, len(docs)
+			r.Input.Files, r.Documents = inventory, len(docs)
 			r.OracleDiagnostics = len(o.Diagnostics)
 			writeJSON(t, filepath.Join(dir, "oracle.json"), o)
-			a, err := observe(ctx, o.Module, repo.Commit, docs)
+			var a observed
+			if *reevaluateDir != "" {
+				a, r.Subject, r.ReevaluatedFrom, err = readObservation(filepath.Join(*reevaluateDir, repo.Name), r.Input)
+			} else {
+				a, err = observe(ctx, o.Module, repo.Commit, docs)
+			}
 			if err != nil {
 				r.Error = err.Error()
 				t.Fatal(err)

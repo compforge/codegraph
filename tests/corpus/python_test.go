@@ -48,6 +48,7 @@ func loadPythonOracle(ctx context.Context, root, sourceRoot, bindingsFile string
 		}
 		docs = append(docs, cg.Document{Path: input.Path, Content: data})
 	}
+	completeOrganizations(result.Oracle, docs)
 	return result.Oracle, docs, result.Inputs, result.Python, nil
 }
 

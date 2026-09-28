@@ -4,6 +4,8 @@ import (
 	"errors"
 )
 
+var ErrEvidenceLimit = errors.New("evidence limit reached")
+
 var ErrEdgeLimit = errors.New("relation limit reached")
 
 // Identity provenance is independent of an entity's logical roles.
@@ -40,7 +42,15 @@ func (r Ref) IsDeclaration() bool  { return r.kind == declarationEntity }
 func (r Ref) IsDocument() bool     { return r.kind == documentEntity }
 func (r Ref) SyntheticKey() string { return r.key }
 
+type Evidence struct {
+	Basis, Confidence string
+	Location          *SourceLocation
+}
+
+// Edge is one occurrence; producers supply a single derivation via Basis/Confidence.
+// Index canonicalizes these contributions into Evidence.
 type Edge struct {
+	Evidence                []Evidence
 	Source, Target          Ref
 	Kind, Confidence, Basis string
 	Path                    string

@@ -20,10 +20,10 @@ diagnostic.go                            # 局部信息缺口、关系类别与 
 access.go                                # 按源码路径、限定名和关系方向消费图事实
 document.go、document_async.go            # Document 身份、后台构图、提前读取与 Wait 等待
 build.go、build_graph.go                 # 范围构建、诊断及原子发布
-build_extract.go                         # 有界并行提取、容量预留及确定性汇总
+build_extract.go、material.go            # 有界提取、容量预留、统一材料分类及确定性汇总
 query.go                                # 只读查询及领域结果还原
 internal/
-  analysis/                             # 统一实体、Namespace 视图、源码贡献及阶段契约
+  analysis/                             # 实体、Namespace、Scope/Binding、Relation/Evidence 登记及阶段契约
   pipeline/                             # parser 生命周期与 Organize → Bind → Resolve 阶段屏障
   language/                             # 内置语言注册及能力声明
     adapters/                           # 阶段接口的具体实现
@@ -41,12 +41,12 @@ docs/kernel.md                          # 稳定模型、主流程与设计依�
 
 1. 核心模型沿用 Graph、Node、Relation；Node.Kind 表达 Document、Struct、Interface、Field、Method、Function 等具体类别，直接映射为唯一节点标签。Symbol 与 Namespace 是逻辑概念，不新增上位标签或互斥三分类；Package、Module、语言自身的 Namespace 使用具体 Kind。
 2. `declares` 从 Document 指向源码声明或组织贡献；`contains` 表达直接语义归属，允许 Namespace 嵌套。跨文件组织身份不依赖首个成员；单一位置缺失时沿 declares 读取证据。
-3. spec、case、rule、link、doc 属于核心 marker 类型；关系的 confidence 描述证据强度，basis 记录建立关系的依据。路径证据聚合、距离衰减与业务阈值由消费者决定。
+3. spec、case、rule、link、doc 属于核心 marker 类型；Relation 按端点、Kind、Location 标识一次发生，Evidence 记录每条依据及其 confidence；Relation.confidence 是这些证据的派生投影。路径证据聚合、距离衰减与业务阈值由消费者决定。
 4. Document 是本库拥有的输入材料概念（源码或不展开的 gitlink），既作为输入，也以同名节点类别入图；材料获取与选择由调用方负责。本库提供代码事实及节点、关系、路径和子图的通用查询；受影响文件的判定与排序、评审组织、测试选择及执行回退留在消费方。
 5. AST 与图引擎内部类型不穿透公共 API；消费者通过 `Find`、`Node`、`RelationsFrom`、`RelationsTo` 或 Cypher 消费图事实；局部分析与未解析引用必须保留可辨识的覆盖信息。
-   执行失败由 error 表达；候选关系使用 confidence 与 basis，信息缺口以局部诊断保留。局部缺口不否定无关事实，不自动触发消费者的全量回退。
+   执行失败由 error 表达；候选关系使用 Evidence 的 confidence 与 basis，信息缺口以局部诊断保留。局部缺口不否定无关事实，不自动触发消费者的全量回退。
 6. 同一 Graph 只容纳同一源码快照；Document.ID 与对应 Document 节点 ID 相同。入队任务可提前返回单文件事实，后台构建跨文件关系并原子发布；Wait 只等待已提交工作完成。新增语言解析先声明能力并补契约测试；仅识别 grammar 不表示引用已解析，不得跨语言按同名猜测关系。
-7. Core 拥有构建阶段、预算和原子发布；语言实现通过阶段接口返回事实、关系与诊断。语言专有证据由对应实现拥有，语法树只在 Extract 调用期间借用。所有实体统一登记与物化；Namespace 是实体的成员组织视图，由 contains 建索引，词法作用域由语言绑定规则解释。
+7. Core 拥有构建阶段、预算和原子发布；语言实现通过阶段接口返回事实、关系与诊断。语言专有证据由对应实现拥有，语法树只在 Extract 调用期间借用。所有实体统一登记与物化；Namespace 是实体的成员组织视图，由 contains 建索引，词法 Scope/Binding 与 Namespace 分离：语言实现登记可见性，共享索引供引用、调用和类型线索使用。
 8. 验证入口为 `make lint test build`，测试启用 race detector。
 9. 根目录 `VERSION` 记录项目版本，格式为 `X.Y.Z`。任何代码文件变更（含测试代码、增删及重命名）必须在同一提交同步 bump `VERSION`，默认递增 patch；纯文档变更无需 bump。
 

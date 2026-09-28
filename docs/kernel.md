@@ -95,13 +95,33 @@ TypeAlias 表达显式别名，不因右侧是结构体而丢失别名语义。�
 缺少目标记录未解析诊断。关系位置指向方法声明，不指向接收者类型所在文件。该关系只说明
 声明归属，不代表已解析接收者调用或已验证编译器类型约束。
 
+### Scope 与 Binding
+
+Scope 表达名称在某段源码中的可见范围及查找父级；Binding 表达该范围引入的名称、声明来源及
+可选的类型线索。Namespace 的成员组织关系与词法可见性分别建模，contains 不替代名称查找。
+`BuildScope` 只表达本轮构建的材料集合，与词法 Scope 无关。
+
+Python 与 JS/TS 在 Extract 中由 adapter 登记 Scope/Binding；共享 Lexicon 保存脱离 AST 的索引，
+引用、调用、导入遮蔽和接收者线索使用同一份可见绑定。未知局部绑定仍阻止同名回退。
+JS/TS 区分函数、块、catch 和循环作用域，var 归最近函数；Python 签名表达式使用外层作用域，
+函数体使用参数和局部绑定，方法查找跳过类体词法层。Go 保留语言自己的类型传播模型。
+这些都是静态证据：执行顺序、动态重绑定与 Python global/nonlocal 重定向未证明时保留局部缺口。
+
 ### Marker 与关系置信依据
 
 spec、case、rule、link、doc 是 CodeGraph 的核心 MarkerKind，作为声明节点的结构化属性存在。
 Marker 保留内容与源码位置；不会因使用通用图引擎而变成某个消费者私有的约定。
 
-Relation 的 confidence、basis 和来源位置是关系属性。confidence 描述关系的证据强度，basis
-记录建立关系所依据的规则或证据，供消费者解释和筛选。能够提出候选目标时，可以形成带依据的
+Relation 的身份为 `Source + Target + Kind + Location`（位置身份使用路径与字节范围）。同一对节点
+可以有不同类型的关系，同一类型也可在不同位置发生。重复提交同一次发生会合并 Evidence，
+不会覆盖先前依据；不同位置的调用保持独立关系。
+
+`Evidence` 包含 `Basis`、`Confidence` 和可选的支撑位置 `Location`。证据按内容去重、确定性排序；
+Relation 不再提供单一 Basis。Relation.confidence 是发布时派生的读投影：存在 exact 证据时为 exact，
+否则为 candidate；多个 candidate 不能投票升级成 exact。语言解析器负责证明目标唯一性，
+相同调用/引用位置存在互相冲突的 exact 目标时保留 `conflicting_binding` 局部诊断。
+
+confidence 描述证据强度，basis 记录该证据的建立规则，供消费者解释和筛选。能够提出候选目标时，可以形成带依据的
 候选关系；无法提出目标的引用保留为构建诊断，不虚构目标节点，也不当成已解析关系。
 Resolution 表示确定引用目标的过程，不作为与 Graph、Node、Relation 并列的核心对象。
 
@@ -142,7 +162,7 @@ outline 的结构化计数描述查询产生的候选，不能证明源码中的
 
 1. 消费者提供源码快照标识、Document 批次、允许范围及预算。diff 是入口来源之一，
    不是图必须认识的业务对象，也不是唯一构图方式。
-2. Extract 在有界 worker 中通过语言提取器保留脱离 AST 的事实，Core 随后释放语法树。
+2. `extractMaterial` 统一分类源码、无 grammar 材料与 gitlink；Extract 缓存和构建 worker 共用该入口。源码经过语言提取器保留脱离 AST 的事实，Core 随后释放语法树。缓存、调度、准入预算和发布分别由调用层拥有。
 3. Organize 汇总语言实体、Document 的语义根及关系证据；全部实体登记后，将嵌套与根成员关系汇入 Namespace 视图。
 4. Bind 解析导入、类型及接收者归属。所有语言完成绑定后，Resolve 才解析引用与调用，
    复用完整的直接成员和类型关系；候选与局部诊断随阶段结果返回。
@@ -210,6 +230,10 @@ RETURN target, p, [r IN relationships(p) | r.line] AS lines
 GoGraph 属性支持标量、时间、字节和列表，不支持原生嵌套 Map。Marker 的领域结构与可查询属性投影
 分别定义：markers 是种类列表，各种类属性为内容列表，markerData 是携带完整位置的 JSON。
 这些投影由同一写入入口维护，并以内容与位置往返测试约束一致性。
+Relation 同样以 `bases` 字符串列表供 Cypher 过滤，`evidenceData` JSON 保留完整证据；
+`RETURN r` 返回结构化 Evidence。所有公开访问器、查询和路径投影深拷贝证据及支撑位置。
+`MaxRelations` 限制关系发生数，`MaxEvidence` 单独限制证据总数（默认 1,000,000）；
+语言阶段的贡献生成也受证据预算约束，超限整批回滚。
 
 ### 构建范围与覆盖信息
 

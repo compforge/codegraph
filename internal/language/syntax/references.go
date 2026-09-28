@@ -22,10 +22,16 @@ func (x ModuleExtractor) extractModuleReferences(f *Facts, tree *gts.Tree) {
 		}
 
 		if typ == "identifier" || typ == "property_identifier" || typ == "type_identifier" || typ == "shorthand_property_identifier" {
-			binding := false
+			binding := x.lexical.IsSyntax(NodeSpan(n))
 			receiver := ""
+			member := false
 			if parent != nil {
 				pt := parent.Type(lang)
+				if pt == "pair_pattern" || pt == "pair" {
+					if key := parent.ChildByFieldName("key", lang); key != nil && NodeSpan(key) == NodeSpan(n) {
+						member = true
+					}
+				}
 				for _, field := range []string{"name", "left", "parameter", "pattern", "alias"} {
 					if child := parent.ChildByFieldName(field, lang); child != nil && child.StartByte() <= n.StartByte() && child.EndByte() >= n.EndByte() {
 						switch pt {
@@ -51,15 +57,16 @@ func (x ModuleExtractor) extractModuleReferences(f *Facts, tree *gts.Tree) {
 			}
 			if !binding {
 				span := Span{Start: int(n.StartByte()), End: int(n.EndByte())}
-				ref := Reference{Name: n.Text(f.Source), Receiver: receiver, Span: span, Owner: ReferenceOwner(f, span), Target: -1}
-				if receiver == "" {
-					for i, d := range f.Declarations {
-						if d.Parent == -1 && d.Name == ref.Name {
+				ref := Reference{Member: member, Name: n.Text(f.Source), Receiver: receiver, Span: span, Owner: ReferenceOwner(f, span), Target: -1}
+				if receiver == "" && !member {
+					bindings := x.lexical.Lookup(ref.Name, span)
+					if len(bindings) > 0 {
+						imported := len(bindings) == 1 && bindings[0].Kind == "import"
+						if !imported {
 							ref.Bound = true
-							if !x.hasBindingConflict(tree, n, d, ref.Name) {
-								ref.Target = i
+							if len(bindings) == 1 {
+								ref.Target = bindings[0].Target
 							}
-							break
 						}
 					}
 				}
