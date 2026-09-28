@@ -41,6 +41,18 @@ func goMemberReferenceTargets(ctx context.Context, f extract.Facts, ref extract.
 		if hint == nil {
 			return nil
 		}
+		if hint.Kind == "member" || hint.Kind == "element" || hint.Kind == "range_key" || hint.Kind == "range_value" {
+			values, err := goReceiverValues(ctx, source, hint, files, module, methods, limit)
+			if err != nil {
+				return err
+			}
+			for _, value := range values {
+				if err := walk(value.source, value.hint, withMethods); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
 		var roots []Ref
 		if hint.Bound {
 			if hint.Target >= 0 {

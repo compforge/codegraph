@@ -41,3 +41,5 @@ repocli 的引用位置提取从 8,638/8,639 提升至 8,639/8,639，恢复了�
 
 原始产物保留在 `.corpus-results/<repo>/`。语料快照见 [repos.json](repos.json)，
 评分边界及复现入口见[真实仓库评测](../../docs/corpus.md)。
+
+后续成员链及容器类型传播见 [Go 成员类型传播复测](member-propagation.md)。

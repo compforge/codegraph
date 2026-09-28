@@ -10,12 +10,27 @@ import (
 // array alternative, and let the loaded type decide which interpretation applies.
 func goCompositeKeys(f *Facts, file *ast.File, fset *token.FileSet) map[*ast.Ident]*GoType {
 	describe := goTypeDescriber(f, fset)
+	declarations := map[int]int{}
+	for i, d := range f.Declarations {
+		declarations[d.Start] = i
+	}
 	keys := map[*ast.Ident]*GoType{}
 	ast.Inspect(file, func(node ast.Node) bool {
 		switch n := node.(type) {
 		case *ast.TypeSpec:
 			if typ := describe(n.Name); typ.Target >= 0 {
 				f.Declarations[typ.Target].GoType = describe(n.Type)
+			}
+		case *ast.Field:
+			for _, name := range n.Names {
+				if i, ok := declarations[fset.Position(name.Pos()).Offset]; ok && f.Declarations[i].Kind == "field" {
+					f.Declarations[i].GoType = describe(n.Type)
+				}
+			}
+			if len(n.Names) == 0 {
+				if i, ok := declarations[fset.Position(n.Pos()).Offset]; ok && f.Declarations[i].Kind == "field" {
+					f.Declarations[i].GoType = describe(n.Type)
+				}
 			}
 		case *ast.CompositeLit:
 			hint := describe(n.Type)
@@ -59,7 +74,8 @@ func goTypeDescriber(f *Facts, fset *token.FileSet) func(ast.Expr) *GoType {
 	for i, d := range f.Declarations {
 		declarations[d.Start] = i
 	}
-	return func(expr ast.Expr) *GoType {
+	var describe func(ast.Expr) *GoType
+	describe = func(expr ast.Expr) *GoType {
 		hint := &GoType{Target: -1}
 	unwrap:
 		for {
@@ -81,8 +97,13 @@ func goTypeDescriber(f *Facts, fset *token.FileSet) func(ast.Expr) *GoType {
 			hint.Kind = "struct"
 		case *ast.MapType:
 			hint.Kind = "map"
+			hint.Key, hint.Element = describe(n.Key), describe(n.Value)
 		case *ast.ArrayType:
 			hint.Kind = "array"
+			hint.Element = describe(n.Elt)
+		case *ast.ChanType:
+			hint.Kind = "channel"
+			hint.Element = describe(n.Value)
 		case *ast.Ident:
 			hint.Name = n.Name
 			if n.Obj != nil {
@@ -100,4 +121,5 @@ func goTypeDescriber(f *Facts, fset *token.FileSet) func(ast.Expr) *GoType {
 		}
 		return hint
 	}
+	return describe
 }

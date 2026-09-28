@@ -2,6 +2,7 @@ package extract
 
 import (
 	"go/ast"
+	"go/token"
 )
 
 func goTypeHint(e ast.Expr) (string, string) {
@@ -32,39 +33,59 @@ func goTypeHint(e ast.Expr) (string, string) {
 	return "", ""
 }
 
-func goObjectTypeExpressions(id *ast.Ident, assignments map[*ast.Object][]ast.Expr, seen map[*ast.Object]bool) []ast.Expr {
+// Keep type syntax distinct from value syntax: T[K] may instantiate a type,
+// while values[K] selects an element. Range variables are explicit projections.
+type goTypeExpression struct {
+	Expr       ast.Expr
+	IsType     bool
+	Projection string
+}
+
+func goObjectTypeExpressions(id *ast.Ident, assignments map[*ast.Object][]ast.Expr, seen map[*ast.Object]bool) []goTypeExpression {
 	if id.Obj == nil || seen[id.Obj] {
 		return nil
 	}
 	seen[id.Obj] = true
 	defer delete(seen, id.Obj)
-	var types []ast.Expr
-	add := func(e ast.Expr) {
+	var types []goTypeExpression
+	add := func(e ast.Expr, isType bool) {
 		if alias, ok := e.(*ast.Ident); ok && alias.Obj != nil {
 			types = append(types, goObjectTypeExpressions(alias, assignments, seen)...)
 			return
 		}
-		name, _ := goTypeHint(e)
-		if name != "" {
-			types = append(types, e)
-		}
+		types = append(types, goTypeExpression{Expr: e, IsType: isType})
 	}
 	switch decl := id.Obj.Decl.(type) {
 	case *ast.Field:
-		add(decl.Type)
+		add(decl.Type, true)
 	case *ast.TypeSpec:
-		types = append(types, id)
+		types = append(types, goTypeExpression{Expr: id, IsType: true})
 	case *ast.ValueSpec:
 		if decl.Type != nil {
-			add(decl.Type)
+			add(decl.Type, true)
 		} else {
 			for _, expr := range assignments[id.Obj] {
-				add(expr)
+				add(expr, false)
 			}
 		}
 	case *ast.AssignStmt:
+		// go/parser represents := range bindings as a synthetic assignment whose
+		// sole RHS is UnaryExpr{Op: RANGE}; do not treat its index as the element.
+		if len(decl.Rhs) == 1 {
+			if expr, ok := decl.Rhs[0].(*ast.UnaryExpr); ok && expr.Op == token.RANGE {
+				for i, lhs := range decl.Lhs {
+					if name, ok := lhs.(*ast.Ident); ok && name.Obj == id.Obj {
+						projection := "range_key"
+						if i == 1 {
+							projection = "range_value"
+						}
+						types = append(types, goTypeExpression{Expr: expr.X, Projection: projection})
+					}
+				}
+			}
+		}
 		for _, expr := range assignments[id.Obj] {
-			add(expr)
+			add(expr, false)
 		}
 	}
 	return types
@@ -73,7 +94,10 @@ func goObjectTypeExpressions(id *ast.Ident, assignments map[*ast.Object][]ast.Ex
 func goObjectTypes(id *ast.Ident, assignments map[*ast.Object][]ast.Expr, seen map[*ast.Object]bool) []CallTarget {
 	var hints []CallTarget
 	for _, expr := range goObjectTypeExpressions(id, assignments, seen) {
-		name, module := goTypeHint(expr)
+		if expr.Projection != "" {
+			continue
+		}
+		name, module := goTypeHint(expr.Expr)
 		if name != "" {
 			hints = append(hints, CallTarget{ReceiverType: name, Module: module})
 		}
