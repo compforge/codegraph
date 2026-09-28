@@ -68,3 +68,5 @@ Doctor 再次运行并显式比较本轮首份报告，通过相同快照、工�
 各项指标一致。评测器身份已扩展，不能将此前不同摘要的报告直接作为同身份回归基线。
 复现命令及评分边界见 [TypeScript 评测说明](../../../docs/typescript-corpus.md)。
 原始 JSON 不纳入 Git；执行后通过产物 summary.md 访问完整参照、实际图与差异位置。
+
+循环与 catch 变量声明修复的结果见 [控制语句绑定复测](control-bindings.md)。

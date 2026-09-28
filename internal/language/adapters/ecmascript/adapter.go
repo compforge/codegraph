@@ -15,6 +15,11 @@ type Adapter struct{}
 func query(entry grammars.LangEntry) string {
 	q := grammars.ResolveTagsQuery(entry)
 	q += "\n(variable_declarator name: (identifier) @name) @definition.variable"
+	// These bindings have no variable_declarator wrapper. Capture only the
+	// identifier, and require a declaration keyword to exclude for (x of xs).
+	q += `
+(for_in_statement kind: ["var" "let" "const"] left: (identifier) @name @definition.variable)
+(catch_clause parameter: (identifier) @name @definition.variable)`
 	if entry.Name != "javascript" {
 		q += "\n(type_alias_declaration name: (type_identifier) @name) @definition.type_alias"
 	}
@@ -22,7 +27,11 @@ func query(entry grammars.LangEntry) string {
 }
 func (Adapter) Extract(ctx context.Context, f Facts, tree *gts.Tree, entry grammars.LangEntry) (Facts, error) {
 	entry.TagsQuery = query(entry)
-	return (syntax.ModuleExtractor{Dialect: Dialect{}}).Extract(ctx, f, tree, entry)
+	f, err := (syntax.ModuleExtractor{Dialect: Dialect{}}).Extract(ctx, f, tree, entry)
+	if err == nil {
+		refineControlBindings(&f, tree)
+	}
+	return f, err
 }
 func (Adapter) Compatible(lang string) bool {
 	return lang == "javascript" || lang == "typescript" || lang == "tsx"
