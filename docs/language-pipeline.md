@@ -3,8 +3,7 @@
 ## 模型与职责
 
 CodeGraph 从同一快照的 Document 提取事实，由语言规则建立组织与绑定，再发布带源码证据的图。
-Document 表达材料来源，Symbol 表达代码实体，Namespace 表达名称与成员的组织；后两者可以重叠。
-图中使用具体 Kind，源码贡献使用 declares，直接语义归属使用 contains。
+核心概念与发布不变量见 [内核设计](kernel.md)，语言覆盖见 [语言能力](language-support.md)。
 
 公共分析层以 Entity 统一登记 Document、源码声明及合成实体，并使用同一条物化路径。
 Ref 表达身份来源，与实体是否组织成员无关。Namespace 是同一 Entity 的成员组织视图，
@@ -33,7 +32,7 @@ Binder 与 Resolver 将输入索引视为只读，其关系结果由 Core 登记
 ## 共享索引
 
 `BuildScope` 是本轮材料集合；`Scope` 是源码可见范围，`Binding` 是该范围的名称绑定。
-原阶段返回对象命名为 `BindResult`，包含关系贡献、诊断及本轮 Resolver。
+`BindResult` 返回关系贡献、诊断及本轮 Resolver。
 Python/ECMAScript 的 dialect 在单文件提取中登记脱离 AST 的 Lexicon，后续引用、调用和
 接收者类型线索共享其查找结果；语言实现负责声明位置、父级跳转、参数和块等规则。
 

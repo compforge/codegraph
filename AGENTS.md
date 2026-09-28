@@ -2,14 +2,9 @@
 
 ## 项目定位与边界
 
-CodeGraph 是可内嵌的代码属性图 Go 库，从调用方提供的源码快照与材料中提取声明、解析关系，
-提供携带来源位置、置信依据和局部覆盖信息的图查询能力。代码语义与关系证据由 CodeGraph 负责；
-影响判定、评审组织、测试选择及执行策略由消费者负责。
-
-实现组合 GoGraph 的属性图/Cypher、gotreesitter 的语法与事实提取、pond 的有界异步调度，
-自身拥有代码身份、Namespace 组织、关系绑定、证据及快照发布契约；仓库读取、HTTP 服务和可视化归消费者。
-根包提供语言无关的公共 API；Go、Python、JS/TS 有语言专有适配，其他注册 grammar 走通用声明提取。
-语法可用性与关系解析能力分别报告，具体覆盖以 `Capabilities()` 与契约测试为准。
+CodeGraph 是可内嵌的代码属性图 Go 库，将调用方提供的快照材料转为携带来源、证据和局部诊断的图。
+本库拥有代码事实与通用查询；仓库读取、影响判定、评审组织及执行策略由消费者负责。
+稳定模型与设计理由见 [内核设计](docs/kernel.md)，使用入口见 [README](README.zh-CN.md)。
 
 ## 代码地图与核心模块
 
@@ -39,27 +34,21 @@ docs/kernel.md                          # 稳定模型、主流程与设计依�
 
 ## 关键约定
 
-1. 核心模型沿用 Graph、Node、Relation；Node.Kind 表达 Document、Struct、Interface、Field、Method、Function 等具体类别，直接映射为唯一节点标签。Symbol 与 Namespace 是逻辑概念，不新增上位标签或互斥三分类；Package、Module、语言自身的 Namespace 使用具体 Kind。
-2. `declares` 从 Document 指向源码声明或组织贡献；`contains` 表达直接语义归属，允许 Namespace 嵌套。跨文件组织身份不依赖首个成员；单一位置缺失时沿 declares 读取证据。
-3. spec、case、rule、link、doc 属于核心 marker 类型；Relation 按端点、Kind、Location 标识一次发生，Evidence 记录每条依据及其 confidence；Relation.confidence 是这些证据的派生投影。路径证据聚合、距离衰减与业务阈值由消费者决定。
-4. Document 是本库拥有的输入材料概念（源码或不展开的 gitlink），既作为输入，也以同名节点类别入图；材料获取与选择由调用方负责。本库提供代码事实及节点、关系、路径和子图的通用查询；受影响文件的判定与排序、评审组织、测试选择及执行回退留在消费方。
-5. AST 与图引擎内部类型不穿透公共 API；消费者通过 `Find`、`Node`、`RelationsFrom`、`RelationsTo` 或 Cypher 消费图事实；局部分析与未解析引用必须保留可辨识的覆盖信息。
-   执行失败由 error 表达；候选关系使用 Evidence 的 confidence 与 basis，信息缺口以局部诊断保留。局部缺口不否定无关事实，不自动触发消费者的全量回退。
-6. 同一 Graph 只容纳同一源码快照；Document.ID 与对应 Document 节点 ID 相同。入队任务可提前返回单文件事实，后台构建跨文件关系并原子发布；Wait 只等待已提交工作完成。新增语言解析先声明能力并补契约测试；仅识别 grammar 不表示引用已解析，不得跨语言按同名猜测关系。
-7. Core 拥有构建阶段、预算和原子发布；语言实现通过阶段接口返回事实、关系与诊断。语言专有证据由对应实现拥有，语法树只在 Extract 调用期间借用。所有实体统一登记与物化；Namespace 是实体的成员组织视图，由 contains 建索引，词法 Scope/Binding 与 Namespace 分离：语言实现登记可见性，共享索引供引用、调用和类型线索使用。
-8. 验证入口为 `make lint test build`，测试启用 race detector。
-9. 根目录 `VERSION` 记录项目版本，格式为 `X.Y.Z`。任何代码文件变更（含测试代码、增删及重命名）必须在同一提交同步 bump `VERSION`，默认递增 patch；纯文档变更无需 bump。
+1. Node 使用具体语言类别；Symbol 与 Namespace 是可重叠的逻辑角色。源码贡献、成员归属和词法可见性分别由 declares、contains 与 Scope/Binding 表达。
+2. 关系身份保留端点、种类及发生位置，多条依据汇入 Evidence。保留候选与局部缺口，不虚构目标，也不将证据强度解释为业务影响概率。
+3. 同一 Graph 只容纳同一快照。Core 拥有调度、预算及原子发布；语言实现通过阶段接口提供事实、关系与诊断，不获取材料或直接操作图存储。
+4. AST 与引擎对象不穿透公共 API，提取结果脱离 parser 生命周期。新增语言能力同步更新注册声明及契约测试，grammar 可用不等于语义完整。
+5. 执行失败由 error 表达；局部诊断不否定无关事实。库测试验证图契约，真实语料验证语义覆盖，消费者验证自身策略与执行行为。
+6. 验证入口为 `make lint test build`，测试启用 race detector；工具准备和语料命令见 [评测执行入口](docs/corpus.md#执行与证据)。
+7. `VERSION` 格式为 X.Y.Z，任何代码文件变更（含测试、增删及重命名）须在同一提交 bump，默认递增 patch；纯文档变更无需 bump。
 
 ## References
 
-- [语言构建流程](docs/language-pipeline.md) — 阶段职责、语言接口与接入契约。
-
-- [命名空间组织](docs/namespaces.md) — 逻辑概念、嵌套、源码贡献与语言绑定边界。
-- [内核设计](docs/kernel.md) — 模型、构建与查询流程、依赖边界和验证状态。
-- [真实仓库评测](docs/corpus.md) — 固定语料、独立参照、评分口径及验证入口；评测策略留在测试层。
-
-- [Python 仓库评测](docs/python-corpus.md) — AST 事实清单、人工审定绑定及动态语义边界。
-
-- [TypeScript 仓库评测](docs/typescript-corpus.md) — Doctor 固定快照、编译器静态绑定与缺失依赖边界。
-
-- [gitlink 材料](docs/gitlinks.md) — 父仓的子仓边界、固定 commit 与导入证据。
+- [使用指南](docs/usage.md) — 构建、补料、源码导航、Cypher 与诊断读取。
+- [内核设计](docs/kernel.md) — 核心模型、主流程与责任边界。
+- [Document 契约](docs/document.md) — 源码和 gitlink 材料、身份、接纳及图中表达。
+- [命名空间组织](docs/namespaces.md) — 成员、嵌套、身份与源码贡献。
+- [语言能力](docs/language-support.md) — 各语言的静态证据与限制。
+- [语言构建流程](docs/language-pipeline.md) — 阶段职责、共享索引与适配器接入。
+- [真实仓库评测](docs/corpus.md) — Go 独立参照、统一评分、工具准备及验证入口。
+- [Python 仓库评测](docs/python-corpus.md)、[TypeScript 仓库评测](docs/typescript-corpus.md) — 各语言参照及动态语义边界。
