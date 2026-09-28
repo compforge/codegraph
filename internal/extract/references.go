@@ -19,7 +19,7 @@ func referenceOwner(f *Facts, span Span) int {
 	return owner
 }
 
-func extractGoReferences(f *Facts, file *ast.File, fset *token.FileSet, assignments map[*ast.Object][]ast.Expr) {
+func extractGoReferences(f *Facts, file *ast.File, fset *token.FileSet, assignments map[*ast.Object][]goAssignment) {
 	keys := goCompositeKeys(f, file, fset)
 	excluded := map[*ast.Ident]bool{file.Name: true}
 	receivers := map[*ast.Ident]string{}

@@ -12,6 +12,29 @@ import (
 func resolveCallTargets(ctx context.Context, f extract.Facts, call extract.Call, files map[string]extract.Facts, module string, methods *methodIndex, limit int) ([]Edge, error) {
 	var edges []Edge
 	source := Ref{f.Path, enclosingDeclaration(f, call.Span)}
+	// Structured receiver projections extend the existing named-type path; keep
+	// its direct/inherited evidence when no projection is needed.
+	projected := false
+	for _, hint := range call.GoReceiverTypes {
+		switch hint.Kind {
+		case "result", "member", "element", "range_key", "range_value":
+			projected = true
+		}
+	}
+	if f.Language == "go" && projected {
+		targets, err := goMemberReferenceTargets(ctx, f, extract.Reference{Name: call.Name, ReceiverTypes: call.GoReceiverTypes}, files, module, methods, limit)
+		if err != nil {
+			return nil, err
+		}
+		if len(targets) > 0 {
+			for _, target := range targets {
+				if files[target.Path].Declarations[target.Declaration].Kind == "method" {
+					edges = append(edges, Edge{source, target, "calls", "candidate", "receiver_type", f.Path, call.Span})
+				}
+			}
+			return edges, nil
+		}
+	}
 	seen := map[Ref]bool{}
 	for _, hint := range call.Targets {
 		if err := ctx.Err(); err != nil {

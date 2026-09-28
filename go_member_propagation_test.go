@@ -27,7 +27,7 @@ func TestGoMemberTypePropagation(t *testing.T) {
 		{"comma-ok-map", "item,ok:=box.Table[Leaf{}];_=ok;", "item.Name", "", "Leaf.Name"},
 		{"cyclic-assignment", "node:=Node{};node=node.Next;", "node.Next.Next.Name", "", "Node.Name"},
 		{"cyclic-type", "var items Cycle;", "items[0].Name", "", ""},
-		{"unknown-return", "", "Make().Name", "", ""},
+		{"declared-return", "", "Make().Name", "", "Leaf.Name"},
 		{"receive-gap", "var stream Stream;", "(<-stream).Special", "", ""},
 		{"generic-type", "", "Generic[int].Work", "", "Generic.Work"},
 	} {

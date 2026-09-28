@@ -17,7 +17,7 @@ type Declaration struct {
 	Parent int
 	// Receiver is the explicit Go receiver base name, resolved across loaded files.
 	Receiver string
-	// GoType retains the underlying composite shape for literal-key binding.
+	// GoType retains declared type shape and callable signatures for propagation.
 	GoType *GoType
 	Span
 	Comments []Comment
@@ -57,20 +57,23 @@ type Call struct {
 	Name, Receiver string
 	Span
 	// Blocked excludes the static-function path; Targets may still carry dispatch candidates.
-	Blocked  bool
-	Builtin  bool
-	Imported bool
-	Targets  []CallTarget
+	Blocked         bool
+	Builtin         bool
+	Imported        bool
+	Targets         []CallTarget
+	GoReceiverTypes []*GoType
 }
 
 // GoType retains named-type identity and structural shape for Go binding.
 // These detached syntax hints may resolve after more files load.
 type GoType struct {
 	Kind, Name, Module string
+	Results            []*GoType // declared result types in signature order
+	Result             int       // selected result of a call projection
 	Element, Key       *GoType   // container element and map key types
-	Inputs             []*GoType // receiver operands for member and element projections
-	Target             int       // same-file type declaration, -1 when not represented
-	Bound              bool      // a lexical type shadows package-level names
+	Inputs             []*GoType // operands of member, container and call-result projections
+	Target             int       // same-file declaration, -1 when not represented
+	Bound              bool      // a lexical binding shadows package-level names
 }
 
 // Reference is a lexical identifier use, independently of whether a target exists.

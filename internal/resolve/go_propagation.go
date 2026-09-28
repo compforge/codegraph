@@ -13,13 +13,16 @@ type goReceiverValue struct {
 
 // Project through loaded field declarations and container shapes only. The
 // source travels with each type: imports and lexical indices belong to the
-// declaring file, not the caller's file. Function return values remain unknown.
+// declaring file, not the caller's file. Call results use declared signatures.
 func goReceiverValues(ctx context.Context, source extract.Facts, hint *extract.GoType, files map[string]extract.Facts, module string, methods *methodIndex, limit int) ([]goReceiverValue, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	if hint == nil {
 		return nil, nil
+	}
+	if hint.Kind == "result" {
+		return goCallResultTypes(ctx, source, hint, files, module, methods, limit)
 	}
 	if hint.Kind == "member" {
 		members, err := goMemberReferenceTargets(ctx, source, extract.Reference{Name: hint.Name, ReceiverTypes: hint.Inputs}, files, module, methods, limit)

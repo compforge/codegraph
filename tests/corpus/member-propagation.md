@@ -40,3 +40,5 @@ go-stdx 在本轮加载范围和评测口径内的内部引用目标全部命中
 
 原始产物位于 `.corpus-results/<repo>/`，语料快照见 [repos.json](repos.json)，
 评分边界及复现入口见[真实仓库评测](../../docs/corpus.md)。
+
+后续声明返回类型传播及调用绑定复测见[返回类型复测](result-types.md)。

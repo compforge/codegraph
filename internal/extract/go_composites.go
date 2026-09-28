@@ -17,18 +17,22 @@ func goCompositeKeys(f *Facts, file *ast.File, fset *token.FileSet) map[*ast.Ide
 	keys := map[*ast.Ident]*GoType{}
 	ast.Inspect(file, func(node ast.Node) bool {
 		switch n := node.(type) {
+		case *ast.FuncDecl:
+			if i, ok := declarations[fset.Position(n.Pos()).Offset]; ok {
+				f.Declarations[i].GoType = describe(n.Type)
+			}
 		case *ast.TypeSpec:
 			if typ := describe(n.Name); typ.Target >= 0 {
 				f.Declarations[typ.Target].GoType = describe(n.Type)
 			}
 		case *ast.Field:
 			for _, name := range n.Names {
-				if i, ok := declarations[fset.Position(name.Pos()).Offset]; ok && f.Declarations[i].Kind == "field" {
+				if i, ok := declarations[fset.Position(name.Pos()).Offset]; ok && (f.Declarations[i].Kind == "field" || f.Declarations[i].Kind == "method") {
 					f.Declarations[i].GoType = describe(n.Type)
 				}
 			}
 			if len(n.Names) == 0 {
-				if i, ok := declarations[fset.Position(n.Pos()).Offset]; ok && f.Declarations[i].Kind == "field" {
+				if i, ok := declarations[fset.Position(n.Pos()).Offset]; ok && (f.Declarations[i].Kind == "field" || f.Declarations[i].Kind == "method") {
 					f.Declarations[i].GoType = describe(n.Type)
 				}
 			}
@@ -93,6 +97,15 @@ func goTypeDescriber(f *Facts, fset *token.FileSet) func(ast.Expr) *GoType {
 			}
 		}
 		switch n := expr.(type) {
+		case *ast.FuncType:
+			hint.Kind = "function"
+			if n.Results != nil {
+				for _, field := range n.Results.List {
+					for i := 0; i < max(1, len(field.Names)); i++ {
+						hint.Results = append(hint.Results, describe(field.Type))
+					}
+				}
+			}
 		case *ast.StructType:
 			hint.Kind = "struct"
 		case *ast.MapType:
@@ -108,6 +121,12 @@ func goTypeDescriber(f *Facts, fset *token.FileSet) func(ast.Expr) *GoType {
 			hint.Name = n.Name
 			if n.Obj != nil {
 				hint.Bound = true
+				if fn, ok := n.Obj.Decl.(*ast.FuncDecl); ok {
+					hint.Kind = "function_ref"
+					if i, found := declarations[fset.Position(fn.Pos()).Offset]; found {
+						hint.Target = i
+					}
+				}
 				if decl, ok := n.Obj.Decl.(*ast.TypeSpec); ok {
 					if i, found := declarations[fset.Position(decl.Pos()).Offset]; found {
 						hint.Target = i
