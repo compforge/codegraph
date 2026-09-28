@@ -48,13 +48,14 @@ type Index struct {
 	Files         map[string]Facts
 	Entities      map[Ref]Entity
 	Roots         map[string]Ref
+	Gitlinks      map[string]Ref
 	Edges         []Edge
 	members       map[Ref]map[string][]Ref
 	contributions map[Ref][]Edge
 }
 
 func NewIndex(files map[string]Facts) *Index {
-	return &Index{Files: files, Entities: map[Ref]Entity{}, Roots: map[string]Ref{}, members: map[Ref]map[string][]Ref{}, contributions: map[Ref][]Edge{}}
+	return &Index{Files: files, Entities: map[Ref]Entity{}, Roots: map[string]Ref{}, Gitlinks: map[string]Ref{}, members: map[Ref]map[string][]Ref{}, contributions: map[Ref][]Edge{}}
 }
 
 // RegisterEntities records organization endpoints and roots. The pipeline adds
@@ -94,6 +95,9 @@ func (x *Index) AddSources(ctx context.Context, names []string) error {
 		}
 		f := x.Files[p]
 		ref := DocumentRef(p)
+		if f.Gitlink != "" {
+			x.Gitlinks[p] = ref
+		}
 		x.Entities[ref] = Entity{Ref: ref, Kind: "Document", Name: path.Base(p), Language: f.Language, Location: &SourceLocation{Path: p, Span: Span{End: len(f.Source)}}}
 		for i, d := range f.Declarations {
 			kind := ConcreteKind(d.Kind)

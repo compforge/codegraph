@@ -78,6 +78,9 @@ func (g *Graph) assemble(ctx context.Context, files map[string]analysis.Facts, f
 			id = "node:" + identity(ref.SyntheticKey())
 		}
 		n := Node{ID: id, Kind: NodeKind(e.Kind), Name: e.Name, QualifiedName: e.QualifiedName, Language: e.Language}
+		if ref.IsDocument() {
+			n.Gitlink = files[ref.Path].Gitlink
+		}
 		if e.Location != nil {
 			f := files[e.Location.Path]
 			n.Location = locationPtr(f, e.Location.Span)
@@ -131,6 +134,9 @@ func (g *Graph) materialize(ctx context.Context, nodes map[string]Node, relation
 			return nil, err
 		}
 		props := map[string]any{"id": n.ID, "kind": string(n.Kind), "name": n.Name, "qualifiedName": n.QualifiedName, "language": n.Language, "snapshot": g.snapshot}
+		if n.Gitlink != "" {
+			props["gitlink"] = n.Gitlink
+		}
 		if n.Location != nil {
 			props["path"], props["line"], props["column"] = n.Location.Path, n.Location.Line, n.Location.Column
 			props["startByte"], props["endByte"] = n.Location.StartByte, n.Location.EndByte

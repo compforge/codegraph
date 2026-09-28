@@ -21,11 +21,17 @@ func bindImports(ctx context.Context, f analysis.Facts, files map[string]analysi
 			return nil, nil, err
 		}
 		targets := methods.namespaces.ModulePaths(f, imp)
+		gitlinks := methods.namespaces.GitlinkPaths(methods.namespaces.policy.ImportPaths(f, imp))
 		confidence := "exact"
-		if len(targets) == 0 {
+		if len(targets)+len(gitlinks) == 0 {
 			issues = append(issues, Issue{Path: f.Path, Code: "unresolved_import", Reference: imp.Path, Relation: "imports", Span: imp.Span})
-		} else if methods.namespaces.policy.ImportConfidence(imp, len(targets)) == "candidate" {
+		} else if methods.namespaces.policy.ImportConfidence(imp, len(targets)+len(gitlinks)) == "candidate" {
 			confidence = "candidate"
+		}
+		for _, target := range gitlinks {
+			if err := add(Edge{Source: analysis.DocumentRef(f.Path), Target: analysis.DocumentRef(target), Kind: "imports", Confidence: confidence, Basis: "gitlink_boundary", Path: f.Path, Span: imp.Span}); err != nil {
+				return nil, nil, err
+			}
 		}
 		for _, target := range targets {
 			if err := add(Edge{Source: analysis.SourceRef(f.Path, -1), Target: methods.namespaces.Roots[target], Kind: "imports", Confidence: confidence, Basis: "source_module", Path: f.Path, Span: imp.Span}); err != nil {

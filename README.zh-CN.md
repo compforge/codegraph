@@ -13,6 +13,8 @@ Struct、Interface、Field、Method、Function 等具体类别，关系包括调
 直接依赖 gotreesitter `v0.55.0`、GoGraph `v0.15.0`，要求 Go 1.26 或更高版本。
 无需独立数据库服务，无强制落盘。本仓库尚未首次发布。
 
+支持调用方显式提供 gitlink：保留子仓路径和固定 commit，导入关系停在子仓边界，不展开子仓源码。详见 [gitlink 材料](docs/gitlinks.md)。
+
 ## 能力与边界
 - 当前解析 **Go** 的函数、方法、结构体、接口、字段、其他命名类型、类型别名及单名称变量和常量，构建 declares、contains、imports 和静态包函数 calls。
 - 提取 **Python、JavaScript、TypeScript、TSX** 声明、词法包含、本地源码 import、显式模块绑定、未被遮蔽的本地及导入函数调用及声明注释 marker。

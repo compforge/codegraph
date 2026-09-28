@@ -27,6 +27,7 @@ No separate database service or mandatory disk persistence. The project has not 
 - Resolves candidate inherited method calls along bound `extends` edges, including Go embedded interfaces and Python/JS/TS base classes. Direct methods stop lookup on their branch; multiple bases remain candidates without runtime method-resolution-order proof. `implements` does not imply inherited behavior.
 - Supports cross-file relations, imports within the supplied scope, recursion, multiple call sites, incremental batches, and idempotent additions.
 - Accepts source documents directly from memory, Git snapshots, or any other consumer-owned source.
+- Accepts explicit Git submodule entries as opaque Documents with a pinned commit. Path-resolved imports stop at that boundary without indexing the child repository; see [gitlink materials](docs/gitlinks.md).
 - Accepts parameterized, read-only Cypher and returns Node, Relation, Path, or ordinary Go values.
 - Extracts spec, case, rule, link, and doc markers from declaration comments, preserving their contents and source locations.
 - Emits candidate relations for ambiguous targets and diagnostics for unresolved targets, unknown callbacks and calls inside unmodeled closures.
