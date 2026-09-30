@@ -23,7 +23,9 @@ acquisition, and decisions about change impact or test selection belong to the c
 ## Core concepts
 
 You provide **Documents**: logical paths paired with source content or a pinned gitlink commit.
-A **Graph** holds the facts for one source snapshot and can accept additional material in batches.
+An **Extractor** produces reusable single-document **Facts**. A **Builder** binds those facts
+with snapshot-specific resolution context and publishes a read-only **Graph**. Typed access needs
+no query index; Cypher storage is created when first queried.
 
 Nodes use concrete kinds such as `Document`, `Package`, `Module`, `Class`, and `Function`.
 “Symbol” describes declarations; “Namespace” describes how languages organize members.

@@ -14,9 +14,21 @@ import (
 func (g *Graph) Query(ctx context.Context, q string, params map[string]any) ([]map[string]any, error) {
 	ctx, cancel := context.WithTimeout(ctx, g.opts.QueryTimeout)
 	defer cancel()
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	rows, err := g.store.Query(ctx, q, params)
+	g = g.current()
+	// Serialize index construction only. Failed/canceled materialization leaves
+	// no index, so a later query can retry against the same immutable snapshot.
+	g.storeMu.Lock()
+	if g.store == nil {
+		store, err := g.materialize(ctx, g.nodes, g.relations)
+		if err != nil {
+			g.storeMu.Unlock()
+			return nil, err
+		}
+		g.store = store
+	}
+	store := g.store
+	g.storeMu.Unlock()
+	rows, err := store.Query(ctx, q, params)
 	if err != nil {
 		return nil, err
 	}

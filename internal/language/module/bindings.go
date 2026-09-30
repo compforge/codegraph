@@ -23,7 +23,7 @@ func (b moduleBinder) importTargets(f analysis.Facts, imp analysis.Import, name 
 			return nil, err
 		}
 		for _, target := range targets {
-			target.Confidence = target.Confidence.Weaker(b.namespaces.policy.ImportConfidence(imp, len(paths)))
+			target.Confidence = target.Confidence.Weaker(b.namespaces.ImportConfidence(f, imp, len(paths)))
 			out = append(out, target)
 			if len(out) > b.limit {
 				return nil, ErrEdgeLimit
@@ -117,7 +117,7 @@ func (b moduleBinder) useTargets(f analysis.Facts, name, receiver string, span a
 					}
 				}
 				for i := range modules {
-					modules[i].Confidence = modules[i].Confidence.Weaker(b.namespaces.policy.ImportConfidence(imp, len(modules)))
+					modules[i].Confidence = modules[i].Confidence.Weaker(b.namespaces.ImportConfidence(f, imp, len(modules)))
 				}
 				out = append(out, modules...)
 				continue

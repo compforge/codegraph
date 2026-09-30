@@ -44,7 +44,7 @@ func (d Document) ID() string { return DocumentID(d.Path) }
 // The batch is validated before any document is admitted. It returns after
 // submission; callers can use GetDocument or FindAsync for early facts, and
 // Wait to wait for complete graph publication. Input bytes are copied.
-func (g *Graph) AddDocuments(ctx context.Context, documents ...Document) error {
+func (g *Builder) AddDocuments(ctx context.Context, documents ...Document) error {
 	_, err := g.enqueueDocuments(ctx, documents...)
 	return err
 }

@@ -53,7 +53,7 @@ func resolveCallTargets(ctx context.Context, f analysis.Facts, call analysis.Cal
 				alias := imp.Alias
 				if alias == "" {
 					alias = path.Base(imp.Path)
-					if imported, ok := ImportDir(module, imp.Path); ok {
+					if imported, ok := methods.namespaces.Resolution.GoImportDir(module, imp.Path); ok {
 						for p, target := range files {
 							if path.Dir(p) == imported && target.Language == "go" && target.Package == hint.Module {
 								alias = hint.Module
@@ -62,7 +62,7 @@ func resolveCallTargets(ctx context.Context, f analysis.Facts, call analysis.Cal
 					}
 				}
 				if alias == hint.Module {
-					if imported, ok := ImportDir(module, imp.Path); ok {
+					if imported, ok := methods.namespaces.Resolution.GoImportDir(module, imp.Path); ok {
 						dir = imported
 					}
 				}

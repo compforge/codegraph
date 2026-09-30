@@ -13,7 +13,8 @@ VERSION                                # 项目版本
 graph.go、node.go、relation.go、marker.go、error.go # 公共图模型、错误与能力声明
 diagnostic.go                            # 局部信息缺口、关系类别与 outline 覆盖计数
 access.go                                # 按源码路径、限定名和关系方向消费图事实
-document.go、document_async.go            # Document 身份、后台构图、提前读取与 Wait 等待
+document.go、extractor.go、facts.go        # 输入身份、有界提取、完整只读 Facts 与检查视图
+builder.go、document_async.go、compat*.go   # Builder 接纳与发布、后台协调及兼容入口
 build.go、build_graph.go                 # 范围构建、诊断及原子发布
 build_extract.go、material.go            # 有界提取、容量预留、统一材料分类及确定性汇总
 query.go                                # 只读查询及领域结果还原
@@ -37,7 +38,7 @@ docs/kernel.md                          # 稳定模型、主流程与设计依�
 
 1. Node 使用具体语言类别；Symbol 与 Namespace 是可重叠的逻辑角色。源码贡献、成员归属和词法可见性分别由 declares、contains 与 Scope/Binding 表达。
 2. 关系身份保留端点、种类及发生位置，多条依据汇入 Evidence，Relation.Confidence 由 Evidence 的最高档推导；单条证据的必要推导链取最低档。保留候选与局部缺口，不虚构目标，也不将证据强度解释为业务影响概率。
-3. 同一 Graph 只容纳同一快照。Core 拥有调度、预算及原子发布；语言实现通过阶段接口提供事实、关系与诊断，不获取材料或直接操作图存储。
+3. 同一 Graph 只容纳同一快照。Extractor 拥有解析与缓存；Builder 拥有构图、预算及原子发布，Graph 是只读结果；语言实现通过阶段接口提供事实、关系与诊断，不获取材料或直接操作图存储。
 4. AST 与引擎对象不穿透公共 API，提取结果脱离 parser 生命周期。新增语言能力同步更新注册声明及契约测试，grammar 可用不等于语义完整。
 5. 执行失败由 error 表达；局部诊断不否定无关事实。库测试验证图契约，真实语料验证语义覆盖，消费者验证自身策略与执行行为。
 6. 验证入口为 `make lint test build`，测试启用 race detector；工具准备和语料命令见 [评测执行入口](docs/corpus.md#执行与证据)。

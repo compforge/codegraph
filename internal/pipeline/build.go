@@ -15,6 +15,7 @@ type Lookup func(string) analysis.Adapter
 // +why=`A later document or language batch may supply a base type needed by inherited member lookup`
 func Build(ctx context.Context, scope analysis.BuildScope, nodeLimit, edgeLimit, evidenceLimit int, lookup Lookup) (*analysis.Index, []analysis.Gap, error) {
 	index := analysis.NewIndex(scope.Files)
+	index.Resolution = scope.Resolution
 	if err := index.AddSources(ctx, scope.Names); err != nil {
 		return nil, nil, err
 	}
@@ -22,7 +23,7 @@ func Build(ctx context.Context, scope analysis.BuildScope, nodeLimit, edgeLimit,
 	for _, p := range scope.Names {
 		f := scope.Files[p]
 		s := groups[f.Language]
-		s.Files, s.Module = scope.Files, scope.Module
+		s.Files, s.Module, s.Resolution = scope.Files, scope.Module, scope.Resolution
 		s.Names = append(s.Names, p)
 		groups[f.Language] = s
 	}
@@ -121,4 +122,10 @@ var ErrNodeLimit = fmt.Errorf("node limit reached")
 
 func Builtins(ctx context.Context, files map[string]analysis.Facts, module string, nodes, edges, evidence int) (*analysis.Index, []analysis.Gap, error) {
 	return Build(ctx, analysis.NewBuildScope(files, module), nodes, edges, evidence, language.Lookup)
+}
+
+func BuiltinsWithResolution(ctx context.Context, files map[string]analysis.Facts, module string, resolution analysis.ResolutionContext, nodes, edges, evidence int) (*analysis.Index, []analysis.Gap, error) {
+	scope := analysis.NewBuildScope(files, module)
+	scope.Resolution = resolution
+	return Build(ctx, scope, nodes, edges, evidence, language.Lookup)
 }

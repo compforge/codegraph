@@ -3,16 +3,24 @@ package codegraph
 import (
 	"bytes"
 	"context"
+
 	"github.com/compforge/codegraph/internal/analysis"
 	"github.com/compforge/codegraph/internal/language"
 	"github.com/compforge/codegraph/internal/pipeline"
 )
 
 // extractMaterial owns classification and raw extraction only. Callers own
-// cache policy, admission, scheduling, and atomic publication.
-func (g *Graph) extractMaterial(ctx context.Context, document Document) (analysis.Facts, error) {
+// admission, scheduling, and atomic publication.
+func (g *Extractor) extractMaterial(ctx context.Context, document Document) (analysis.Facts, error) {
 	if err := ctx.Err(); err != nil {
 		return analysis.Facts{}, err
+	}
+	var key extractionKey
+	if g.opts.Cache != nil {
+		key = extractionKey{path: document.Path, digest: document.digest()}
+		if facts, ok := g.opts.Cache.get(key); ok {
+			return facts, ctx.Err()
+		}
 	}
 	var facts analysis.Facts
 	if document.Gitlink != "" {
@@ -31,5 +39,9 @@ func (g *Graph) extractMaterial(ctx context.Context, document Document) (analysi
 			return analysis.Facts{}, err
 		}
 	}
-	return facts, ctx.Err()
+	if err := ctx.Err(); err != nil {
+		return analysis.Facts{}, err
+	}
+	g.opts.Cache.put(key, facts)
+	return facts, nil
 }

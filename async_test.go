@@ -74,9 +74,9 @@ func TestAsyncDocumentAndSymbolWithoutWait(t *testing.T) {
 
 func waitBackgroundBuild(t *testing.T, g *Graph) BuildReport {
 	t.Helper()
-	g.asyncMu.Lock()
-	work := g.latestWork
-	g.asyncMu.Unlock()
+	g.legacy.asyncMu.Lock()
+	work := g.legacy.latestWork
+	g.legacy.asyncMu.Unlock()
 	if work == nil {
 		t.Fatal("no build was scheduled")
 	}

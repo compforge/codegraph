@@ -24,6 +24,7 @@ func TestEvidenceDetachedAcrossAccessAndQuery(t *testing.T) {
 	// Supporting evidence is optional; inject one to exercise pointer ownership.
 	loc := original.Location
 	original.Evidence[0].Location = &loc
+	g = g.current()
 	g.relations[original.ID] = cloneRelation(original)
 	g.store, err = g.materialize(ctx, g.nodes, g.relations)
 	if err != nil {

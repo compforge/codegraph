@@ -28,9 +28,10 @@ type Organization struct {
 	Edges    []Edge
 }
 type BuildScope struct {
-	Files  map[string]Facts
-	Names  []string
-	Module string
+	Resolution ResolutionContext
+	Files      map[string]Facts
+	Names      []string
+	Module     string
 }
 
 func NewBuildScope(files map[string]Facts, module string) BuildScope {
@@ -45,6 +46,7 @@ func NewBuildScope(files map[string]Facts, module string) BuildScope {
 // Index owns all entities and relation evidence for one build. Namespace views
 // and source contributions are projections of these same relations.
 type Index struct {
+	Resolution    ResolutionContext
 	Files         map[string]Facts
 	Entities      map[Ref]Entity
 	Roots         map[string]Ref

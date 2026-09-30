@@ -1,17 +1,18 @@
 package codegraph
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/compforge/codegraph/internal/analysis"
 )
 
-// Facts is the detached extraction result for one source document, projected
-// from the same facts AddDocuments consumes. Extraction succeeds without
-// publishing any graph state, so consumers can explore dependencies and still
-// hand the same documents to AddDocuments without a second parse.
+// Facts owns the complete immutable extraction artifact for one document
+// version. Copying it shares immutable material, including language-specific
+// evidence needed for binding. Exported fields are detached inspection views:
+// changing them does not change what Builder.Add consumes. Use View for a fresh
+// projection. Only Extractor (or legacy Extract) can produce valid Facts.
 type Facts struct {
+	raw                     *analysis.Facts
 	Path, Package, Language string
 	// Gitlink retains the pinned commit for an opaque gitlink document.
 	Gitlink       string
@@ -108,67 +109,8 @@ type FactCall struct {
 	Targets          []FactCallTarget
 }
 
-// factCacheEntry keys extracted facts by content identity, so a cache hit
-// cannot confuse two different sources sharing one logical path.
-type factCacheEntry struct {
-	hash  [32]byte
-	facts analysis.Facts
-}
-
-// Extract returns detached source facts for one document without publishing
-// graph state. Results are cached by path and content identity: a later
-// AddDocuments of the same path and content reuses them instead of parsing
-// again, and facts of already loaded documents are projected without parsing.
-// Source documents without a registered grammar yield file-level facts carrying an
-// unsupported_language issue, mirroring how AddDocuments records them.
-// Gitlinks yield only their path and commit, without attempting language parsing.
-// +spec=`Exploration extraction never reparses identical snapshot content`
-func (g *Graph) Extract(ctx context.Context, document Document) (Facts, error) {
-	if err := document.validate(); err != nil {
-		return Facts{}, err
-	}
-	hash := document.digest()
-	g.factCacheMu.Lock()
-	entry, cached := g.factCache[document.Path]
-	g.factCacheMu.Unlock()
-	if cached && entry.hash == hash {
-		return projectFacts(entry.facts)
-	}
-	g.mu.RLock()
-	staged, loaded := g.documents[document.Path]
-	g.mu.RUnlock()
-	if loaded && document.matches(staged) {
-		return projectFacts(staged)
-	}
-	facts, err := g.extractMaterial(ctx, document)
-	if err != nil {
-		return Facts{}, err
-	}
-	if err := ctx.Err(); err != nil {
-		return Facts{}, err
-	}
-	g.factCacheMu.Lock()
-	g.factCache[document.Path] = factCacheEntry{hash: hash, facts: facts}
-	g.factCacheMu.Unlock()
-	return projectFacts(facts)
-}
-
-// cachedFacts returns a cached extraction for identical content and consumes
-// the entry: once staged, the graph's retained facts become the authoritative
-// copy, so the cache stays bounded to explored-but-not-yet-added documents.
-func (g *Graph) cachedFacts(document Document) (analysis.Facts, bool) {
-	g.factCacheMu.Lock()
-	defer g.factCacheMu.Unlock()
-	entry, ok := g.factCache[document.Path]
-	if !ok || entry.hash != document.digest() {
-		return analysis.Facts{}, false
-	}
-	delete(g.factCache, document.Path)
-	return entry.facts, true
-}
-
 func projectFacts(f analysis.Facts) (Facts, error) {
-	out := Facts{Path: f.Path, Package: f.Package, Language: f.Language, Gitlink: f.Gitlink}
+	out := Facts{raw: &f, Path: f.Path, Package: f.Package, Language: f.Language, Gitlink: f.Gitlink}
 	for _, d := range f.Declarations {
 		kind, err := declarationKind(d.Kind)
 		if err != nil {

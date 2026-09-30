@@ -128,9 +128,9 @@ func TestParallelExtractionBoundAndAtomicPublication(t *testing.T) {
 			}
 			if canceled {
 				// Wait cancellation is independent of background worker lifetime.
-				g.asyncMu.Lock()
-				work := g.latestWork
-				g.asyncMu.Unlock()
+				g.legacy.asyncMu.Lock()
+				work := g.legacy.latestWork
+				g.legacy.asyncMu.Unlock()
 				select {
 				case <-work.done:
 				case <-time.After(10 * time.Second):
