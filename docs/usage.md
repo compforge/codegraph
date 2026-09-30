@@ -66,6 +66,10 @@ fmt.Println(report.Diagnostics)
 补充依赖后可以再次提交并等待，关系会基于全部已加载材料重新解析。
 before / after 应使用不同 Graph；同路径不同内容会产生 ErrSnapshotChanged。
 
+重复分析相邻快照时，可创建 `NewExtractionCache(maxDocuments, maxSourceBytes)`，
+将同一个缓存通过 `Options.ExtractionCache` 传给两个 Graph，复用未变文件的提取结果。
+缓存只保留单文件事实，不复用已绑定关系；容量与生命周期见 [Document 契约](document.md)。
+
 ### 取消与容量
 
 - 提交上下文取消会使对应构建失败；取消 Wait 仅结束本次等待，不取消后台构建。

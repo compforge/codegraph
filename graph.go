@@ -22,6 +22,9 @@ import (
 // Scope contains snapshot-relative, slash-separated document paths or directory prefixes.
 // Empty Scope allows any relative path; documents are only analyzed when supplied.
 type Options struct {
+	// ExtractionCache optionally shares raw facts across snapshots; graph budgets
+	// and relationship binding still apply independently to each Graph.
+	ExtractionCache *ExtractionCache
 	// BuildConcurrency bounds parallel document extraction within a batch.
 	// Zero selects min(GOMAXPROCS, 4); one extracts serially.
 	BuildConcurrency                     int
