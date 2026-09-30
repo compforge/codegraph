@@ -116,7 +116,7 @@ spec、case、rule、link、doc 是声明上的结构化意图标记，保留内
 
 根包提供公共 API 和兼容转发；internal/extract 拥有材料、Facts、解析与缓存，internal/build
 拥有接纳、预算和原子发布，internal/graphstore 拥有只读快照与延迟查询索引。共享领域值在
-internal/graphmodel 保持单一定义，由根包通过类型别名公开，内部实现无需反向依赖根包。
+internal/model 保持单一定义，由根包通过类型别名公开，内部实现无需反向依赖根包。
 
 internal/analysis 定义分析事实及阶段契约；pipeline 根据语言注册信息编排阶段，语言适配器
 提供语义规则。AST 和引擎对象留在适配层，公共 API 返回独立的领域值。

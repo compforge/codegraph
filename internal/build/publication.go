@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/compforge/codegraph/internal/analysis"
-	"github.com/compforge/codegraph/internal/graphmodel"
 	"github.com/compforge/codegraph/internal/graphstore"
+	"github.com/compforge/codegraph/internal/model"
 )
 
 func (g *Builder) allowed(p string) bool {
@@ -28,6 +28,6 @@ func sortedFiles(files map[string]analysis.Facts) []string {
 	return out
 }
 
-func newGraph(snapshot string, opts Options, nodes map[string]graphmodel.Node, relations map[string]graphmodel.Relation, report graphmodel.BuildReport) *graphstore.Snapshot {
+func newGraph(snapshot string, opts Options, nodes map[string]model.Node, relations map[string]model.Relation, report model.BuildReport) *graphstore.Snapshot {
 	return graphstore.NewSnapshot(snapshot, nodes, relations, report, graphstore.Limits{Rows: opts.MaxResultRows, Bytes: opts.MaxResultBytes, Hops: opts.MaxQueryHops}, opts.QueryTimeout)
 }

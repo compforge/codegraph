@@ -7,7 +7,7 @@ import (
 
 	"github.com/compforge/codegraph/internal/analysis"
 	"github.com/compforge/codegraph/internal/extract"
-	"github.com/compforge/codegraph/internal/graphmodel"
+	"github.com/compforge/codegraph/internal/model"
 	"github.com/compforge/codegraph/internal/pipeline"
 )
 
@@ -18,7 +18,7 @@ import (
 // parsing; the file still enters the graph and the coverage gap stays visible
 // as an unsupported_language issue on that file.
 // +spec=`Workers own independent extraction results and never mutate graph maps`
-func (g *Session) stageDocuments(ctx context.Context, documents []extract.Document, staged map[string]analysis.Facts, failures map[string]graphmodel.Diagnostic, total int64, parseFailures map[string]error, prepared map[string]analysis.Facts) error {
+func (g *Session) stageDocuments(ctx context.Context, documents []extract.Document, staged map[string]analysis.Facts, failures map[string]model.Diagnostic, total int64, parseFailures map[string]error, prepared map[string]analysis.Facts) error {
 	for next := 0; next < len(documents); {
 		batch := make([]extract.Document, 0, min(g.opts.BuildConcurrency, len(documents)-next))
 		var reserved int64
@@ -29,8 +29,8 @@ func (g *Session) stageDocuments(ctx context.Context, documents []extract.Docume
 			document := documents[next]
 			name, data := document.Path, document.Content
 			issue := func(code, message string) {
-				failures[name] = graphmodel.Diagnostic{Code: code, Message: message, Subject: graphmodel.DocumentSubject,
-					Location: graphmodel.SourceLocation(pipeline.DocumentOnly(name, data), analysis.Span{End: len(data)})}
+				failures[name] = model.Diagnostic{Code: code, Message: message, Subject: model.DocumentSubject,
+					Location: model.SourceLocation(pipeline.DocumentOnly(name, data), analysis.Span{End: len(data)})}
 			}
 			if !g.allowed(name) {
 				issue("out_of_scope", "file is outside allowed scope")
@@ -38,11 +38,11 @@ func (g *Session) stageDocuments(ctx context.Context, documents []extract.Docume
 				continue
 			}
 			if extract.Size(document) > g.opts.MaxDocumentBytes {
-				return fmt.Errorf("%w: file %s exceeds byte limit", graphmodel.ErrBuildBudget, name)
+				return fmt.Errorf("%w: file %s exceeds byte limit", model.ErrBuildBudget, name)
 			}
 			if old, exists := staged[name]; exists {
 				if !extract.Matches(document, old) {
-					return fmt.Errorf("%w: %s", graphmodel.ErrSnapshotChanged, name)
+					return fmt.Errorf("%w: %s", model.ErrSnapshotChanged, name)
 				}
 				delete(failures, name)
 				next++
@@ -55,9 +55,9 @@ func (g *Session) stageDocuments(ctx context.Context, documents []extract.Docume
 			}
 			var budgetErr error
 			if len(staged)+len(batch) >= g.opts.MaxDocuments {
-				budgetErr = fmt.Errorf("%w: file limit %d", graphmodel.ErrBuildBudget, g.opts.MaxDocuments)
+				budgetErr = fmt.Errorf("%w: file limit %d", model.ErrBuildBudget, g.opts.MaxDocuments)
 			} else if extract.Size(document) > g.opts.MaxSourceBytes-total-reserved {
-				budgetErr = fmt.Errorf("%w: source byte limit", graphmodel.ErrBuildBudget)
+				budgetErr = fmt.Errorf("%w: source byte limit", model.ErrBuildBudget)
 			}
 			if budgetErr != nil {
 				if len(batch) == 0 {
@@ -93,8 +93,8 @@ func (g *Session) stageDocuments(ctx context.Context, documents []extract.Docume
 		for i, result := range results {
 			name := batch[i].Path
 			if result.err != nil {
-				failures[name] = graphmodel.Diagnostic{Code: "parse_error", Message: result.err.Error(), Subject: graphmodel.DocumentSubject,
-					Location: graphmodel.SourceLocation(pipeline.DocumentOnly(name, batch[i].Content), analysis.Span{End: len(batch[i].Content)})}
+				failures[name] = model.Diagnostic{Code: "parse_error", Message: result.err.Error(), Subject: model.DocumentSubject,
+					Location: model.SourceLocation(pipeline.DocumentOnly(name, batch[i].Content), analysis.Span{End: len(batch[i].Content)})}
 				continue
 			}
 			staged[name] = result.facts

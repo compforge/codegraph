@@ -5,13 +5,13 @@ import (
 
 	"github.com/compforge/codegraph/internal/analysis"
 	"github.com/compforge/codegraph/internal/extract"
-	"github.com/compforge/codegraph/internal/graphmodel"
+	"github.com/compforge/codegraph/internal/model"
 )
 
 // addPrepared publishes one explicit document batch atomically. Successful
 // asynchronous extractions are supplied explicitly; parse failures are
 // supplied separately so the background builder does not retry them.
-func (g *Session) addPrepared(ctx context.Context, parseFailures map[string]error, prepared map[string]analysis.Facts, documents ...extract.Document) (graphmodel.BuildReport, error) {
+func (g *Session) addPrepared(ctx context.Context, parseFailures map[string]error, prepared map[string]analysis.Facts, documents ...extract.Document) (model.BuildReport, error) {
 	g.buildMu.Lock()
 	defer g.buildMu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -28,7 +28,7 @@ func (g *Session) addPrepared(ctx context.Context, parseFailures map[string]erro
 		staged[p] = f
 		total += int64(len(f.Source) + len(f.Gitlink))
 	}
-	failures := map[string]graphmodel.Diagnostic{}
+	failures := map[string]model.Diagnostic{}
 	for p, d := range g.failures {
 		failures[p] = d
 	}
@@ -51,5 +51,5 @@ func (g *Session) addPrepared(ctx context.Context, parseFailures map[string]erro
 		g.sourceBytes += int64(len(f.Source) + len(f.Gitlink))
 	}
 	g.result = newGraph(g.snapshot, g.opts, nodes, relations, report)
-	return graphmodel.CloneReport(report), nil
+	return model.CloneReport(report), nil
 }

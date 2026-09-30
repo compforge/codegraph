@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/compforge/codegraph/internal/graphmodel"
+	"github.com/compforge/codegraph/internal/model"
 )
 
-func (g *Snapshot) materialize(ctx context.Context, nodes map[string]graphmodel.Node, relations map[string]graphmodel.Relation) (*Store, error) {
+func (g *Snapshot) materialize(ctx context.Context, nodes map[string]model.Node, relations map[string]model.Relation) (*Store, error) {
 	s := New(g.limits)
 	for _, n := range nodes {
 		if err := ctx.Err(); err != nil {
@@ -22,8 +22,8 @@ func (g *Snapshot) materialize(ctx context.Context, nodes map[string]graphmodel.
 			props["startByte"], props["endByte"] = n.Location.StartByte, n.Location.EndByte
 		}
 		kinds := []string{}
-		seen := map[graphmodel.MarkerKind]bool{}
-		for _, kind := range []graphmodel.MarkerKind{graphmodel.Spec, graphmodel.Case, graphmodel.Rule, graphmodel.Link, graphmodel.Doc} {
+		seen := map[model.MarkerKind]bool{}
+		for _, kind := range []model.MarkerKind{model.Spec, model.Case, model.Rule, model.Link, model.Doc} {
 			props[string(kind)] = []string{}
 		}
 		for _, m := range n.Markers {
@@ -58,7 +58,7 @@ func (g *Snapshot) materialize(ctx context.Context, nodes map[string]graphmodel.
 
 // GoGraph properties support scalar lists, not nested maps. Full evidence is
 // available on RETURN r and as JSON; bases is a queryable scalar projection.
-func evidenceBases(r graphmodel.Relation) []string {
+func evidenceBases(r model.Relation) []string {
 	var bases []string
 	for _, e := range r.Evidence {
 		if len(bases) == 0 || bases[len(bases)-1] != e.Basis {
@@ -67,4 +67,4 @@ func evidenceBases(r graphmodel.Relation) []string {
 	}
 	return bases
 }
-func evidenceJSON(r graphmodel.Relation) string { b, _ := json.Marshal(r.Evidence); return string(b) }
+func evidenceJSON(r model.Relation) string { b, _ := json.Marshal(r.Evidence); return string(b) }

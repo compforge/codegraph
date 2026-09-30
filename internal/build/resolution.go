@@ -7,7 +7,7 @@ import (
 
 	"github.com/compforge/codegraph/internal/analysis"
 	"github.com/compforge/codegraph/internal/extract"
-	"github.com/compforge/codegraph/internal/graphmodel"
+	"github.com/compforge/codegraph/internal/model"
 )
 
 // ResolutionContext supplies snapshot-specific repository knowledge. It never
@@ -28,7 +28,7 @@ type ImportResolution struct {
 	Document   string
 	Import     extract.FactImport
 	Targets    []string
-	Confidence graphmodel.Confidence
+	Confidence model.Confidence
 	Basis      string
 }
 
@@ -44,7 +44,7 @@ func compileResolution(context ResolutionContext, limit int) (analysis.Resolutio
 	for _, entry := range context.Imports {
 		used += 1 + len(entry.Targets)
 		if used > limit {
-			return out, fmt.Errorf("%w: resolution context", graphmodel.ErrBuildBudget)
+			return out, fmt.Errorf("%w: resolution context", model.ErrBuildBudget)
 		}
 		if !fs.ValidPath(entry.Document) || entry.Import.Location.StartByte < 0 || !entry.Confidence.Valid() {
 			return out, fmt.Errorf("invalid import resolution for %q", entry.Document)
@@ -67,7 +67,7 @@ func compileResolution(context ResolutionContext, limit int) (analysis.Resolutio
 		out.Imports[key] = analysis.ImportResolution{Targets: targets, Confidence: analysis.Confidence(entry.Confidence), Basis: entry.Basis}
 	}
 	if used > limit {
-		return out, fmt.Errorf("%w: resolution context", graphmodel.ErrBuildBudget)
+		return out, fmt.Errorf("%w: resolution context", model.ErrBuildBudget)
 	}
 	return out, nil
 }

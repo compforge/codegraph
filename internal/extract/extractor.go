@@ -9,7 +9,7 @@ import (
 
 	"github.com/alitto/pond/v2"
 	"github.com/compforge/codegraph/internal/analysis"
-	"github.com/compforge/codegraph/internal/graphmodel"
+	"github.com/compforge/codegraph/internal/model"
 )
 
 // ExtractionOptions controls parser work independently of any graph snapshot.
@@ -52,7 +52,7 @@ func (e *Extractor) acquire(ctx context.Context, doc Document) error {
 		return err
 	}
 	if doc.size() > e.opts.MaxDocumentBytes {
-		return fmt.Errorf("%w: file %s exceeds byte limit", graphmodel.ErrBuildBudget, doc.Path)
+		return fmt.Errorf("%w: file %s exceeds byte limit", model.ErrBuildBudget, doc.Path)
 	}
 	select {
 	case e.slots <- struct{}{}:

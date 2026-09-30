@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/compforge/codegraph/internal/analysis"
-	"github.com/compforge/codegraph/internal/graphmodel"
+	"github.com/compforge/codegraph/internal/model"
 )
 
 // Document is one source unit or opaque gitlink supplied for graph construction.
@@ -38,7 +38,7 @@ type Identifiable interface {
 }
 
 // ID is the Document node identity for this source document.
-func (d Document) ID() string { return graphmodel.DocumentID(d.Path) }
+func (d Document) ID() string { return model.DocumentID(d.Path) }
 
 func (d Document) validate() error {
 	if !fs.ValidPath(d.Path) {

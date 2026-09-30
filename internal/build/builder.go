@@ -10,8 +10,8 @@ import (
 
 	"github.com/compforge/codegraph/internal/analysis"
 	"github.com/compforge/codegraph/internal/extract"
-	"github.com/compforge/codegraph/internal/graphmodel"
 	"github.com/compforge/codegraph/internal/graphstore"
+	"github.com/compforge/codegraph/internal/model"
 	"github.com/compforge/codegraph/internal/pipeline"
 )
 
@@ -26,7 +26,7 @@ type Builder struct {
 	opts        Options
 	documents   map[string]analysis.Facts
 	sourceBytes int64
-	failures    map[string]graphmodel.Diagnostic
+	failures    map[string]model.Diagnostic
 	result      *graphstore.Snapshot
 }
 
@@ -42,9 +42,9 @@ func NewBuilder(snapshot string, opts Options) (*Builder, error) {
 		return nil, err
 	}
 	opts.ResolutionContext = ResolutionContext{}
-	b := &Builder{snapshot: snapshot, opts: opts, documents: map[string]analysis.Facts{}, failures: map[string]graphmodel.Diagnostic{}}
+	b := &Builder{snapshot: snapshot, opts: opts, documents: map[string]analysis.Facts{}, failures: map[string]model.Diagnostic{}}
 	b.resolution = resolution
-	b.result = newGraph(snapshot, opts, map[string]graphmodel.Node{}, map[string]graphmodel.Relation{}, graphmodel.BuildReport{Snapshot: snapshot, Documents: []string{}})
+	b.result = newGraph(snapshot, opts, map[string]model.Node{}, map[string]model.Relation{}, model.BuildReport{Snapshot: snapshot, Documents: []string{}})
 	return b, nil
 }
 
@@ -72,12 +72,12 @@ func (b *Builder) Add(facts ...extract.Facts) error {
 		}
 		if ok {
 			if !extract.Matches(doc, old) {
-				return fmt.Errorf("%w: %s", graphmodel.ErrSnapshotChanged, raw.Path)
+				return fmt.Errorf("%w: %s", model.ErrSnapshotChanged, raw.Path)
 			}
 			continue
 		}
 		if extract.Size(doc) > b.opts.MaxDocumentBytes || len(b.documents)+len(staged) >= b.opts.MaxDocuments || extract.Size(doc) > b.opts.MaxSourceBytes-total {
-			return fmt.Errorf("%w: %s", graphmodel.ErrBuildBudget, raw.Path)
+			return fmt.Errorf("%w: %s", model.ErrBuildBudget, raw.Path)
 		}
 		staged[raw.Path] = raw
 		total += extract.Size(doc)
@@ -128,7 +128,7 @@ func (b *Builder) AddFailure(doc extract.Document, failure error) error {
 	if failure == nil {
 		return errors.New("extraction failure is required")
 	}
-	if errors.Is(failure, graphmodel.ErrBuildBudget) || errors.Is(failure, context.Canceled) || errors.Is(failure, context.DeadlineExceeded) {
+	if errors.Is(failure, model.ErrBuildBudget) || errors.Is(failure, context.Canceled) || errors.Is(failure, context.DeadlineExceeded) {
 		return failure
 	}
 	b.buildMu.Lock()
@@ -142,15 +142,15 @@ func (b *Builder) AddFailure(doc extract.Document, failure error) error {
 		return fmt.Errorf("document %s is outside allowed scope", doc.Path)
 	}
 	if extract.Size(doc) > b.opts.MaxDocumentBytes {
-		return fmt.Errorf("%w: %s", graphmodel.ErrBuildBudget, doc.Path)
+		return fmt.Errorf("%w: %s", model.ErrBuildBudget, doc.Path)
 	}
-	b.failures[doc.Path] = graphmodel.Diagnostic{Code: "parse_error", Message: failure.Error(), Subject: graphmodel.DocumentSubject, Location: graphmodel.SourceLocation(pipeline.DocumentOnly(doc.Path, doc.Content), analysis.Span{End: len(doc.Content)})}
+	b.failures[doc.Path] = model.Diagnostic{Code: "parse_error", Message: failure.Error(), Subject: model.DocumentSubject, Location: model.SourceLocation(pipeline.DocumentOnly(doc.Path, doc.Content), analysis.Span{End: len(doc.Content)})}
 	return nil
 }
 
 // Build runs Organize, Bind and Resolve using only admitted facts. A caller can
 // keep older results while adding more facts and publishing another result.
-func (b *Builder) Build(ctx context.Context) (*graphstore.Snapshot, graphmodel.BuildReport, error) {
+func (b *Builder) Build(ctx context.Context) (*graphstore.Snapshot, model.BuildReport, error) {
 	b.buildMu.Lock()
 	defer b.buildMu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -167,9 +167,9 @@ func (b *Builder) Build(ctx context.Context) (*graphstore.Snapshot, graphmodel.B
 	b.mu.Lock()
 	b.result = result
 	b.mu.Unlock()
-	return result, graphmodel.CloneReport(report), nil
+	return result, model.CloneReport(report), nil
 }
 
 // Result is the last successful publication (initially an empty graph).
-func (b *Builder) Result() *graphstore.Snapshot   { b.mu.RLock(); defer b.mu.RUnlock(); return b.result }
-func (b *Builder) Report() graphmodel.BuildReport { return b.Result().Report() }
+func (b *Builder) Result() *graphstore.Snapshot { b.mu.RLock(); defer b.mu.RUnlock(); return b.result }
+func (b *Builder) Report() model.BuildReport    { return b.Result().Report() }

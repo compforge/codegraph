@@ -2,7 +2,7 @@ package codegraph
 
 import (
 	"github.com/compforge/codegraph/internal/extract"
-	"github.com/compforge/codegraph/internal/graphmodel"
+	"github.com/compforge/codegraph/internal/model"
 )
 
 // Document is one source unit or opaque gitlink supplied for graph construction.
@@ -80,4 +80,4 @@ func NewExtractionCache(maxDocuments int, maxSourceBytes int64) (*ExtractionCach
 }
 
 // DocumentID identifies a document node by its snapshot-relative logical path.
-func DocumentID(name string) string { return graphmodel.DocumentID(name) }
+func DocumentID(name string) string { return model.DocumentID(name) }

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/compforge/codegraph/internal/graphmodel"
+	"github.com/compforge/codegraph/internal/model"
 )
 
 // Query returns detached Go values: Node, Relation, Path, scalar values,
@@ -54,28 +54,28 @@ func (g *Snapshot) project(v any) (any, error) {
 			if !ok {
 				return nil, fmt.Errorf("unknown relation %s", v.ID)
 			}
-			return graphmodel.CloneRelation(r), nil
+			return model.CloneRelation(r), nil
 		}
 		n, ok := g.nodes[v.ID]
 		if !ok {
 			return nil, fmt.Errorf("unknown node %s", v.ID)
 		}
-		return graphmodel.CloneNode(n), nil
+		return model.CloneNode(n), nil
 	case Path:
-		p := graphmodel.Path{}
+		p := model.Path{}
 		for _, n := range v.Nodes {
 			x, err := g.project(n)
 			if err != nil {
 				return nil, err
 			}
-			p.Nodes = append(p.Nodes, x.(graphmodel.Node))
+			p.Nodes = append(p.Nodes, x.(model.Node))
 		}
 		for _, r := range v.Relations {
 			x, err := g.project(r)
 			if err != nil {
 				return nil, err
 			}
-			p.Relations = append(p.Relations, x.(graphmodel.Relation))
+			p.Relations = append(p.Relations, x.(model.Relation))
 		}
 		return p, nil
 	case []any:

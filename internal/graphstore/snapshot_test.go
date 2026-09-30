@@ -9,19 +9,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/compforge/codegraph/internal/graphmodel"
+	"github.com/compforge/codegraph/internal/model"
 )
 
 func TestEvidenceDetachedAcrossAccessAndQuery(t *testing.T) {
 	ctx := context.Background()
-	loc := graphmodel.Location{Path: "a.go", Line: 1, Column: 1}
-	nodes := map[string]graphmodel.Node{"a": {ID: "a", Kind: graphmodel.Function, Name: "entry", Location: &loc}, "b": {ID: "b", Kind: graphmodel.Function, Name: "target", Location: &loc}}
-	relations := map[string]graphmodel.Relation{"r": {ID: "r", Source: "a", Target: "b", Kind: graphmodel.Calls, Confidence: graphmodel.Exact, Evidence: []graphmodel.Evidence{{Basis: "call", Confidence: graphmodel.Exact}}, Location: loc}}
-	g := NewSnapshot("proofs", nodes, relations, graphmodel.BuildReport{Snapshot: "proofs"}, Limits{Rows: 100, Bytes: 1 << 20, Hops: 8}, time.Second)
+	loc := model.Location{Path: "a.go", Line: 1, Column: 1}
+	nodes := map[string]model.Node{"a": {ID: "a", Kind: model.Function, Name: "entry", Location: &loc}, "b": {ID: "b", Kind: model.Function, Name: "target", Location: &loc}}
+	relations := map[string]model.Relation{"r": {ID: "r", Source: "a", Target: "b", Kind: model.Calls, Confidence: model.Exact, Evidence: []model.Evidence{{Basis: "call", Confidence: model.Exact}}, Location: loc}}
+	g := NewSnapshot("proofs", nodes, relations, model.BuildReport{Snapshot: "proofs"}, Limits{Rows: 100, Bytes: 1 << 20, Hops: 8}, time.Second)
 	var err error
-	var original graphmodel.Relation
+	var original model.Relation
 	for _, r := range g.Relations() {
-		if r.Kind == graphmodel.Calls {
+		if r.Kind == model.Calls {
 			original = r
 			break
 		}
@@ -29,13 +29,13 @@ func TestEvidenceDetachedAcrossAccessAndQuery(t *testing.T) {
 	// Supporting evidence is optional; inject one to exercise pointer ownership.
 	proofLocation := original.Location
 	original.Evidence[0].Location = &proofLocation
-	g.relations[original.ID] = graphmodel.CloneRelation(original)
+	g.relations[original.ID] = model.CloneRelation(original)
 	g.store, err = g.materialize(ctx, g.nodes, g.relations)
 	if err != nil {
 		t.Fatal(err)
 	}
-	mutate := func(r graphmodel.Relation) { r.Evidence[0].Basis = "mutated"; r.Evidence[0].Location.Path = "mutated" }
-	for _, get := range []func() []graphmodel.Relation{g.Relations, func() []graphmodel.Relation { return g.RelationsFrom(original.Source) }, func() []graphmodel.Relation { return g.RelationsTo(original.Target) }} {
+	mutate := func(r model.Relation) { r.Evidence[0].Basis = "mutated"; r.Evidence[0].Location.Path = "mutated" }
+	for _, get := range []func() []model.Relation{g.Relations, func() []model.Relation { return g.RelationsFrom(original.Source) }, func() []model.Relation { return g.RelationsTo(original.Target) }} {
 		for _, r := range get() {
 			if r.ID == original.ID {
 				mutate(r)
@@ -47,7 +47,7 @@ func TestEvidenceDetachedAcrossAccessAndQuery(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, row := range rows {
-		r := row["r"].(graphmodel.Relation)
+		r := row["r"].(model.Relation)
 		if r.ID == original.ID {
 			mutate(r)
 		}
@@ -57,7 +57,7 @@ func TestEvidenceDetachedAcrossAccessAndQuery(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, row := range rows {
-		for _, r := range row["p"].(graphmodel.Path).Relations {
+		for _, r := range row["p"].(model.Path).Relations {
 			if r.ID == original.ID {
 				mutate(r)
 			}
@@ -71,7 +71,7 @@ func TestEvidenceDetachedAcrossAccessAndQuery(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, row := range rows {
-		var proof []graphmodel.Evidence
+		var proof []model.Evidence
 		if err := json.Unmarshal([]byte(row["evidence"].(string)), &proof); err != nil || len(proof) == 0 {
 			t.Fatal(row, err)
 		}
@@ -81,8 +81,8 @@ func TestEvidenceDetachedAcrossAccessAndQuery(t *testing.T) {
 // Typed navigation never needs the query index. A canceled first query must
 // leave index construction retryable for later, concurrent readers.
 func TestSnapshotLazyQueryIndex(t *testing.T) {
-	g := NewSnapshot("lazy", map[string]graphmodel.Node{"a": {ID: "a", Kind: graphmodel.Function, Name: "A", QualifiedName: "A", Location: &graphmodel.Location{Path: "a.go"}}}, nil, graphmodel.BuildReport{Snapshot: "lazy"}, Limits{Rows: 10, Bytes: 1 << 20, Hops: 8}, time.Second)
-	if len(g.Nodes()) != 1 || len(g.Find("a.go", graphmodel.Function, "A")) != 1 || g.store != nil {
+	g := NewSnapshot("lazy", map[string]model.Node{"a": {ID: "a", Kind: model.Function, Name: "A", QualifiedName: "A", Location: &model.Location{Path: "a.go"}}}, nil, model.BuildReport{Snapshot: "lazy"}, Limits{Rows: 10, Bytes: 1 << 20, Hops: 8}, time.Second)
+	if len(g.Nodes()) != 1 || len(g.Find("a.go", model.Function, "A")) != 1 || g.store != nil {
 		t.Fatal("typed navigation allocated query storage")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
