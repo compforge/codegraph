@@ -1,9 +1,10 @@
-package codegraph
+package build
 
 import (
 	"context"
 
 	"github.com/compforge/codegraph/internal/analysis"
+	"github.com/compforge/codegraph/internal/extract"
 )
 
 // factCacheEntry keys extracted facts by content identity, so a cache hit
@@ -21,47 +22,47 @@ type factCacheEntry struct {
 // unsupported_language issue, mirroring how AddDocuments records them.
 // Gitlinks yield only their path and commit, without attempting language parsing.
 // +spec=`Exploration extraction never reparses identical snapshot content`
-func (g *Builder) Extract(ctx context.Context, document Document) (Facts, error) {
+func (g *Session) Extract(ctx context.Context, document extract.Document) (extract.Facts, error) {
 	if err := ctx.Err(); err != nil {
-		return Facts{}, err
+		return extract.Facts{}, err
 	}
-	if err := document.validate(); err != nil {
-		return Facts{}, err
+	if err := extract.Validate(document); err != nil {
+		return extract.Facts{}, err
 	}
-	hash := document.digest()
+	hash := extract.Digest(document)
 	g.factCacheMu.Lock()
 	entry, cached := g.factCache[document.Path]
 	g.factCacheMu.Unlock()
 	if cached && entry.hash == hash {
-		return projectFacts(entry.facts)
+		return extract.Project(entry.facts)
 	}
 	g.mu.RLock()
 	staged, loaded := g.documents[document.Path]
 	g.mu.RUnlock()
-	if loaded && document.matches(staged) {
-		return projectFacts(staged)
+	if loaded && extract.Matches(document, staged) {
+		return extract.Project(staged)
 	}
-	facts, err := g.extractor.extract(ctx, document)
+	facts, err := extract.ExtractMaterial(ctx, g.extractor, document)
 	if err != nil {
-		return Facts{}, err
+		return extract.Facts{}, err
 	}
 	if err := ctx.Err(); err != nil {
-		return Facts{}, err
+		return extract.Facts{}, err
 	}
 	g.factCacheMu.Lock()
 	g.factCache[document.Path] = factCacheEntry{hash: hash, facts: facts}
 	g.factCacheMu.Unlock()
-	return projectFacts(facts)
+	return extract.Project(facts)
 }
 
 // cachedFacts returns a cached extraction for identical content and consumes
 // the entry: once staged, the graph's retained facts become the authoritative
 // copy, so the cache stays bounded to explored-but-not-yet-added documents.
-func (g *Builder) cachedFacts(document Document) (analysis.Facts, bool) {
+func (g *Session) cachedFacts(document extract.Document) (analysis.Facts, bool) {
 	g.factCacheMu.Lock()
 	defer g.factCacheMu.Unlock()
 	entry, ok := g.factCache[document.Path]
-	if !ok || entry.hash != document.digest() {
+	if !ok || entry.hash != extract.Digest(document) {
 		return analysis.Facts{}, false
 	}
 	delete(g.factCache, document.Path)

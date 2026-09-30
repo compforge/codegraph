@@ -1,13 +1,14 @@
-package codegraph
+package build
 
 import (
 	"context"
 	"fmt"
 	"sync"
 
-	"github.com/compforge/codegraph/internal/pipeline"
-
 	"github.com/compforge/codegraph/internal/analysis"
+	"github.com/compforge/codegraph/internal/extract"
+	"github.com/compforge/codegraph/internal/graphmodel"
+	"github.com/compforge/codegraph/internal/pipeline"
 )
 
 // stageDocuments reserves capacity for each extraction window before starting
@@ -17,9 +18,9 @@ import (
 // parsing; the file still enters the graph and the coverage gap stays visible
 // as an unsupported_language issue on that file.
 // +spec=`Workers own independent extraction results and never mutate graph maps`
-func (g *Builder) stageDocuments(ctx context.Context, documents []Document, staged map[string]analysis.Facts, failures map[string]Diagnostic, total int64, parseFailures map[string]error, prepared map[string]analysis.Facts) error {
+func (g *Session) stageDocuments(ctx context.Context, documents []extract.Document, staged map[string]analysis.Facts, failures map[string]graphmodel.Diagnostic, total int64, parseFailures map[string]error, prepared map[string]analysis.Facts) error {
 	for next := 0; next < len(documents); {
-		batch := make([]Document, 0, min(g.opts.BuildConcurrency, len(documents)-next))
+		batch := make([]extract.Document, 0, min(g.opts.BuildConcurrency, len(documents)-next))
 		var reserved int64
 		for next < len(documents) && len(batch) < g.opts.BuildConcurrency {
 			if err := ctx.Err(); err != nil {
@@ -28,20 +29,20 @@ func (g *Builder) stageDocuments(ctx context.Context, documents []Document, stag
 			document := documents[next]
 			name, data := document.Path, document.Content
 			issue := func(code, message string) {
-				failures[name] = Diagnostic{Code: code, Message: message, Subject: DocumentSubject,
-					Location: location(pipeline.DocumentOnly(name, data), analysis.Span{End: len(data)})}
+				failures[name] = graphmodel.Diagnostic{Code: code, Message: message, Subject: graphmodel.DocumentSubject,
+					Location: graphmodel.SourceLocation(pipeline.DocumentOnly(name, data), analysis.Span{End: len(data)})}
 			}
 			if !g.allowed(name) {
 				issue("out_of_scope", "file is outside allowed scope")
 				next++
 				continue
 			}
-			if document.size() > g.opts.MaxDocumentBytes {
-				return fmt.Errorf("%w: file %s exceeds byte limit", ErrBuildBudget, name)
+			if extract.Size(document) > g.opts.MaxDocumentBytes {
+				return fmt.Errorf("%w: file %s exceeds byte limit", graphmodel.ErrBuildBudget, name)
 			}
 			if old, exists := staged[name]; exists {
-				if !document.matches(old) {
-					return fmt.Errorf("%w: %s", ErrSnapshotChanged, name)
+				if !extract.Matches(document, old) {
+					return fmt.Errorf("%w: %s", graphmodel.ErrSnapshotChanged, name)
 				}
 				delete(failures, name)
 				next++
@@ -54,9 +55,9 @@ func (g *Builder) stageDocuments(ctx context.Context, documents []Document, stag
 			}
 			var budgetErr error
 			if len(staged)+len(batch) >= g.opts.MaxDocuments {
-				budgetErr = fmt.Errorf("%w: file limit %d", ErrBuildBudget, g.opts.MaxDocuments)
-			} else if document.size() > g.opts.MaxSourceBytes-total-reserved {
-				budgetErr = fmt.Errorf("%w: source byte limit", ErrBuildBudget)
+				budgetErr = fmt.Errorf("%w: file limit %d", graphmodel.ErrBuildBudget, g.opts.MaxDocuments)
+			} else if extract.Size(document) > g.opts.MaxSourceBytes-total-reserved {
+				budgetErr = fmt.Errorf("%w: source byte limit", graphmodel.ErrBuildBudget)
 			}
 			if budgetErr != nil {
 				if len(batch) == 0 {
@@ -75,12 +76,12 @@ func (g *Builder) stageDocuments(ctx context.Context, documents []Document, stag
 			}
 			if ok {
 				staged[name] = facts
-				total += document.size()
+				total += extract.Size(document)
 				next++
 				continue
 			}
 			batch = append(batch, document)
-			reserved += document.size()
+			reserved += extract.Size(document)
 			next++
 		}
 		results := g.extractBatch(ctx, batch)
@@ -92,8 +93,8 @@ func (g *Builder) stageDocuments(ctx context.Context, documents []Document, stag
 		for i, result := range results {
 			name := batch[i].Path
 			if result.err != nil {
-				failures[name] = Diagnostic{Code: "parse_error", Message: result.err.Error(), Subject: DocumentSubject,
-					Location: location(pipeline.DocumentOnly(name, batch[i].Content), analysis.Span{End: len(batch[i].Content)})}
+				failures[name] = graphmodel.Diagnostic{Code: "parse_error", Message: result.err.Error(), Subject: graphmodel.DocumentSubject,
+					Location: graphmodel.SourceLocation(pipeline.DocumentOnly(name, batch[i].Content), analysis.Span{End: len(batch[i].Content)})}
 				continue
 			}
 			staged[name] = result.facts
@@ -109,11 +110,7 @@ type extractionResult struct {
 	err   error
 }
 
-// parseObserver, when set, receives the path of every document actually
-// parsed in a batch. Test instrumentation for the Extract cache contract.
-var parseObserver func(string)
-
-func (g *Builder) extractBatch(ctx context.Context, documents []Document) []extractionResult {
+func (g *Session) extractBatch(ctx context.Context, documents []extract.Document) []extractionResult {
 	results := make([]extractionResult, len(documents))
 	run := func(i int) {
 		if err := ctx.Err(); err != nil {
@@ -121,7 +118,7 @@ func (g *Builder) extractBatch(ctx context.Context, documents []Document) []extr
 			return
 		}
 		document := documents[i]
-		results[i].facts, results[i].err = g.extractor.extract(ctx, document)
+		results[i].facts, results[i].err = extract.ExtractMaterial(ctx, g.extractor, document)
 	}
 	if len(documents) == 1 {
 		run(0)

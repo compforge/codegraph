@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+
+	"github.com/compforge/codegraph/internal/extract"
 )
 
 func TestExtractReturnsDetachedFacts(t *testing.T) {
@@ -51,8 +53,8 @@ func TestExtractThenAddParsesOnce(t *testing.T) {
 	ctx := context.Background()
 	source := fixture()
 	parsed := map[string]int{}
-	parseObserver = func(path string) { parsed[path]++ }
-	defer func() { parseObserver = nil }()
+	extract.ParseObserver = func(path string) { parsed[path]++ }
+	defer func() { extract.ParseObserver = nil }()
 	g, err := New("rev", Options{ModulePath: "example.org/demo"})
 	if err != nil {
 		t.Fatal(err)
@@ -83,8 +85,8 @@ func TestExtractThenAddParsesOnce(t *testing.T) {
 func TestExtractCacheFollowsContentIdentity(t *testing.T) {
 	ctx := context.Background()
 	parsed := map[string]int{}
-	parseObserver = func(path string) { parsed[path]++ }
-	defer func() { parseObserver = nil }()
+	extract.ParseObserver = func(path string) { parsed[path]++ }
+	defer func() { extract.ParseObserver = nil }()
 	g, err := New("rev", Options{})
 	if err != nil {
 		t.Fatal(err)
@@ -108,8 +110,8 @@ func TestExtractProjectsLoadedDocuments(t *testing.T) {
 	ctx := context.Background()
 	source := fixture()
 	parsed := map[string]int{}
-	parseObserver = func(path string) { parsed[path]++ }
-	defer func() { parseObserver = nil }()
+	extract.ParseObserver = func(path string) { parsed[path]++ }
+	defer func() { extract.ParseObserver = nil }()
 	g, err := New("rev", Options{ModulePath: "example.org/demo"})
 	if err != nil {
 		t.Fatal(err)

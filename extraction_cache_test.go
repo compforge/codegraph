@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+
+	"github.com/compforge/codegraph/internal/extract"
 )
 
 func extractionCache(t *testing.T, maxDocuments int, maxSourceBytes int64) *ExtractionCache {
@@ -20,8 +22,8 @@ func extractionCache(t *testing.T, maxDocuments int, maxSourceBytes int64) *Extr
 func TestSharedExtractionCacheIdentityAndDetachedProjection(t *testing.T) {
 	cache := extractionCache(t, 0, 0)
 	parsed := 0
-	parseObserver = func(string) { parsed++ }
-	defer func() { parseObserver = nil }()
+	extract.ParseObserver = func(string) { parsed++ }
+	defer func() { extract.ParseObserver = nil }()
 	extract := func(snapshot string, document Document) Facts {
 		t.Helper()
 		g, err := New(snapshot, Options{ExtractionCache: cache})
@@ -65,8 +67,8 @@ func TestSharedExtractionCacheRebindsEachSnapshot(t *testing.T) {
 	before := []Document{caller, {Path: "target.go", Content: []byte("package app\nfunc Target(){}\n")}}
 	after := []Document{caller, {Path: "target.go", Content: []byte("package app\nfunc Other(){}\n")}}
 	parsed := map[string]int{}
-	parseObserver = func(path string) { parsed[path]++ }
-	defer func() { parseObserver = nil }()
+	extract.ParseObserver = func(path string) { parsed[path]++ }
+	defer func() { extract.ParseObserver = nil }()
 	build := func(snapshot string, docs []Document, c *ExtractionCache) *Graph {
 		t.Helper()
 		g, err := New(snapshot, Options{ExtractionCache: c, BuildConcurrency: 1})
@@ -103,13 +105,13 @@ func TestSharedExtractionCacheBoundsDoNotChangeGraphBudgets(t *testing.T) {
 		documents int
 		bytes     int64
 	}{
-		{"documents", 1, 1024}, {"source bytes", 10, a.size()},
+		{"documents", 1, 1024}, {"source bytes", 10, int64(len(a.Content) + len(a.Gitlink))},
 	} {
 		t.Run(limits.name, func(t *testing.T) {
 			cache := extractionCache(t, limits.documents, limits.bytes)
 			parsed := 0
-			parseObserver = func(string) { parsed++ }
-			defer func() { parseObserver = nil }()
+			extract.ParseObserver = func(string) { parsed++ }
+			defer func() { extract.ParseObserver = nil }()
 			for _, snapshot := range []string{"before", "after"} {
 				g, err := New(snapshot, Options{ExtractionCache: cache, BuildConcurrency: 1})
 				if err != nil {
@@ -145,7 +147,7 @@ func TestSharedExtractionCacheBoundsDoNotChangeGraphBudgets(t *testing.T) {
 			if _, err := g.Wait(context.Background()); !errors.Is(err, ErrBuildBudget) {
 				t.Fatalf("cache bypassed byte budget: %v", err)
 			}
-			g, err = New("source-limited", Options{ExtractionCache: cache, MaxSourceBytes: a.size() - 1})
+			g, err = New("source-limited", Options{ExtractionCache: cache, MaxSourceBytes: int64(len(a.Content)+len(a.Gitlink)) - 1})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -173,8 +175,8 @@ func TestSharedExtractionCacheBoundsDoNotChangeGraphBudgets(t *testing.T) {
 func TestSharedExtractionCacheDoesNotRetainFailedOrCancelledExtraction(t *testing.T) {
 	cache := extractionCache(t, 0, 0)
 	parsed := 0
-	parseObserver = func(string) { parsed++ }
-	defer func() { parseObserver = nil }()
+	extract.ParseObserver = func(string) { parsed++ }
+	defer func() { extract.ParseObserver = nil }()
 	bad := Document{Path: "bad.go", Content: []byte("package app\nfunc broken(\n")}
 	for i := 0; i < 2; i++ {
 		g, err := New("rev", Options{ExtractionCache: cache})

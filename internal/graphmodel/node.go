@@ -1,4 +1,4 @@
-package codegraph
+package graphmodel
 
 import (
 	"fmt"
@@ -65,7 +65,7 @@ type Node struct {
 	Markers       []Marker  `json:"markers,omitempty"`
 }
 
-func cloneNode(n Node) Node {
+func CloneNode(n Node) Node {
 	if n.Location != nil {
 		loc := *n.Location
 		n.Location = &loc
@@ -74,7 +74,7 @@ func cloneNode(n Node) Node {
 	return n
 }
 
-func declarationKind(kind string) (NodeKind, error) {
+func DeclarationKind(kind string) (NodeKind, error) {
 	if concrete := analysis.ConcreteKind(kind); concrete != "" {
 		return NodeKind(concrete), nil
 	}

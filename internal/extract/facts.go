@@ -1,9 +1,10 @@
-package codegraph
+package extract
 
 import (
 	"fmt"
 
 	"github.com/compforge/codegraph/internal/analysis"
+	"github.com/compforge/codegraph/internal/graphmodel"
 )
 
 // Facts owns the complete immutable extraction artifact for one document
@@ -21,7 +22,7 @@ type Facts struct {
 	Calls         []FactCall
 	References    []FactReference
 	TypeRelations []FactTypeRelation
-	Issues        []Diagnostic
+	Issues        []graphmodel.Diagnostic
 	// Exports maps explicit public names to local declarations or imported bindings.
 	// Cross-module re-exports are recorded on Imports.Bindings.
 	Exports map[string]string
@@ -50,9 +51,9 @@ type Expression struct {
 
 type FactDeclaration struct {
 	Name, QualifiedName string
-	Kind                NodeKind
-	Location            Location
-	Markers             []Marker
+	Kind                graphmodel.NodeKind
+	Location            graphmodel.Location
+	Markers             []graphmodel.Marker
 }
 
 type FactImport struct {
@@ -64,21 +65,21 @@ type FactImport struct {
 	// whole module is imported.
 	Names    []string
 	Bindings []FactImportBinding
-	Location Location
+	Location graphmodel.Location
 }
 
 // FactImportBinding preserves a source name, its local alias and its statement scope.
 type FactImportBinding struct {
 	Name, Local         string
 	Namespace, ReExport bool
-	Location            Location
+	Location            graphmodel.Location
 }
 
 // FactReference records one identifier use. Owner indexes Declarations, or is
 // -1 for file scope. A missing target does not discard the lexical fact.
 type FactReference struct {
 	Name, Receiver string
-	Location       Location
+	Location       graphmodel.Location
 	Owner          int
 }
 
@@ -87,7 +88,7 @@ type FactReference struct {
 // Module is a source import qualifier, not a fetched dependency identity.
 type FactCallTarget struct {
 	Name, ReceiverType, Module string
-	Kind                       NodeKind
+	Kind                       graphmodel.NodeKind
 	Basis                      string
 }
 
@@ -96,14 +97,14 @@ type FactCallTarget struct {
 type FactTypeRelation struct {
 	Owner        int
 	Name, Module string
-	Kind         RelationKind
+	Kind         graphmodel.RelationKind
 	Basis        string
-	Location     Location
+	Location     graphmodel.Location
 }
 
 type FactCall struct {
 	Name, Receiver string
-	Location       Location
+	Location       graphmodel.Location
 	// Blocked excludes the static-function path; Targets may still carry dispatch candidates.
 	Blocked, Builtin bool
 	Targets          []FactCallTarget
@@ -112,13 +113,13 @@ type FactCall struct {
 func projectFacts(f analysis.Facts) (Facts, error) {
 	out := Facts{raw: &f, Path: f.Path, Package: f.Package, Language: f.Language, Gitlink: f.Gitlink}
 	for _, d := range f.Declarations {
-		kind, err := declarationKind(d.Kind)
+		kind, err := graphmodel.DeclarationKind(d.Kind)
 		if err != nil {
 			return Facts{}, fmt.Errorf("%s: %w", f.Path, err)
 		}
-		decl := FactDeclaration{Name: d.Name, QualifiedName: d.QualifiedName, Kind: kind, Location: location(f, d.Span)}
+		decl := FactDeclaration{Name: d.Name, QualifiedName: d.QualifiedName, Kind: kind, Location: graphmodel.SourceLocation(f, d.Span)}
 		for _, m := range d.Comments {
-			decl.Markers = append(decl.Markers, Marker{Kind: MarkerKind(m.Kind), Text: m.Text, Location: location(f, m.Span)})
+			decl.Markers = append(decl.Markers, graphmodel.Marker{Kind: graphmodel.MarkerKind(m.Kind), Text: m.Text, Location: graphmodel.SourceLocation(f, m.Span)})
 		}
 		out.Declarations = append(out.Declarations, decl)
 	}
@@ -128,9 +129,9 @@ func projectFacts(f analysis.Facts) (Facts, error) {
 		byStart[i.Span.Start] = append(byStart[i.Span.Start], j)
 		bindings := make([]FactImportBinding, 0, len(i.Bindings))
 		for _, b := range i.Bindings {
-			bindings = append(bindings, FactImportBinding{Name: b.Name, Local: b.Local, Namespace: b.Namespace, ReExport: b.ReExport, Location: location(f, b.Span)})
+			bindings = append(bindings, FactImportBinding{Name: b.Name, Local: b.Local, Namespace: b.Namespace, ReExport: b.ReExport, Location: graphmodel.SourceLocation(f, b.Span)})
 		}
-		imports = append(imports, FactImport{Bindings: bindings, Alias: i.Alias, Path: i.Path, From: i.From, Relative: i.Relative, Binding: i.Binding, Names: append([]string(nil), i.Names...), Location: location(f, i.Span)})
+		imports = append(imports, FactImport{Bindings: bindings, Alias: i.Alias, Path: i.Path, From: i.From, Relative: i.Relative, Binding: i.Binding, Names: append([]string(nil), i.Names...), Location: graphmodel.SourceLocation(f, i.Span)})
 	}
 	out.Imports = imports
 	for _, s := range f.Statements {
@@ -145,25 +146,25 @@ func projectFacts(f analysis.Facts) (Facts, error) {
 	for _, c := range f.Calls {
 		targets := make([]FactCallTarget, 0, len(c.Targets))
 		for _, target := range c.Targets {
-			kind := Function
+			kind := graphmodel.Function
 			if target.Kind == "method" {
-				kind = Method
+				kind = graphmodel.Method
 			}
 			if target.Kind == "constructor" {
-				kind = Constructor
+				kind = graphmodel.Constructor
 			}
 			targets = append(targets, FactCallTarget{Name: target.Name, ReceiverType: target.ReceiverType, Module: target.Module, Kind: kind, Basis: target.Basis})
 		}
-		out.Calls = append(out.Calls, FactCall{Targets: targets, Name: c.Name, Receiver: c.Receiver, Location: location(f, c.Span), Blocked: c.Blocked, Builtin: c.Builtin})
+		out.Calls = append(out.Calls, FactCall{Targets: targets, Name: c.Name, Receiver: c.Receiver, Location: graphmodel.SourceLocation(f, c.Span), Blocked: c.Blocked, Builtin: c.Builtin})
 	}
 	for _, r := range f.References {
-		out.References = append(out.References, FactReference{Name: r.Name, Receiver: r.Receiver, Location: location(f, r.Span), Owner: r.Owner})
+		out.References = append(out.References, FactReference{Name: r.Name, Receiver: r.Receiver, Location: graphmodel.SourceLocation(f, r.Span), Owner: r.Owner})
 	}
 	for _, r := range f.TypeRelations {
-		out.TypeRelations = append(out.TypeRelations, FactTypeRelation{Owner: r.Owner, Name: r.Name, Module: r.Module, Kind: RelationKind(r.Kind), Basis: r.Basis, Location: location(f, r.Span)})
+		out.TypeRelations = append(out.TypeRelations, FactTypeRelation{Owner: r.Owner, Name: r.Name, Module: r.Module, Kind: graphmodel.RelationKind(r.Kind), Basis: r.Basis, Location: graphmodel.SourceLocation(f, r.Span)})
 	}
 	for _, issue := range f.Issues {
-		out.Issues = append(out.Issues, extractionDiagnostic(f, issue))
+		out.Issues = append(out.Issues, graphmodel.ExtractionDiagnostic(f, issue))
 	}
 	return out, nil
 }

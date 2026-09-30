@@ -1,4 +1,4 @@
-package codegraph
+package build
 
 import (
 	"bytes"
@@ -8,14 +8,16 @@ import (
 
 	"github.com/alitto/pond/v2"
 	"github.com/compforge/codegraph/internal/analysis"
+	"github.com/compforge/codegraph/internal/extract"
+	"github.com/compforge/codegraph/internal/graphmodel"
 )
 
 // documentTask retains the submitted bytes so repeated paths cannot silently
 // change the source snapshot while their extraction is in flight.
 type documentTask struct {
-	document Document
+	document extract.Document
 	ctx      context.Context
-	task     pond.ResultTask[Facts]
+	task     pond.ResultTask[extract.Facts]
 	failed   bool
 }
 
@@ -23,23 +25,9 @@ type documentTask struct {
 // combine several admissions into one atomic graph publication.
 type buildWork struct {
 	done   chan struct{}
-	report BuildReport
+	report graphmodel.BuildReport
 	err    error
 }
-
-type completedTask[T any] struct {
-	value T
-	err   error
-}
-
-var completed = func() <-chan struct{} {
-	done := make(chan struct{})
-	close(done)
-	return done
-}()
-
-func (t completedTask[T]) Done() <-chan struct{} { return completed }
-func (t completedTask[T]) Wait() (T, error)      { return t.value, t.err }
 
 type mappedTask[A, B any] struct {
 	source  pond.ResultTask[A]
@@ -59,10 +47,10 @@ func (t mappedTask[A, B]) Wait() (B, error) {
 // AddDocument queues one source document and returns its detached extraction
 // result. The graph builds independently; Wait observes publication when a
 // caller needs a complete report for the submitted workset.
-func (g *Builder) AddDocument(ctx context.Context, document Document) pond.ResultTask[Facts] {
+func (g *Session) AddDocument(ctx context.Context, document extract.Document) pond.ResultTask[extract.Facts] {
 	tasks, err := g.enqueueDocuments(ctx, document)
 	if err != nil {
-		return completedTask[Facts]{err: err}
+		return extract.Completed[extract.Facts]{Err: err}
 	}
 	return tasks[0]
 }
@@ -71,12 +59,12 @@ func (g *Builder) AddDocument(ctx context.Context, document Document) pond.Resul
 // It reports ErrDocumentNotFound when no result exists for the ID; it never
 // starts extraction implicitly. The task can be awaited without waiting for
 // the complete graph.
-func (g *Builder) GetDocument(id string) (pond.ResultTask[Facts], error) {
+func (g *Session) GetDocument(id string) (pond.ResultTask[extract.Facts], error) {
 	g.asyncMu.Lock()
 	defer g.asyncMu.Unlock()
 	entry, ok := g.documentTasks[id]
 	if !ok {
-		return nil, fmt.Errorf("%w: %s", ErrDocumentNotFound, id)
+		return nil, fmt.Errorf("%w: %s", graphmodel.ErrDocumentNotFound, id)
 	}
 	return entry.task, nil
 }
@@ -84,59 +72,59 @@ func (g *Builder) GetDocument(id string) (pond.ResultTask[Facts], error) {
 // FindAsync projects declarations from an already submitted document as soon
 // as its extraction completes. These detached nodes do not imply that cross-
 // document relations or the queryable graph have been published.
-func (g *Builder) FindAsync(path string, kind NodeKind, qualifiedName string) (pond.ResultTask[[]Node], bool) {
-	task, err := g.GetDocument(DocumentID(path))
+func (g *Session) FindAsync(path string, kind graphmodel.NodeKind, qualifiedName string) (pond.ResultTask[[]graphmodel.Node], bool) {
+	task, err := g.GetDocument(graphmodel.DocumentID(path))
 	if err != nil {
 		return nil, false
 	}
-	return mappedTask[Facts, []Node]{source: task, project: func(facts Facts) ([]Node, error) {
-		nodes := make([]Node, 0)
+	return mappedTask[extract.Facts, []graphmodel.Node]{source: task, project: func(facts extract.Facts) ([]graphmodel.Node, error) {
+		nodes := make([]graphmodel.Node, 0)
 		for _, d := range facts.Declarations {
 			if kind != "" && d.Kind != kind || qualifiedName != "" && d.QualifiedName != qualifiedName {
 				continue
 			}
-			nodes = append(nodes, Node{
-				ID:   declarationID(path, d.Kind, d.QualifiedName, d.Location.StartByte),
+			nodes = append(nodes, graphmodel.Node{
+				ID:   graphmodel.DeclarationID(path, d.Kind, d.QualifiedName, d.Location.StartByte),
 				Kind: d.Kind, Name: d.Name, QualifiedName: d.QualifiedName,
 				Language: facts.Language, Location: &d.Location,
-				Markers: append([]Marker(nil), d.Markers...),
+				Markers: append([]graphmodel.Marker(nil), d.Markers...),
 			})
 		}
 		return nodes, nil
 	}}, true
 }
 
-func (g *Builder) enqueueDocuments(ctx context.Context, documents ...Document) ([]pond.ResultTask[Facts], error) {
+func (g *Session) enqueueDocuments(ctx context.Context, documents ...extract.Document) ([]pond.ResultTask[extract.Facts], error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	g.asyncMu.Lock()
 	defer g.asyncMu.Unlock()
 
-	seen := make(map[string]Document, len(documents))
+	seen := make(map[string]extract.Document, len(documents))
 	g.mu.RLock()
 	for _, document := range documents {
-		if err := document.validate(); err != nil {
+		if err := extract.Validate(document); err != nil {
 			g.mu.RUnlock()
 			return nil, err
 		}
-		if old, ok := seen[document.Path]; ok && !document.same(old) {
+		if old, ok := seen[document.Path]; ok && !extract.Same(document, old) {
 			g.mu.RUnlock()
-			return nil, fmt.Errorf("%w: %s", ErrSnapshotChanged, document.Path)
+			return nil, fmt.Errorf("%w: %s", graphmodel.ErrSnapshotChanged, document.Path)
 		}
-		if old, ok := g.documentTasks[document.ID()]; ok && !old.failed && !document.same(old.document) {
+		if old, ok := g.documentTasks[document.ID()]; ok && !old.failed && !extract.Same(document, old.document) {
 			g.mu.RUnlock()
-			return nil, fmt.Errorf("%w: %s", ErrSnapshotChanged, document.Path)
+			return nil, fmt.Errorf("%w: %s", graphmodel.ErrSnapshotChanged, document.Path)
 		}
-		if old, ok := g.documents[document.Path]; ok && !document.matches(old) {
+		if old, ok := g.documents[document.Path]; ok && !extract.Matches(document, old) {
 			g.mu.RUnlock()
-			return nil, fmt.Errorf("%w: %s", ErrSnapshotChanged, document.Path)
+			return nil, fmt.Errorf("%w: %s", graphmodel.ErrSnapshotChanged, document.Path)
 		}
 		seen[document.Path] = document
 	}
-	boundaries := make(map[string]Document, len(g.documents)+len(g.documentTasks)+len(seen))
+	boundaries := make(map[string]extract.Document, len(g.documents)+len(g.documentTasks)+len(seen))
 	for p, f := range g.documents {
-		boundaries[p] = Document{Path: p, Gitlink: f.Gitlink}
+		boundaries[p] = extract.Document{Path: p, Gitlink: f.Gitlink}
 	}
 	for _, task := range g.documentTasks {
 		if !task.failed {
@@ -146,13 +134,13 @@ func (g *Builder) enqueueDocuments(ctx context.Context, documents ...Document) (
 	for p, d := range seen {
 		boundaries[p] = d
 	}
-	boundaryErr := validateDocumentBoundaries(boundaries)
+	boundaryErr := extract.ValidateBoundaries(boundaries)
 	g.mu.RUnlock()
 	if boundaryErr != nil {
 		return nil, boundaryErr
 	}
 
-	tasks := make([]pond.ResultTask[Facts], 0, len(documents))
+	tasks := make([]pond.ResultTask[extract.Facts], 0, len(documents))
 	newDocuments := false
 	for _, document := range documents {
 		if old, ok := g.documentTasks[document.ID()]; ok && !old.failed {
@@ -160,15 +148,15 @@ func (g *Builder) enqueueDocuments(ctx context.Context, documents ...Document) (
 			continue
 		}
 		if g.asyncPool == nil {
-			g.asyncPool = pond.NewResultPool[Facts](g.opts.BuildConcurrency, pond.WithQueueSize(2*g.opts.BuildConcurrency))
+			g.asyncPool = pond.NewResultPool[extract.Facts](g.opts.BuildConcurrency, pond.WithQueueSize(2*g.opts.BuildConcurrency))
 		}
 		if g.pendingWorkers == nil {
 			g.pendingWorkers = &sync.WaitGroup{}
 		}
-		owned := Document{Path: document.Path, Content: bytes.Clone(document.Content), Gitlink: document.Gitlink}
+		owned := extract.Document{Path: document.Path, Content: bytes.Clone(document.Content), Gitlink: document.Gitlink}
 		workers := g.pendingWorkers
 		workers.Add(1)
-		task := g.asyncPool.SubmitErr(func() (Facts, error) {
+		task := g.asyncPool.SubmitErr(func() (extract.Facts, error) {
 			defer workers.Done()
 			return g.Extract(ctx, owned)
 		})
@@ -191,7 +179,7 @@ func (g *Builder) enqueueDocuments(ctx context.Context, documents ...Document) (
 
 // buildQueued continuously consumes admitted batches. Parsing remains bounded
 // by one pool; only the coordinator assembles and publishes graph state.
-func (g *Builder) buildQueued() {
+func (g *Session) buildQueued() {
 	for {
 		g.asyncMu.Lock()
 		if len(g.pending) == 0 {
@@ -209,7 +197,7 @@ func (g *Builder) buildQueued() {
 
 		report, err, works := g.buildAvailable()
 		for _, work := range works {
-			work.report, work.err = cloneReport(report), err
+			work.report, work.err = graphmodel.CloneReport(report), err
 			close(work.done)
 		}
 	}
@@ -218,8 +206,8 @@ func (g *Builder) buildQueued() {
 // buildAvailable joins the current extraction work and any admissions that
 // arrive while it is running. This coalesces bursts of AddDocument calls
 // without making Wait responsible for triggering or batching graph builds.
-func (g *Builder) buildAvailable() (BuildReport, error, []*buildWork) {
-	var documents []Document
+func (g *Session) buildAvailable() (graphmodel.BuildReport, error, []*buildWork) {
+	var documents []extract.Document
 	var works []*buildWork
 	parseFailures := make(map[string]error)
 	prepared := make(map[string]analysis.Facts)
@@ -266,7 +254,7 @@ func (g *Builder) buildAvailable() (BuildReport, error, []*buildWork) {
 					canceled = ctxErr
 				}
 			} else {
-				prepared[batch[i].Path] = *facts.raw
+				prepared[batch[i].Path], _ = extract.Material(facts)
 			}
 		}
 		// ResultTask can resolve on cancellation before its parser exits.
@@ -299,7 +287,7 @@ func (g *Builder) buildAvailable() (BuildReport, error, []*buildWork) {
 // never starts extraction, assembly or publication; canceling ctx only ends
 // this wait.
 // +spec=`Submission drives graph construction; Wait only waits for its completion`
-func (g *Builder) Wait(ctx context.Context) (BuildReport, error) {
+func (g *Session) Wait(ctx context.Context) (graphmodel.BuildReport, error) {
 	if err := ctx.Err(); err != nil {
 		return g.Report(), err
 	}
@@ -316,11 +304,11 @@ func (g *Builder) Wait(ctx context.Context) (BuildReport, error) {
 		if err := ctx.Err(); err != nil {
 			return g.Report(), err
 		}
-		return cloneReport(work.report), work.err
+		return graphmodel.CloneReport(work.report), work.err
 	}
 }
 
-func (g *Builder) markFailedTasks(documents []Document) {
+func (g *Session) markFailedTasks(documents []extract.Document) {
 	g.asyncMu.Lock()
 	defer g.asyncMu.Unlock()
 	for _, document := range documents {
@@ -330,13 +318,19 @@ func (g *Builder) markFailedTasks(documents []Document) {
 	}
 }
 
-func (g *Builder) markFailedPaths(failures map[string]error) {
+func (g *Session) markFailedPaths(failures map[string]error) {
 	g.asyncMu.Lock()
 	defer g.asyncMu.Unlock()
 	for path := range failures {
-		id := DocumentID(path)
+		id := graphmodel.DocumentID(path)
 		entry := g.documentTasks[id]
 		entry.failed = true
 		g.documentTasks[id] = entry
 	}
+}
+
+// AddDocuments validates a batch before submission and starts background construction.
+func (g *Session) AddDocuments(ctx context.Context, documents ...extract.Document) error {
+	_, err := g.enqueueDocuments(ctx, documents...)
+	return err
 }

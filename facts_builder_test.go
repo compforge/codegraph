@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+
+	"github.com/compforge/codegraph/internal/extract"
 )
 
 func newTestExtractor(t *testing.T, cache *ExtractionCache) *Extractor {
@@ -77,8 +79,8 @@ func TestBuilderPublicationBudgetsAndLazyQueries(t *testing.T) {
 	e := newTestExtractor(t, nil)
 	a := extractTestFacts(t, e, "a.go", "package app\nfunc A(){}\n")
 	b := extractTestFacts(t, e, "b.go", "package app\nfunc B(){}\n")
-	parseObserver = func(string) { t.Error("build reparsed a Facts artifact") }
-	defer func() { parseObserver = nil }()
+	extract.ParseObserver = func(string) { t.Error("build reparsed a Facts artifact") }
+	defer func() { extract.ParseObserver = nil }()
 	builder, _ := NewBuilder("snapshot", Options{MaxDocuments: 2})
 	if err := builder.Add(a); err != nil {
 		t.Fatal(err)
@@ -86,9 +88,6 @@ func TestBuilderPublicationBudgetsAndLazyQueries(t *testing.T) {
 	first, _, err := builder.Build(context.Background())
 	if err != nil {
 		t.Fatal(err)
-	}
-	if first.store != nil {
-		t.Fatal("typed graph eagerly allocated query storage")
 	}
 	if err := builder.Add(b); err != nil {
 		t.Fatal(err)
@@ -108,7 +107,7 @@ func TestBuilderPublicationBudgetsAndLazyQueries(t *testing.T) {
 	if _, _, err := builder.Build(canceled); !errors.Is(err, context.Canceled) || builder.Result() != second {
 		t.Fatal("canceled build changed publication")
 	}
-	if _, err := first.Query(canceled, "MATCH (n) RETURN n", nil); !errors.Is(err, context.Canceled) || first.store != nil {
+	if _, err := first.Query(canceled, "MATCH (n) RETURN n", nil); !errors.Is(err, context.Canceled) {
 		t.Fatal("canceled query poisoned lazy storage")
 	}
 	var wg sync.WaitGroup

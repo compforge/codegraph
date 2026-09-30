@@ -1,4 +1,4 @@
-package codegraph
+package extract
 
 import (
 	"bytes"
@@ -30,8 +30,8 @@ func (g *Extractor) extractMaterial(ctx context.Context, document Document) (ana
 		facts = pipeline.DocumentOnly(document.Path, bytes.Clone(document.Content))
 		facts.Issues = append(facts.Issues, analysis.Issue{Code: "unsupported_language", Message: "no registered grammar for file", Subject: "document", Span: analysis.Span{End: len(document.Content)}})
 	} else {
-		if parseObserver != nil {
-			parseObserver(document.Path)
+		if ParseObserver != nil {
+			ParseObserver(document.Path)
 		}
 		var err error
 		facts, err = pipeline.Analyze(ctx, document.Path, bytes.Clone(document.Content), g.opts.ParseTimeout)

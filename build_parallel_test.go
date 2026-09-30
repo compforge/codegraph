@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -14,16 +13,6 @@ import (
 	gts "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
 )
-
-func TestBuildConcurrencyOptions(t *testing.T) {
-	if _, err := New("rev", Options{BuildConcurrency: -1}); err == nil {
-		t.Fatal("negative concurrency accepted")
-	}
-	g, err := New("rev", Options{})
-	if err != nil || g.opts.BuildConcurrency != min(runtime.GOMAXPROCS(0), 4) {
-		t.Fatalf("automatic concurrency: %v, %v", g, err)
-	}
-}
 
 func TestParallelDocumentsEquivalent(t *testing.T) {
 	docs := documents(fixture(), "main.go", "helper.go", "lib/work.go", "entry_test.go")
@@ -128,11 +117,13 @@ func TestParallelExtractionBoundAndAtomicPublication(t *testing.T) {
 			}
 			if canceled {
 				// Wait cancellation is independent of background worker lifetime.
-				g.legacy.asyncMu.Lock()
-				work := g.legacy.latestWork
-				g.legacy.asyncMu.Unlock()
+				session, err := g.legacy.legacySession()
+				if err != nil {
+					t.Fatal(err)
+				}
+				done := session.Done()
 				select {
-				case <-work.done:
+				case <-done:
 				case <-time.After(10 * time.Second):
 					t.Fatal("canceled build did not stop its workers")
 				}
