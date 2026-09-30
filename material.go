@@ -11,14 +11,14 @@ import (
 
 // extractMaterial owns classification and raw extraction only. Callers own
 // admission, scheduling, and atomic publication.
-func (g *Graph) extractMaterial(ctx context.Context, document Document) (analysis.Facts, error) {
+func (g *Extractor) extractMaterial(ctx context.Context, document Document) (analysis.Facts, error) {
 	if err := ctx.Err(); err != nil {
 		return analysis.Facts{}, err
 	}
 	var key extractionKey
-	if g.opts.ExtractionCache != nil {
+	if g.opts.Cache != nil {
 		key = extractionKey{path: document.Path, digest: document.digest()}
-		if facts, ok := g.opts.ExtractionCache.get(key); ok {
+		if facts, ok := g.opts.Cache.get(key); ok {
 			return facts, ctx.Err()
 		}
 	}
@@ -42,6 +42,6 @@ func (g *Graph) extractMaterial(ctx context.Context, document Document) (analysi
 	if err := ctx.Err(); err != nil {
 		return analysis.Facts{}, err
 	}
-	g.opts.ExtractionCache.put(key, facts)
+	g.opts.Cache.put(key, facts)
 	return facts, nil
 }

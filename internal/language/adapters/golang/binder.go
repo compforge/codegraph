@@ -67,7 +67,7 @@ func bind(ctx context.Context, scope analysis.BuildScope, index *analysis.Index,
 		for _, imp := range f.Imports {
 			targets := namespaces.GoImportFiles(module, imp.Path)
 			var gitlinks []string
-			if dir, ok := ImportDir(module, imp.Path); ok {
+			if dir, ok := namespaces.Resolution.GoImportDir(module, imp.Path); ok {
 				gitlinks = index.GitlinkPaths([]string{dir})
 			}
 			for _, target := range gitlinks {

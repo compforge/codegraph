@@ -37,7 +37,7 @@ func location(f analysis.Facts, span analysis.Span) Location {
 	return Location{Path: f.Path, StartByte: span.Start, EndByte: span.End, Line: line, Column: span.Start - f.LineStarts[line-1] + 1, EndLine: endLine, EndColumn: span.End - f.LineStarts[endLine-1] + 1}
 }
 
-func (g *Graph) assemble(ctx context.Context, files map[string]analysis.Facts, failures map[string]Diagnostic) (map[string]Node, map[string]Relation, BuildReport, error) {
+func (g *Builder) assemble(ctx context.Context, files map[string]analysis.Facts, failures map[string]Diagnostic) (map[string]Node, map[string]Relation, BuildReport, error) {
 	nodes := map[string]Node{}
 	relations := map[string]Relation{}
 	ids := map[analysis.Ref]string{}
@@ -52,7 +52,7 @@ func (g *Graph) assemble(ctx context.Context, files map[string]analysis.Facts, f
 				Language: Language(d.Location.Path), Location: &d.Location}
 		}
 	}
-	index, issues, err := pipeline.Builtins(ctx, files, g.opts.ModulePath, g.opts.MaxNodes-len(nodes), g.opts.MaxRelations, g.opts.MaxEvidence)
+	index, issues, err := pipeline.BuiltinsWithResolution(ctx, files, g.opts.ModulePath, g.resolution, g.opts.MaxNodes-len(nodes), g.opts.MaxRelations, g.opts.MaxEvidence)
 	if err != nil {
 		if errors.Is(err, analysis.ErrEvidenceLimit) || errors.Is(err, analysis.ErrEdgeLimit) || errors.Is(err, pipeline.ErrNodeLimit) {
 			err = fmt.Errorf("%w: %v", ErrBuildBudget, err)

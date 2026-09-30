@@ -17,7 +17,7 @@ import (
 // parsing; the file still enters the graph and the coverage gap stays visible
 // as an unsupported_language issue on that file.
 // +spec=`Workers own independent extraction results and never mutate graph maps`
-func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged map[string]analysis.Facts, failures map[string]Diagnostic, total int64, parseFailures map[string]error) error {
+func (g *Builder) stageDocuments(ctx context.Context, documents []Document, staged map[string]analysis.Facts, failures map[string]Diagnostic, total int64, parseFailures map[string]error, prepared map[string]analysis.Facts) error {
 	for next := 0; next < len(documents); {
 		batch := make([]Document, 0, min(g.opts.BuildConcurrency, len(documents)-next))
 		var reserved int64
@@ -66,8 +66,14 @@ func (g *Graph) stageDocuments(ctx context.Context, documents []Document, staged
 				// deciding whether this document exceeds the batch's budget.
 				break
 			}
-			// A previous Extract of identical content already owns the facts.
-			if facts, ok := g.cachedFacts(document); ok {
+			// Extraction results are passed directly across the phase boundary.
+			facts, ok := prepared[name]
+			if !ok {
+				facts, ok = g.cachedFacts(document)
+			} else {
+				g.cachedFacts(document) // Release legacy exploration retention after admission.
+			}
+			if ok {
 				staged[name] = facts
 				total += document.size()
 				next++
@@ -107,7 +113,7 @@ type extractionResult struct {
 // parsed in a batch. Test instrumentation for the Extract cache contract.
 var parseObserver func(string)
 
-func (g *Graph) extractBatch(ctx context.Context, documents []Document) []extractionResult {
+func (g *Builder) extractBatch(ctx context.Context, documents []Document) []extractionResult {
 	results := make([]extractionResult, len(documents))
 	run := func(i int) {
 		if err := ctx.Err(); err != nil {
@@ -115,7 +121,7 @@ func (g *Graph) extractBatch(ctx context.Context, documents []Document) []extrac
 			return
 		}
 		document := documents[i]
-		results[i].facts, results[i].err = g.extractMaterial(ctx, document)
+		results[i].facts, results[i].err = g.extractor.extract(ctx, document)
 	}
 	if len(documents) == 1 {
 		run(0)

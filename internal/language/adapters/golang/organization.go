@@ -63,10 +63,7 @@ func (Adapter) Organize(ctx context.Context, scope analysis.BuildScope) (analysi
 			continue
 		}
 		anchor := path.Dir(p)
-		qualified := path.Join(scope.Module, anchor)
-		if scope.Module == "" {
-			qualified = anchor + ":" + f.Package
-		}
+		qualified := scope.Resolution.GoPackage(scope.Module, anchor, f.Package)
 		data, _ := json.Marshal([]string{f.Language, "Package", anchor, f.Package})
 		key := string(data)
 		u := units[key]
@@ -104,7 +101,7 @@ func (x *NamespaceIndex) ScopeFiles(f analysis.Facts) []string {
 }
 
 func (x *NamespaceIndex) GoImportFiles(module, imported string) []string {
-	dir, ok := ImportDir(module, imported)
+	dir, ok := x.Resolution.GoImportDir(module, imported)
 	if !ok {
 		return nil
 	}

@@ -8,8 +8,7 @@ import "sort"
 // Document to find its package/module contributions.
 // The returned nodes are detached values and can be safely modified.
 func (g *Graph) Find(path string, kind NodeKind, qualifiedName string) []Node {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
+	g = g.current()
 	out := make([]Node, 0)
 	for _, node := range g.nodes {
 		if node.Kind == DocumentKind || node.Location == nil || node.Location.Path != path {
@@ -34,8 +33,7 @@ func (g *Graph) Find(path string, kind NodeKind, qualifiedName string) []Node {
 
 // Node returns a detached node by its source identity.
 func (g *Graph) Node(id string) (Node, bool) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
+	g = g.current()
 	node, ok := g.nodes[id]
 	if !ok {
 		return Node{}, false
@@ -58,8 +56,7 @@ func (g *Graph) adjacent(id string, incoming bool, kinds ...RelationKind) []Rela
 	for _, kind := range kinds {
 		allowed[kind] = true
 	}
-	g.mu.RLock()
-	defer g.mu.RUnlock()
+	g = g.current()
 	var relations []Relation
 	for _, relation := range g.relations {
 		if incoming && relation.Target != id || !incoming && relation.Source != id {

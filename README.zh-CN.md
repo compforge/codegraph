@@ -20,7 +20,8 @@ CodeGraph 提供已加载范围内的静态证据，不执行编译器类型检�
 ## 核心概念
 
 调用方提供 **Document**：逻辑路径及其源码内容，或者 gitlink 固定 commit。
-一个 **Graph** 保存同一源码快照中的事实，可以分批补充材料。
+**Extractor** 提取可复用的单文件 **Facts**；**Builder** 结合快照专属解析上下文，
+将 Facts 构建为只读 **Graph**。类型化访问直接读取图事实，Cypher 索引按需创建。
 
 节点使用 `Document`、`Package`、`Module`、`Class`、`Function` 等具体类别。
 Symbol 表达代码声明，Namespace 表达语言如何组织成员，两种逻辑角色可以重叠：Class 既声明类型，也组织成员。

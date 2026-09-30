@@ -16,7 +16,39 @@ CodeGraph 不跨语言按同名绑定，不自动获取依赖。缺少材料时�
 事实包括声明、导入绑定、调用候选、引用、类型关系和 marker；语句事实的语言覆盖见 [语言能力](language-support.md)。
 同内容的后续构建复用提取缓存。单文件事实和已解析的跨文件关系是不同产物，不能互相替代。
 
-## 构建与补料
+## 独立提取与构图
+
+需要探索依赖或比较快照时，显式传递 Facts，避免把解析与构图绑定在一起：
+
+```go
+extractor, err := codegraph.NewExtractor(codegraph.ExtractionOptions{})
+if err != nil { return err }
+facts, err := extractor.Extract(ctx, document)
+if err != nil { return err }
+builder, err := codegraph.NewBuilder("revision-1", codegraph.Options{})
+if err != nil { return err }
+if err := builder.Add(facts); err != nil { return err }
+g, report, err := builder.Build(ctx)
+if err != nil { return err }
+_ = g
+_ = report
+```
+
+`Extractor.Submit` 有界异步提取并复制输入，任务的每次 Wait 返回独立检查视图。
+Facts 内部持有完整只读材料，公开字段用于检查；修改字段不改变构图输入，`View` 可重新取得视图。
+`Builder.Add` 原子接纳一个 Facts 批次；同路径不同内容需要另建 Builder。
+`Build` 返回只读 Graph，后续补充材料或修改 ResolutionContext 不改变既有结果。
+失败构建保留 `Builder.Result`。单文件解析错误可用 `AddFailure` 保留材料身份与诊断，
+取消和预算失败应直接返回。
+
+`ResolutionContext.GoModules` 提供模块根映射；`Imports` 提供具体导入位置的模块候选、
+精度上限和依据。省略的导入沿用语言规则，显式空候选表示已知未解析。
+上下文在接纳时复制，可用 `SetResolutionContext` 在下一次 Build 前替换。
+
+跨快照共享 Extractor，并通过其 `ExtractionOptions.Cache` 配置有界缓存；
+也可直接复用已持有的 Facts。两种方式都不复用绑定关系，不绕过构图预算。
+
+## 兼容的构建与补料
 
 一次性处理材料可使用 Build；需要逐批提供材料时，先 New，再 AddDocuments。
 以下片段放在已引入 context、fmt、codegraph 的调用方函数中，ctx 为该操作的上下文：
@@ -76,7 +108,7 @@ before / after 应使用不同 Graph；同路径不同内容会产生 ErrSnapsho
 - 单文件解析失败保留 Document 与诊断，其他文件的可用事实仍可发布。
 - 预算失败、快照冲突及构建取消阻止整个失败批次发布；查询错误不返回部分行。
 - Options 为材料、事实、时间和查询结果提供有限预算；MaxEvidence 与 MaxRelations 分别限制证据及关系发生数。
-- BuildConcurrency 限制每个 Graph 的提取并发；同时使用多个 Graph 时由调用方控制总容量。
+- ExtractionOptions.Concurrency 限制共享 Extractor 的提取并发；兼容入口使用 Options.BuildConcurrency。
 
 配置字段及默认值见 [Options](../graph.go)。材料接纳与内存所有权见 [Document 契约](document.md)。
 
@@ -114,7 +146,8 @@ RETURN s, f
 
 ## 查询关系与证据
 
-Query 接受参数化、只读 Cypher，返回 Node、Relation、Path 或普通 Go 值。
+Query 首次调用时建立索引，接受参数化、只读 Cypher，返回 Node、Relation、Path 或普通 Go 值。
+索引建立失败或取消可重试，已经发布的类型化图仍可用。
 不允许写操作和过程调用；变长路径必须有明确上限。例如查询两跳以内、每条边都有 exact 证据的调用路径：
 
 ```cypher

@@ -12,8 +12,6 @@ import (
 
 	"github.com/compforge/codegraph/internal/language"
 
-	"github.com/alitto/pond/v2"
-	"github.com/compforge/codegraph/internal/analysis"
 	"github.com/compforge/codegraph/internal/graphstore"
 	"github.com/odvcencio/gotreesitter/grammars"
 )
@@ -22,6 +20,7 @@ import (
 // Scope contains snapshot-relative, slash-separated document paths or directory prefixes.
 // Empty Scope allows any relative path; documents are only analyzed when supplied.
 type Options struct {
+	ResolutionContext ResolutionContext
 	// ExtractionCache optionally shares raw facts across snapshots; graph budgets
 	// and relationship binding still apply independently to each Graph.
 	ExtractionCache *ExtractionCache
@@ -38,44 +37,42 @@ type Options struct {
 	MaxResultBytes                       int64
 }
 
-// Graph owns one immutable source snapshot, extended through atomic build batches.
-// Queries observe either the old or the new batch; they cannot mutate the graph.
-// +spec=`A failed or cancelled build must not publish a partially written graph`
+// Graph is a read-only, successfully built snapshot. Its query index is lazy.
+// Graphs returned by Builder.Build never change. New and the package-level Build
+// retain the legacy incremental API through a separate Builder.
 type Graph struct {
-	mu             sync.RWMutex
-	buildMu        sync.Mutex
-	asyncMu        sync.Mutex
-	asyncPool      pond.ResultPool[Facts]
-	building       bool
-	pending        []Document
-	pendingWorkers *sync.WaitGroup
-	pendingWorks   []*buildWork
-	latestWork     *buildWork
-	documentTasks  map[string]documentTask
-	snapshot       string
-	opts           Options
-	documents      map[string]analysis.Facts
-	failures       map[string]Diagnostic
-	nodes          map[string]Node
-	relations      map[string]Relation
-	store          *graphstore.Store
-	report         BuildReport
-	factCacheMu    sync.Mutex
-	factCache      map[string]factCacheEntry
+	snapshot  string
+	opts      Options
+	nodes     map[string]Node
+	relations map[string]Relation
+	report    BuildReport
+	storeMu   sync.Mutex
+	store     *graphstore.Store
+	legacy    *Builder
 }
 
+// New creates the compatibility incremental facade. Prefer NewBuilder when
+// extraction and snapshot construction have separate lifetimes.
 func New(snapshot string, opts Options) (*Graph, error) {
-	if snapshot == "" {
-		return nil, errors.New("snapshot identity is required")
-	}
-	if err := defaults(&opts); err != nil {
+	b, err := NewBuilder(snapshot, opts)
+	if err != nil {
 		return nil, err
 	}
-	g := &Graph{snapshot: snapshot, opts: opts, documents: map[string]analysis.Facts{}, failures: map[string]Diagnostic{}, nodes: map[string]Node{}, relations: map[string]Relation{}, factCache: map[string]factCacheEntry{}}
-	g.documentTasks = map[string]documentTask{}
-	g.store = graphstore.New(g.limits())
-	g.report = BuildReport{Snapshot: snapshot, Documents: []string{}}
-	return g, nil
+	return &Graph{snapshot: snapshot, opts: b.opts, legacy: b}, nil
+}
+
+func newGraph(snapshot string, opts Options, nodes map[string]Node, relations map[string]Relation, report BuildReport) *Graph {
+	opts.ExtractionCache = nil
+	opts.ResolutionContext = ResolutionContext{}
+	opts.Scope = nil
+	return &Graph{snapshot: snapshot, opts: opts, nodes: nodes, relations: relations, report: report}
+}
+
+func (g *Graph) current() *Graph {
+	if g.legacy != nil {
+		return g.legacy.Result()
+	}
+	return g
 }
 
 func defaults(o *Options) error {
@@ -127,8 +124,7 @@ func (g *Graph) Snapshot() string { return g.snapshot }
 
 // Nodes returns independent values in source-ID order.
 func (g *Graph) Nodes() []Node {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
+	g = g.current()
 	out := make([]Node, 0, len(g.nodes))
 	for _, n := range g.nodes {
 		out = append(out, cloneNode(n))
@@ -138,8 +134,7 @@ func (g *Graph) Nodes() []Node {
 }
 
 func (g *Graph) Relations() []Relation {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
+	g = g.current()
 	out := make([]Relation, 0, len(g.relations))
 	for _, r := range g.relations {
 		out = append(out, cloneRelation(r))
@@ -149,8 +144,7 @@ func (g *Graph) Relations() []Relation {
 }
 
 func (g *Graph) Report() BuildReport {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
+	g = g.current()
 	return cloneReport(g.report)
 }
 

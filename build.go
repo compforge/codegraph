@@ -44,9 +44,9 @@ func Build(ctx context.Context, snapshot string, documents []Document, opts Opti
 }
 
 // addPrepared publishes one explicit document batch atomically. Successful
-// asynchronous extractions enter through the content cache; parse failures are
+// asynchronous extractions are supplied explicitly; parse failures are
 // supplied separately so the background builder does not retry them.
-func (g *Graph) addPrepared(ctx context.Context, parseFailures map[string]error, documents ...Document) (BuildReport, error) {
+func (g *Builder) addPrepared(ctx context.Context, parseFailures map[string]error, prepared map[string]analysis.Facts, documents ...Document) (BuildReport, error) {
 	g.buildMu.Lock()
 	defer g.buildMu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -67,14 +67,10 @@ func (g *Graph) addPrepared(ctx context.Context, parseFailures map[string]error,
 	for p, d := range g.failures {
 		failures[p] = d
 	}
-	if err := g.stageDocuments(ctx, documents, staged, failures, total, parseFailures); err != nil {
+	if err := g.stageDocuments(ctx, documents, staged, failures, total, parseFailures, prepared); err != nil {
 		return g.Report(), err
 	}
 	nodes, relations, report, err := g.assemble(ctx, staged, failures)
-	if err != nil {
-		return g.Report(), err
-	}
-	store, err := g.materialize(ctx, nodes, relations)
 	if err != nil {
 		return g.Report(), err
 	}
@@ -84,11 +80,16 @@ func (g *Graph) addPrepared(ctx context.Context, parseFailures map[string]error,
 	// Publish only after the complete batch, including all edge properties, exists.
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	g.documents, g.failures, g.nodes, g.relations, g.store, g.report = staged, failures, nodes, relations, store, report
+	g.documents, g.failures = staged, failures
+	g.sourceBytes = 0
+	for _, f := range staged {
+		g.sourceBytes += int64(len(f.Source) + len(f.Gitlink))
+	}
+	g.result = newGraph(g.snapshot, g.opts, nodes, relations, report)
 	return cloneReport(report), nil
 }
 
-func (g *Graph) allowed(p string) bool {
+func (g *Builder) allowed(p string) bool {
 	for _, s := range g.opts.Scope {
 		if s == "." || p == s || strings.HasPrefix(p, s+"/") {
 			return true
@@ -96,7 +97,7 @@ func (g *Graph) allowed(p string) bool {
 	}
 	return len(g.opts.Scope) == 0
 }
-func (g *Graph) allowedDir(p string) bool { return g.allowed(p) }
+func (g *Builder) allowedDir(p string) bool { return g.allowed(p) }
 
 func sortedFiles(files map[string]analysis.Facts) []string {
 	out := make([]string, 0, len(files))
