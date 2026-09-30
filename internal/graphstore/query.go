@@ -1,20 +1,19 @@
-package codegraph
+package graphstore
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/compforge/codegraph/internal/graphstore"
+	"github.com/compforge/codegraph/internal/graphmodel"
 )
 
 // Query returns detached Go values: Node, Relation, Path, scalar values,
 // []any and map[string]any. Integer scalars are int64. No partial rows are
 // returned when execution fails. Variable paths require explicit upper bounds.
 // +rule=`Query entities must use source identities; Cypher id(n) is opaque and not portable between batches`
-func (g *Graph) Query(ctx context.Context, q string, params map[string]any) ([]map[string]any, error) {
-	ctx, cancel := context.WithTimeout(ctx, g.opts.QueryTimeout)
+func (g *Snapshot) Query(ctx context.Context, q string, params map[string]any) ([]map[string]any, error) {
+	ctx, cancel := context.WithTimeout(ctx, g.timeout)
 	defer cancel()
-	g = g.current()
 	// Serialize index construction only. Failed/canceled materialization leaves
 	// no index, so a later query can retry against the same immutable snapshot.
 	g.storeMu.Lock()
@@ -47,36 +46,36 @@ func (g *Graph) Query(ctx context.Context, q string, params map[string]any) ([]m
 	return rows, nil
 }
 
-func (g *Graph) project(v any) (any, error) {
+func (g *Snapshot) project(v any) (any, error) {
 	switch v := v.(type) {
-	case graphstore.Entity:
+	case Entity:
 		if v.Relation {
 			r, ok := g.relations[v.ID]
 			if !ok {
 				return nil, fmt.Errorf("unknown relation %s", v.ID)
 			}
-			return cloneRelation(r), nil
+			return graphmodel.CloneRelation(r), nil
 		}
 		n, ok := g.nodes[v.ID]
 		if !ok {
 			return nil, fmt.Errorf("unknown node %s", v.ID)
 		}
-		return cloneNode(n), nil
-	case graphstore.Path:
-		p := Path{}
+		return graphmodel.CloneNode(n), nil
+	case Path:
+		p := graphmodel.Path{}
 		for _, n := range v.Nodes {
 			x, err := g.project(n)
 			if err != nil {
 				return nil, err
 			}
-			p.Nodes = append(p.Nodes, x.(Node))
+			p.Nodes = append(p.Nodes, x.(graphmodel.Node))
 		}
 		for _, r := range v.Relations {
 			x, err := g.project(r)
 			if err != nil {
 				return nil, err
 			}
-			p.Relations = append(p.Relations, x.(Relation))
+			p.Relations = append(p.Relations, x.(graphmodel.Relation))
 		}
 		return p, nil
 	case []any:

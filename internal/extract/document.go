@@ -1,8 +1,7 @@
-package codegraph
+package extract
 
 import (
 	"bytes"
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -11,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/compforge/codegraph/internal/analysis"
+	"github.com/compforge/codegraph/internal/graphmodel"
 )
 
 // Document is one source unit or opaque gitlink supplied for graph construction.
@@ -38,16 +38,7 @@ type Identifiable interface {
 }
 
 // ID is the Document node identity for this source document.
-func (d Document) ID() string { return DocumentID(d.Path) }
-
-// AddDocuments admits an explicit batch and starts background graph construction.
-// The batch is validated before any document is admitted. It returns after
-// submission; callers can use GetDocument or FindAsync for early facts, and
-// Wait to wait for complete graph publication. Input bytes are copied.
-func (g *Builder) AddDocuments(ctx context.Context, documents ...Document) error {
-	_, err := g.enqueueDocuments(ctx, documents...)
-	return err
-}
+func (d Document) ID() string { return graphmodel.DocumentID(d.Path) }
 
 func (d Document) validate() error {
 	if !fs.ValidPath(d.Path) {

@@ -177,7 +177,10 @@ func TestGitlinkInvalidAndOverlappingMaterials(t *testing.T) {
 		if _, err := g.Extract(ctx, bad); err == nil {
 			t.Fatal("invalid extraction accepted", bad)
 		}
-		if err := g.AddDocuments(ctx, Document{Path: "ok.ts", Content: []byte("function ok(){}")}, bad); err == nil || len(g.legacy.documentTasks) != 0 {
+		if err := g.AddDocuments(ctx, Document{Path: "ok.ts", Content: []byte("function ok(){}")}, bad); err == nil {
+			t.Fatal("invalid batch accepted", err)
+		}
+		if _, err := g.GetDocument(DocumentID("ok.ts")); !errors.Is(err, ErrDocumentNotFound) {
 			t.Fatal("invalid batch partially admitted", err)
 		}
 	}
@@ -185,8 +188,13 @@ func TestGitlinkInvalidAndOverlappingMaterials(t *testing.T) {
 	child := Document{Path: "sdk/api.ts", Content: []byte("export function work(){}")}
 	for _, docs := range [][]Document{{link, child}, {child, link}, {link, {Path: "sdk/nested", Gitlink: gitlinkCommit}}} {
 		g, _ := New("overlap", Options{})
-		if err := g.AddDocuments(ctx, docs...); err == nil || len(g.legacy.documentTasks) != 0 {
+		if err := g.AddDocuments(ctx, docs...); err == nil {
 			t.Fatal("mixed snapshots admitted", err)
+		}
+		for _, doc := range docs {
+			if _, err := g.GetDocument(doc.ID()); !errors.Is(err, ErrDocumentNotFound) {
+				t.Fatal("overlapping batch partially admitted", err)
+			}
 		}
 	}
 	for _, docs := range [][]Document{{link, child}, {child, link}} {

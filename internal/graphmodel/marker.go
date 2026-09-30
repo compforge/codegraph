@@ -1,4 +1,4 @@
-package codegraph
+package graphmodel
 
 type MarkerKind string
 

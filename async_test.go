@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/compforge/codegraph/internal/extract"
+
 	"github.com/alitto/pond/v2"
 )
 
@@ -74,18 +76,21 @@ func TestAsyncDocumentAndSymbolWithoutWait(t *testing.T) {
 
 func waitBackgroundBuild(t *testing.T, g *Graph) BuildReport {
 	t.Helper()
-	g.legacy.asyncMu.Lock()
-	work := g.legacy.latestWork
-	g.legacy.asyncMu.Unlock()
-	if work == nil {
+	session, err := g.legacy.legacySession()
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := session.Done()
+	if done == nil {
 		t.Fatal("no build was scheduled")
 	}
 	select {
-	case <-work.done:
-		if work.err != nil {
-			t.Fatal(work.err)
+	case <-done:
+		report, err := g.Wait(context.Background())
+		if err != nil {
+			t.Fatal(err)
 		}
-		return cloneReport(work.report)
+		return report
 	case <-time.After(10 * time.Second):
 		t.Fatal("background graph build did not complete")
 		return BuildReport{}
@@ -98,8 +103,8 @@ func TestWaitCancellationDoesNotCancelBuild(t *testing.T) {
 		t.Fatal(err)
 	}
 	started, release := make(chan struct{}), make(chan struct{})
-	parseObserver = func(string) { close(started); <-release }
-	defer func() { parseObserver = nil }()
+	extract.ParseObserver = func(string) { close(started); <-release }
+	defer func() { extract.ParseObserver = nil }()
 	doc := Document{Path: "wait.go", Content: []byte("package p\nfunc Wait(){}\n")}
 	if err := g.AddDocuments(context.Background(), doc); err != nil {
 		t.Fatal(err)
@@ -186,8 +191,8 @@ func TestAsyncParseFailureIsNotRetriedByWait(t *testing.T) {
 		t.Fatal(err)
 	}
 	count := 0
-	parseObserver = func(string) { count++ }
-	defer func() { parseObserver = nil }()
+	extract.ParseObserver = func(string) { count++ }
+	defer func() { extract.ParseObserver = nil }()
 	doc := Document{Path: "bad.go", Content: []byte("package p\nfunc (")}
 	if err := g.AddDocuments(context.Background(), doc); err != nil {
 		t.Fatal(err)

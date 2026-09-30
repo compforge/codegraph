@@ -1,6 +1,8 @@
-package codegraph
+package extract
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // View returns a fresh detached projection of the original extraction artifact.
 func (f Facts) View() (Facts, error) {

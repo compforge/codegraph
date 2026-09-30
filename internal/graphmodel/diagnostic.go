@@ -1,6 +1,8 @@
-package codegraph
+package graphmodel
 
-import "github.com/compforge/codegraph/internal/analysis"
+import (
+	"github.com/compforge/codegraph/internal/analysis"
+)
 
 // DiagnosticSubject identifies the information a local gap concerns. It does
 // not prescribe whether a consumer should expand its analysis or reject a path.
@@ -43,9 +45,9 @@ type OutlineCoverage struct {
 	Truncated                  bool   `json:"truncated,omitempty"`
 }
 
-func extractionDiagnostic(f analysis.Facts, issue analysis.Issue) Diagnostic {
+func ExtractionDiagnostic(f analysis.Facts, issue analysis.Issue) Diagnostic {
 	d := Diagnostic{Code: issue.Code, Message: issue.Message, Subject: DiagnosticSubject(issue.Subject),
-		Relation: RelationKind(issue.Relation), Location: location(f, issue.Span)}
+		Relation: RelationKind(issue.Relation), Location: SourceLocation(f, issue.Span)}
 	if issue.Outline != nil {
 		outline := OutlineCoverage(*issue.Outline)
 		d.Outline = &outline
@@ -53,7 +55,7 @@ func extractionDiagnostic(f analysis.Facts, issue analysis.Issue) Diagnostic {
 	return d
 }
 
-func cloneDiagnostics(in []Diagnostic) []Diagnostic {
+func CloneDiagnostics(in []Diagnostic) []Diagnostic {
 	out := append([]Diagnostic(nil), in...)
 	for i := range out {
 		if out[i].Outline != nil {

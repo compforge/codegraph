@@ -1,6 +1,8 @@
-package codegraph
+package graphmodel
 
-import "github.com/compforge/codegraph/internal/confidence"
+import (
+	"github.com/compforge/codegraph/internal/confidence"
+)
 
 type RelationKind string
 
@@ -54,8 +56,8 @@ type Subgraph struct {
 	Relations []Relation `json:"relations"`
 }
 
-// cloneRelation detaches both the proof list and optional supporting locations.
-func cloneRelation(r Relation) Relation {
+// CloneRelation detaches both the proof list and optional supporting locations.
+func CloneRelation(r Relation) Relation {
 	r.Evidence = append([]Evidence(nil), r.Evidence...)
 	for i := range r.Evidence {
 		if r.Evidence[i].Location != nil {
