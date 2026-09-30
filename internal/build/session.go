@@ -32,13 +32,3 @@ func NewSession(b *Builder) (*Session, error) {
 	}
 	return &Session{Builder: b, extractor: e, documentTasks: map[string]documentTask{}, factCache: map[string]factCacheEntry{}}, nil
 }
-
-// Done observes the last admitted publication without triggering or waiting for it.
-func (s *Session) Done() <-chan struct{} {
-	s.asyncMu.Lock()
-	defer s.asyncMu.Unlock()
-	if s.latestWork == nil {
-		return nil
-	}
-	return s.latestWork.done
-}

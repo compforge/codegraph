@@ -16,7 +16,7 @@ builder.go、graph.go、compat.go           # Builder / Graph 门面及兼容转
 internal/
   extract/                              # 材料身份、有界解析、完整 Facts、检查视图与缓存
   build/                                # 接纳、预算、阶段编排和原子发布；Session 拥有异步补料状态
-  graphmodel/                           # 共享领域值的单一定义；根包通过类型别名公开
+  model/                           # 共享领域值的单一定义；根包通过类型别名公开
   confidence/                           # 公共 API 与分析过程共用的证据精度及排序
   analysis/                             # 实体、Namespace、Scope/Binding、Relation/Evidence 登记及阶段契约
   pipeline/                             # parser 生命周期与 Organize → Bind → Resolve 阶段屏障
@@ -28,6 +28,7 @@ internal/
   graphstore/                           # 只读快照、类型化访问、延迟查询索引及引擎值转换
 graph_test.go、example_test.go           # 契约测试与可执行示例
 multilanguage_test.go、language_extension_test.go # 多语言隔离、能力边界与 grammar 扩展
+tests/semantics/                         # 通过公共 API 验证语言绑定、关系与多阶段语义回归
 tests/corpus/                            # 独立 Go 测试模块：固定仓库、Go / Python / TypeScript 独立参照、覆盖测量与差异证据
 docs/kernel.md                          # 稳定模型、主流程与设计依据
 ```
@@ -38,7 +39,7 @@ docs/kernel.md                          # 稳定模型、主流程与设计依�
 2. 关系身份保留端点、种类及发生位置，多条依据汇入 Evidence，Relation.Confidence 由 Evidence 的最高档推导；单条证据的必要推导链取最低档。保留候选与局部缺口，不虚构目标，也不将证据强度解释为业务影响概率。
 3. 同一 Graph 只容纳同一快照。Extractor 拥有解析与缓存；Builder 拥有构图、预算及原子发布，Graph 是只读结果；语言实现通过阶段接口提供事实、关系与诊断，不获取材料或直接操作图存储。
 4. AST 与引擎对象不穿透公共 API，提取结果脱离 parser 生命周期。新增语言能力同步更新注册声明及契约测试，grammar 可用不等于语义完整。
-5. 执行失败由 error 表达；局部诊断不否定无关事实。库测试验证图契约，真实语料验证语义覆盖，消费者验证自身策略与执行行为。
+5. 执行失败由 error 表达；局部诊断不否定无关事实。根包测试验证公共契约，内部机制测试随所属包维护；跨阶段语言回归放在 tests/semantics，真实语料验证语义覆盖，消费者验证自身策略与执行行为。
 6. 验证入口为 `make lint test build`，测试启用 race detector；工具准备和语料命令见 [评测执行入口](docs/corpus.md#执行与证据)。
 7. `VERSION` 格式为 X.Y.Z，任何代码文件变更（含测试、增删及重命名）须在同一提交 bump，默认递增 patch；纯文档变更无需 bump。
 

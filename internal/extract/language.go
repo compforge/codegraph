@@ -3,8 +3,8 @@ package extract
 import (
 	"sort"
 
-	"github.com/compforge/codegraph/internal/graphmodel"
 	"github.com/compforge/codegraph/internal/language"
+	"github.com/compforge/codegraph/internal/model"
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
@@ -25,16 +25,16 @@ func Capabilities(languages ...string) []Capability {
 		c := language.Lookup(entry.Name).Describe(*entry)
 		cap := Capability{Language: c.Language, Limitations: c.Limitations}
 		for _, v := range c.Organizations {
-			cap.Organizations = append(cap.Organizations, graphmodel.NodeKind(v))
+			cap.Organizations = append(cap.Organizations, model.NodeKind(v))
 		}
 		for _, v := range c.Declarations {
-			cap.Declarations = append(cap.Declarations, graphmodel.NodeKind(v))
+			cap.Declarations = append(cap.Declarations, model.NodeKind(v))
 		}
 		for _, v := range c.Relations {
-			cap.Relations = append(cap.Relations, graphmodel.RelationKind(v))
+			cap.Relations = append(cap.Relations, model.RelationKind(v))
 		}
 		for _, v := range c.Markers {
-			cap.Markers = append(cap.Markers, graphmodel.MarkerKind(v))
+			cap.Markers = append(cap.Markers, model.MarkerKind(v))
 		}
 		out = append(out, cap)
 	}
@@ -64,10 +64,10 @@ func Language(name string) string {
 
 type Capability struct {
 	// Organizations lists language units assembled from source contributions.
-	Organizations []graphmodel.NodeKind
+	Organizations []model.NodeKind
 	Language      string
-	Declarations  []graphmodel.NodeKind
-	Relations     []graphmodel.RelationKind
-	Markers       []graphmodel.MarkerKind
+	Declarations  []model.NodeKind
+	Relations     []model.RelationKind
+	Markers       []model.MarkerKind
 	Limitations   []string
 }
