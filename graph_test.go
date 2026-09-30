@@ -10,46 +10,10 @@ import (
 	"sync"
 	"testing"
 	"testing/fstest"
+	"time"
+
+	"github.com/compforge/codegraph/internal/graphstore"
 )
-
-func fixture() fstest.MapFS {
-	return fstest.MapFS{
-		"main.go":       {Data: []byte("package app\nimport lib \"example.org/demo/lib\"\n// +spec=`review keeps source evidence`\n// +case:id=call,expect=`two calls`\n// +rule=`do not merge call sites`\n// +link=docs/review.md\n// +doc=`entrypoint documentation`\nfunc Entry(){ lib.Work(); lib.Work(); helper() }\n")},
-		"helper.go":     {Data: []byte("package app\nfunc helper(){ helper() }\n")},
-		"lib/work.go":   {Data: []byte("package worker\nfunc Work(){ End() }\nfunc End(){}\n")},
-		"entry_test.go": {Data: []byte("package app\n// +case=`entry regression`\nfunc TestEntry(){ Entry() }\n")},
-	}
-}
-
-func documents(source fstest.MapFS, paths ...string) []Document {
-	out := make([]Document, 0, len(paths))
-	for _, path := range paths {
-		out = append(out, Document{Path: path, Content: source[path].Data})
-	}
-	return out
-}
-
-func built(t *testing.T, opts Options) *Graph {
-	t.Helper()
-	opts.ModulePath = "example.org/demo"
-	g, r, err := Build(context.Background(), "rev-A", documents(fixture(), "main.go", "helper.go", "lib/work.go", "entry_test.go"), opts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(r.Diagnostics) != 0 {
-		t.Fatalf("partial: %+v", r)
-	}
-	return g
-}
-
-func query(t *testing.T, g *Graph, q string, params map[string]any) []map[string]any {
-	t.Helper()
-	rows, err := g.Query(context.Background(), q, params)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return rows
-}
 
 func TestSourceGraph(t *testing.T) {
 	g := built(t, Options{})
@@ -360,4 +324,138 @@ func Entry(){ callback:=func(){ Work[int]() }; callback() }
 	if len(query(t, g, `MATCH (:Function {name:'Entry'})-[:calls]->(n) RETURN n`, nil)) != 0 {
 		t.Fatal("closure body attributed to outer function")
 	}
+}
+
+func TestConsumerAccessors(t *testing.T) {
+	source := fstest.MapFS{"main.go": {Data: []byte(`package p
+type Box struct{}
+func (b Box) Run() { Work(); Work() }
+func Work() {}
+`)}}
+	g, report, err := Build(context.Background(), "rev", documents(source, "main.go"), Options{})
+	if err != nil || len(report.Diagnostics) != 0 {
+		t.Fatal(report, err)
+	}
+	methods := g.Find("main.go", Method, "Box.Run")
+	if len(methods) != 1 || methods[0].Location.EndLine != 3 || methods[0].Location.EndColumn == 0 {
+		t.Fatal(methods)
+	}
+	if got := g.Find("main.go", Function, "Work"); len(got) != 1 || got[0].Location.Line != 4 {
+		t.Fatal(got)
+	}
+	node, ok := g.Node(methods[0].ID)
+	if !ok || !reflect.DeepEqual(node, methods[0]) {
+		t.Fatal(node, methods[0], ok)
+	}
+	edges := g.RelationsFrom(methods[0].ID, Calls)
+	if len(edges) != 2 {
+		t.Fatal(edges)
+	}
+	target, ok := g.Node(edges[0].Target)
+	if !ok || target.QualifiedName != "Work" {
+		t.Fatal(target, ok)
+	}
+	if len(g.RelationsTo(target.ID, Calls)) != 2 {
+		t.Fatal(g.RelationsTo(target.ID, Calls))
+	}
+	if len(g.Find("main.go", Interface, "Box.Run")) != 0 {
+		t.Fatal("kind filter ignored")
+	}
+}
+
+func TestEvidenceDetachedAcrossAccessAndQuery(t *testing.T) {
+	ctx := context.Background()
+	loc := Location{Path: "a.go", Line: 1, Column: 1}
+	nodes := map[string]Node{"a": {ID: "a", Kind: Function, Name: "entry", Location: &loc}, "b": {ID: "b", Kind: Function, Name: "target", Location: &loc}}
+	relations := map[string]Relation{"r": {ID: "r", Source: "a", Target: "b", Kind: Calls, Confidence: Exact, Evidence: []Evidence{{Basis: "call", Confidence: Exact}}, Location: loc}}
+	g := newGraphFixture("proofs", nodes, relations, BuildReport{Snapshot: "proofs"}, graphstore.Limits{Rows: 100, Bytes: 1 << 20, Hops: 8}, time.Second)
+	var err error
+	var original Relation
+	for _, r := range g.Relations() {
+		if r.Kind == Calls {
+			original = r
+			break
+		}
+	}
+	// Supporting evidence is optional; inject one to exercise pointer ownership.
+	proofLocation := original.Location
+	original.Evidence[0].Location = &proofLocation
+	g.relations[original.ID] = cloneRelation(original)
+	g.store, err = g.materialize(ctx, g.nodes, g.relations)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mutate := func(r Relation) { r.Evidence[0].Basis = "mutated"; r.Evidence[0].Location.Path = "mutated" }
+	for _, get := range []func() []Relation{g.Relations, func() []Relation { return g.RelationsFrom(original.Source) }, func() []Relation { return g.RelationsTo(original.Target) }} {
+		for _, r := range get() {
+			if r.ID == original.ID {
+				mutate(r)
+			}
+		}
+	}
+	rows, err := g.Query(ctx, "MATCH ()-[r:calls]->() RETURN r", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range rows {
+		r := row["r"].(Relation)
+		if r.ID == original.ID {
+			mutate(r)
+		}
+	}
+	rows, err = g.Query(ctx, "MATCH p=()-[:calls*1..1]->() RETURN p", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range rows {
+		for _, r := range row["p"].(Path).Relations {
+			if r.ID == original.ID {
+				mutate(r)
+			}
+		}
+	}
+	if !reflect.DeepEqual(g.relations[original.ID], original) {
+		t.Fatal("evidence alias escaped")
+	}
+	rows, err = g.Query(ctx, "MATCH ()-[r:calls]->() RETURN r.evidenceData AS evidence", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range rows {
+		var proof []Evidence
+		if err := json.Unmarshal([]byte(row["evidence"].(string)), &proof); err != nil || len(proof) == 0 {
+			t.Fatal(row, err)
+		}
+	}
+}
+
+// Typed navigation never needs the query index. A canceled first query must
+// leave index construction retryable for later, concurrent readers.
+func TestSnapshotLazyQueryIndex(t *testing.T) {
+	g := newGraphFixture("lazy", map[string]Node{"a": {ID: "a", Kind: Function, Name: "A", QualifiedName: "A", Location: &Location{Path: "a.go"}}}, nil, BuildReport{Snapshot: "lazy"}, graphstore.Limits{Rows: 10, Bytes: 1 << 20, Hops: 8}, time.Second)
+	if len(g.Nodes()) != 1 || len(g.Find("a.go", Function, "A")) != 1 || g.store != nil {
+		t.Fatal("typed navigation allocated query storage")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := g.Query(ctx, "MATCH (n) RETURN n", nil); !errors.Is(err, context.Canceled) || g.store != nil {
+		t.Fatal("canceled query published an index", err)
+	}
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Go(func() {
+			rows, err := g.Query(context.Background(), "MATCH (n:Function) RETURN n", nil)
+			if err != nil || len(rows) != 1 {
+				t.Errorf("concurrent first query: %v %v", rows, err)
+			}
+		})
+	}
+	wg.Wait()
+	if g.store == nil {
+		t.Fatal("successful query did not retain its index")
+	}
+}
+
+func newGraphFixture(snapshot string, nodes map[string]Node, relations map[string]Relation, report BuildReport, limits graphstore.Limits, timeout time.Duration) *Graph {
+	return newGraph(snapshot, Options{MaxResultRows: limits.Rows, MaxResultBytes: limits.Bytes, MaxQueryHops: limits.Hops, QueryTimeout: timeout}, nodes, relations, report)
 }

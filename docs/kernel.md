@@ -114,9 +114,12 @@ spec、case、rule、link、doc 是声明上的结构化意图标记，保留内
 阶段屏障使跨文件基类和接收者能在调用解析前进入索引，避免输入顺序决定绑定结果。
 具体接口、共享算法与语言接入见 [语言构建流程](language-pipeline.md)。
 
-根包提供公共 API 和兼容转发；internal/extract 拥有材料、Facts、解析与缓存，internal/build
-拥有接纳、预算和原子发布，internal/graphstore 拥有只读快照与延迟查询索引。共享领域值在
-internal/model 保持单一定义，由根包通过类型别名公开，内部实现无需反向依赖根包。
+根包直接定义 Document、Facts、Extractor、Builder、Graph 及公共图值。Extractor 拥有提取
+与缓存，Builder 拥有接纳、预算和发布，Graph 拥有不可变结果、类型化访问及延迟查询索引。
+异步补料由根包内独立的私有 session 协调，公共对象与自己的状态和行为在同一包维护。
+
+根包调用内部机制，并负责分析材料与公共值、图值与引擎引用之间的转换。internal/graphstore
+封装 GoGraph、查询限制及引擎值转换；内部包不依赖根包，也不持有公共 Graph 的生命周期。
 
 internal/analysis 定义分析事实及阶段契约；pipeline 根据语言注册信息编排阶段，语言适配器
 提供语义规则。AST 和引擎对象留在适配层，公共 API 返回独立的领域值。
@@ -135,7 +138,7 @@ Extractor 限制并发、单文件字节和解析时间，可选择调用方持�
 
 Builder 按材料规模和关系预算接纳与构图，整个构建成功后才替换 Result。
 输入上下文取消和执行失败阻止发布；消费者可通过 AddFailure 保留单文件解析缺口。
-兼容的异步补料接口按需创建独立 Session，由它协调解析任务与待发布批次；普通 Builder
+兼容的异步补料接口按需创建独立的私有 session，由它协调解析任务与待发布批次；普通 Builder
 只持有已接纳的材料与构图状态。Wait 只等待既有工作，取消等待不会取消构建。
 取消与接纳的精确契约见 [使用指南](usage.md)。
 

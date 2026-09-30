@@ -1,10 +1,9 @@
-package extract
+package codegraph
 
 import (
 	"fmt"
 
 	"github.com/compforge/codegraph/internal/analysis"
-	"github.com/compforge/codegraph/internal/model"
 )
 
 // Facts owns the complete immutable extraction artifact for one document
@@ -22,7 +21,7 @@ type Facts struct {
 	Calls         []FactCall
 	References    []FactReference
 	TypeRelations []FactTypeRelation
-	Issues        []model.Diagnostic
+	Issues        []Diagnostic
 	// Exports maps explicit public names to local declarations or imported bindings.
 	// Cross-module re-exports are recorded on Imports.Bindings.
 	Exports map[string]string
@@ -51,9 +50,9 @@ type Expression struct {
 
 type FactDeclaration struct {
 	Name, QualifiedName string
-	Kind                model.NodeKind
-	Location            model.Location
-	Markers             []model.Marker
+	Kind                NodeKind
+	Location            Location
+	Markers             []Marker
 }
 
 type FactImport struct {
@@ -65,21 +64,21 @@ type FactImport struct {
 	// whole module is imported.
 	Names    []string
 	Bindings []FactImportBinding
-	Location model.Location
+	Location Location
 }
 
 // FactImportBinding preserves a source name, its local alias and its statement scope.
 type FactImportBinding struct {
 	Name, Local         string
 	Namespace, ReExport bool
-	Location            model.Location
+	Location            Location
 }
 
 // FactReference records one identifier use. Owner indexes Declarations, or is
 // -1 for file scope. A missing target does not discard the lexical fact.
 type FactReference struct {
 	Name, Receiver string
-	Location       model.Location
+	Location       Location
 	Owner          int
 }
 
@@ -88,7 +87,7 @@ type FactReference struct {
 // Module is a source import qualifier, not a fetched dependency identity.
 type FactCallTarget struct {
 	Name, ReceiverType, Module string
-	Kind                       model.NodeKind
+	Kind                       NodeKind
 	Basis                      string
 }
 
@@ -97,14 +96,14 @@ type FactCallTarget struct {
 type FactTypeRelation struct {
 	Owner        int
 	Name, Module string
-	Kind         model.RelationKind
+	Kind         RelationKind
 	Basis        string
-	Location     model.Location
+	Location     Location
 }
 
 type FactCall struct {
 	Name, Receiver string
-	Location       model.Location
+	Location       Location
 	// Blocked excludes the static-function path; Targets may still carry dispatch candidates.
 	Blocked, Builtin bool
 	Targets          []FactCallTarget
@@ -113,13 +112,13 @@ type FactCall struct {
 func projectFacts(f analysis.Facts) (Facts, error) {
 	out := Facts{raw: &f, Path: f.Path, Package: f.Package, Language: f.Language, Gitlink: f.Gitlink}
 	for _, d := range f.Declarations {
-		kind, err := model.DeclarationKind(d.Kind)
+		kind, err := declarationKind(d.Kind)
 		if err != nil {
 			return Facts{}, fmt.Errorf("%s: %w", f.Path, err)
 		}
-		decl := FactDeclaration{Name: d.Name, QualifiedName: d.QualifiedName, Kind: kind, Location: model.SourceLocation(f, d.Span)}
+		decl := FactDeclaration{Name: d.Name, QualifiedName: d.QualifiedName, Kind: kind, Location: location(f, d.Span)}
 		for _, m := range d.Comments {
-			decl.Markers = append(decl.Markers, model.Marker{Kind: model.MarkerKind(m.Kind), Text: m.Text, Location: model.SourceLocation(f, m.Span)})
+			decl.Markers = append(decl.Markers, Marker{Kind: MarkerKind(m.Kind), Text: m.Text, Location: location(f, m.Span)})
 		}
 		out.Declarations = append(out.Declarations, decl)
 	}
@@ -129,9 +128,9 @@ func projectFacts(f analysis.Facts) (Facts, error) {
 		byStart[i.Span.Start] = append(byStart[i.Span.Start], j)
 		bindings := make([]FactImportBinding, 0, len(i.Bindings))
 		for _, b := range i.Bindings {
-			bindings = append(bindings, FactImportBinding{Name: b.Name, Local: b.Local, Namespace: b.Namespace, ReExport: b.ReExport, Location: model.SourceLocation(f, b.Span)})
+			bindings = append(bindings, FactImportBinding{Name: b.Name, Local: b.Local, Namespace: b.Namespace, ReExport: b.ReExport, Location: location(f, b.Span)})
 		}
-		imports = append(imports, FactImport{Bindings: bindings, Alias: i.Alias, Path: i.Path, From: i.From, Relative: i.Relative, Binding: i.Binding, Names: append([]string(nil), i.Names...), Location: model.SourceLocation(f, i.Span)})
+		imports = append(imports, FactImport{Bindings: bindings, Alias: i.Alias, Path: i.Path, From: i.From, Relative: i.Relative, Binding: i.Binding, Names: append([]string(nil), i.Names...), Location: location(f, i.Span)})
 	}
 	out.Imports = imports
 	for _, s := range f.Statements {
@@ -146,25 +145,25 @@ func projectFacts(f analysis.Facts) (Facts, error) {
 	for _, c := range f.Calls {
 		targets := make([]FactCallTarget, 0, len(c.Targets))
 		for _, target := range c.Targets {
-			kind := model.Function
+			kind := Function
 			if target.Kind == "method" {
-				kind = model.Method
+				kind = Method
 			}
 			if target.Kind == "constructor" {
-				kind = model.Constructor
+				kind = Constructor
 			}
 			targets = append(targets, FactCallTarget{Name: target.Name, ReceiverType: target.ReceiverType, Module: target.Module, Kind: kind, Basis: target.Basis})
 		}
-		out.Calls = append(out.Calls, FactCall{Targets: targets, Name: c.Name, Receiver: c.Receiver, Location: model.SourceLocation(f, c.Span), Blocked: c.Blocked, Builtin: c.Builtin})
+		out.Calls = append(out.Calls, FactCall{Targets: targets, Name: c.Name, Receiver: c.Receiver, Location: location(f, c.Span), Blocked: c.Blocked, Builtin: c.Builtin})
 	}
 	for _, r := range f.References {
-		out.References = append(out.References, FactReference{Name: r.Name, Receiver: r.Receiver, Location: model.SourceLocation(f, r.Span), Owner: r.Owner})
+		out.References = append(out.References, FactReference{Name: r.Name, Receiver: r.Receiver, Location: location(f, r.Span), Owner: r.Owner})
 	}
 	for _, r := range f.TypeRelations {
-		out.TypeRelations = append(out.TypeRelations, FactTypeRelation{Owner: r.Owner, Name: r.Name, Module: r.Module, Kind: model.RelationKind(r.Kind), Basis: r.Basis, Location: model.SourceLocation(f, r.Span)})
+		out.TypeRelations = append(out.TypeRelations, FactTypeRelation{Owner: r.Owner, Name: r.Name, Module: r.Module, Kind: RelationKind(r.Kind), Basis: r.Basis, Location: location(f, r.Span)})
 	}
 	for _, issue := range f.Issues {
-		out.Issues = append(out.Issues, model.ExtractionDiagnostic(f, issue))
+		out.Issues = append(out.Issues, extractionDiagnostic(f, issue))
 	}
 	return out, nil
 }
@@ -200,4 +199,21 @@ func projectStatement(s analysis.Statement, imports []FactImport, byStart map[in
 		out.Else = append(out.Else, projectStatement(e, imports, byStart))
 	}
 	return out
+}
+
+// View returns a fresh detached projection of the original extraction artifact.
+func (f Facts) View() (Facts, error) {
+	if f.raw == nil {
+		return Facts{}, fmt.Errorf("facts must be produced by an Extractor")
+	}
+	return projectFacts(*f.raw)
+}
+
+// Digest identifies source bytes and material kind/version, independently of
+// a graph snapshot. The logical path is available in View and is part of cache identity.
+func (f Facts) Digest() [32]byte {
+	if f.raw == nil {
+		return [32]byte{}
+	}
+	return (Document{Path: f.raw.Path, Content: f.raw.Source, Gitlink: f.raw.Gitlink}).digest()
 }

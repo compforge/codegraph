@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/alitto/pond/v2"
-	"github.com/compforge/codegraph/internal/extract"
 )
 
 // Build creates a graph from one explicit source-document batch. Document
@@ -33,30 +32,35 @@ func (g *Graph) AddDocuments(ctx context.Context, docs ...Document) error {
 	}
 	return g.legacy.AddDocuments(ctx, docs...)
 }
+
 func (g *Graph) AddDocument(ctx context.Context, doc Document) pond.ResultTask[Facts] {
 	if g.legacy == nil {
-		return extract.Completed[Facts]{Err: ErrReadOnly}
+		return completedTask[Facts]{Err: ErrReadOnly}
 	}
 	return g.legacy.AddDocument(ctx, doc)
 }
+
 func (g *Graph) Extract(ctx context.Context, doc Document) (Facts, error) {
 	if g.legacy == nil {
 		return Facts{}, ErrReadOnly
 	}
 	return g.legacy.Extract(ctx, doc)
 }
+
 func (g *Graph) GetDocument(id string) (pond.ResultTask[Facts], error) {
 	if g.legacy == nil {
 		return nil, ErrDocumentNotFound
 	}
 	return g.legacy.GetDocument(id)
 }
+
 func (g *Graph) FindAsync(path string, kind NodeKind, name string) (pond.ResultTask[[]Node], bool) {
 	if g.legacy == nil {
 		return nil, false
 	}
 	return g.legacy.FindAsync(path, kind, name)
 }
+
 func (g *Graph) Wait(ctx context.Context) (BuildReport, error) {
 	if g.legacy == nil {
 		return g.Report(), ctx.Err()
@@ -82,7 +86,7 @@ func (b *Builder) AddDocuments(ctx context.Context, docs ...Document) error {
 func (b *Builder) AddDocument(ctx context.Context, doc Document) pond.ResultTask[Facts] {
 	s, err := b.legacySession()
 	if err != nil {
-		return extract.Completed[Facts]{Err: err}
+		return completedTask[Facts]{Err: err}
 	}
 	return s.AddDocument(ctx, doc)
 }
@@ -137,4 +141,19 @@ func (b *Builder) Wait(ctx context.Context) (BuildReport, error) {
 		return b.Report(), err
 	}
 	return s.Wait(ctx)
+}
+
+// New creates the compatibility incremental facade. Prefer NewBuilder when
+// extraction and snapshot construction have separate lifetimes.
+func New(snapshot string, opts Options) (*Graph, error) {
+	b, err := NewBuilder(snapshot, opts)
+	if err != nil {
+		return nil, err
+	}
+	return &Graph{legacy: b}, nil
+}
+
+func (b *Builder) legacySession() (*session, error) {
+	b.sessionOnce.Do(func() { b.session, b.sessionErr = newSession(b) })
+	return b.session, b.sessionErr
 }
