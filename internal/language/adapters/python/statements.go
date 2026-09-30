@@ -41,8 +41,13 @@ func pythonProgram(f *Facts, tree *gts.Tree) []Statement {
 				e.Text = raw[1 : len(raw)-1]
 			} else {
 				e.Kind = "unknown"
+				// Literal text and escapes cannot change import context. Only
+				// interpolation contains executable expressions worth traversing.
 				for i := 0; i < n.NamedChildCount(); i++ {
-					e.Children = append(e.Children, expr(n.NamedChild(i), depth+1))
+					child := n.NamedChild(i)
+					if child.Type(lang) == "interpolation" {
+						e.Children = append(e.Children, expr(child, depth+1))
+					}
 				}
 			}
 		case "attribute":
@@ -71,7 +76,7 @@ func pythonProgram(f *Facts, tree *gts.Tree) []Statement {
 	}
 	var statements func(*gts.Node, int) []Statement
 	statements = func(n *gts.Node, depth int) []Statement {
-		if n == nil {
+		if n == nil || n.Type(lang) == "comment" {
 			return nil
 		}
 		if depth > 64 || !take() {
@@ -107,10 +112,22 @@ func pythonProgram(f *Facts, tree *gts.Tree) []Statement {
 				s.Name = name.Text(f.Source)
 			}
 			params := n.ChildByFieldName("parameters", lang)
-			s.Target = expr(params, 0)
 			if params != nil {
+				s.Target = Expression{Kind: "parameters"}
 				for i := 0; i < params.NamedChildCount(); i++ {
 					param := params.NamedChild(i)
+					// Parameter targets bind names, not annotation/default references.
+					// Defaults are captured once below; other expressions (including
+					// lambda defaults) keep their complete expression structure.
+					binding := param
+					switch param.Type(lang) {
+					case "typed_parameter", "default_parameter", "typed_default_parameter":
+						binding = param.ChildByFieldName("name", lang)
+						if binding == nil && param.NamedChildCount() > 0 {
+							binding = param.NamedChild(0)
+						}
+					}
+					s.Target.Children = append(s.Target.Children, expr(binding, 0))
 					if value := param.ChildByFieldName("value", lang); value != nil {
 						s.Prelude = append(s.Prelude, expr(value, 0))
 					}
