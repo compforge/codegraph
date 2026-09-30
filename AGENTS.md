@@ -10,13 +10,12 @@ CodeGraph 是可内嵌的代码属性图 Go 库，将调用方提供的快照材
 
 ```text
 VERSION                                # 项目版本
-model.go、error.go、language.go          # 公共值类型、错误与能力声明
-extractor.go                            # Document、Facts、Extractor 与缓存的公共入口
-builder.go、graph.go、compat.go           # Builder / Graph 门面及兼容转发
+model.go                               # 公共图值类型、诊断、报告与错误
+document.go、facts.go                   # 输入材料、身份与完整 Facts 检查视图
+extractor.go                           # 有界提取、任务与缓存
+builder.go、graph.go                    # 接纳、构图发布及只读查询结果
+session.go、compat.go                   # 私有异步会话与兼容入口
 internal/
-  extract/                              # 材料身份、有界解析、完整 Facts、检查视图与缓存
-  build/                                # 接纳、预算、阶段编排和原子发布；Session 拥有异步补料状态
-  model/                           # 共享领域值的单一定义；根包通过类型别名公开
   confidence/                           # 公共 API 与分析过程共用的证据精度及排序
   analysis/                             # 实体、Namespace、Scope/Binding、Relation/Evidence 登记及阶段契约
   pipeline/                             # parser 生命周期与 Organize → Bind → Resolve 阶段屏障
@@ -25,9 +24,8 @@ internal/
       golang/、python/、ecmascript/       # 语言专有提取、组织、绑定与关系规则
       generic/                          # 通用 grammar 兜底适配器
     syntax/、module/                     # 共享语法提取及模块绑定算法
-  graphstore/                           # 只读快照、类型化访问、延迟查询索引及引擎值转换
-graph_test.go、example_test.go           # 契约测试与可执行示例
-multilanguage_test.go、language_extension_test.go # 多语言隔离、能力边界与 grammar 扩展
+  graphstore/                           # GoGraph 引擎、查询限制及引擎值转换
+*_test.go                              # 按核心对象组织的机制测试、公共契约与可执行示例
 tests/semantics/                         # 通过公共 API 验证语言绑定、关系与多阶段语义回归
 tests/corpus/                            # 独立 Go 测试模块：固定仓库、Go / Python / TypeScript 独立参照、覆盖测量与差异证据
 docs/kernel.md                          # 稳定模型、主流程与设计依据

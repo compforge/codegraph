@@ -4,10 +4,9 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"runtime"
 	"sync"
 	"testing"
-
-	"github.com/compforge/codegraph/internal/extract"
 )
 
 func newTestExtractor(t *testing.T, cache *ExtractionCache) *Extractor {
@@ -18,6 +17,7 @@ func newTestExtractor(t *testing.T, cache *ExtractionCache) *Extractor {
 	}
 	return e
 }
+
 func extractTestFacts(t *testing.T, e *Extractor, path, source string) Facts {
 	t.Helper()
 	f, err := e.Extract(context.Background(), Document{Path: path, Content: []byte(source)})
@@ -26,6 +26,7 @@ func extractTestFacts(t *testing.T, e *Extractor, path, source string) Facts {
 	}
 	return f
 }
+
 func buildTestFacts(t *testing.T, snapshot string, opts Options, facts ...Facts) *Graph {
 	t.Helper()
 	b, err := NewBuilder(snapshot, opts)
@@ -79,8 +80,8 @@ func TestBuilderPublicationBudgetsAndLazyQueries(t *testing.T) {
 	e := newTestExtractor(t, nil)
 	a := extractTestFacts(t, e, "a.go", "package app\nfunc A(){}\n")
 	b := extractTestFacts(t, e, "b.go", "package app\nfunc B(){}\n")
-	extract.ParseObserver = func(string) { t.Error("build reparsed a Facts artifact") }
-	defer func() { extract.ParseObserver = nil }()
+	parseObserver = func(string) { t.Error("build reparsed a Facts artifact") }
+	defer func() { parseObserver = nil }()
 	builder, _ := NewBuilder("snapshot", Options{MaxDocuments: 2})
 	if err := builder.Add(a); err != nil {
 		t.Fatal(err)
@@ -95,6 +96,12 @@ func TestBuilderPublicationBudgetsAndLazyQueries(t *testing.T) {
 	second, _, err := builder.Build(context.Background())
 	if err != nil {
 		t.Fatal(err)
+	}
+	if builder.Result() != second || builder.session != nil || first.legacy != nil || second.legacy != nil {
+		t.Fatal("facts-only build created compatibility state or an extra publication")
+	}
+	if first.store != nil || second.store != nil {
+		t.Fatal("build eagerly created a query index")
 	}
 	if len(first.Report().Documents) != 1 || len(second.Report().Documents) != 2 {
 		t.Fatal("published result mutated")
@@ -188,5 +195,15 @@ func TestFactsNestedGoModuleContext(t *testing.T) {
 	after := buildTestFacts(t, "renamed-module", opts, caller, target)
 	if len(after.RelationsFrom(after.Find("cmd/main.go", Function, "main")[0].ID, Calls)) != 0 {
 		t.Fatal("module configuration reused old binding")
+	}
+}
+
+func TestBuildConcurrencyOptions(t *testing.T) {
+	if _, err := NewBuilder("rev", Options{BuildConcurrency: -1}); err == nil {
+		t.Fatal("negative concurrency accepted")
+	}
+	g, err := NewBuilder("rev", Options{})
+	if err != nil || g.opts.BuildConcurrency != min(runtime.GOMAXPROCS(0), 4) {
+		t.Fatalf("automatic concurrency: %v, %v", g, err)
 	}
 }

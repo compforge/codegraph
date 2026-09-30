@@ -1,4 +1,4 @@
-package extract
+package codegraph
 
 import (
 	"bytes"
@@ -10,7 +10,8 @@ import (
 	"strings"
 
 	"github.com/compforge/codegraph/internal/analysis"
-	"github.com/compforge/codegraph/internal/model"
+	"github.com/compforge/codegraph/internal/language"
+	"github.com/odvcencio/gotreesitter/grammars"
 )
 
 // Document is one source unit or opaque gitlink supplied for graph construction.
@@ -38,7 +39,7 @@ type Identifiable interface {
 }
 
 // ID is the Document node identity for this source document.
-func (d Document) ID() string { return model.DocumentID(d.Path) }
+func (d Document) ID() string { return DocumentID(d.Path) }
 
 func (d Document) validate() error {
 	if !fs.ValidPath(d.Path) {
@@ -61,13 +62,17 @@ func (d Document) validate() error {
 	}
 	return nil
 }
+
 func (d Document) same(other Document) bool {
 	return d.Gitlink == other.Gitlink && bytes.Equal(d.Content, other.Content)
 }
+
 func (d Document) matches(f analysis.Facts) bool {
 	return d.Gitlink == f.Gitlink && bytes.Equal(d.Content, f.Source)
 }
+
 func (d Document) size() int64 { return int64(len(d.Content) + len(d.Gitlink)) }
+
 func (d Document) digest() [32]byte {
 	// Include the material type/version so a source or a different gitlink at
 	// the same path can never reuse an extraction from another snapshot.
@@ -99,4 +104,68 @@ func validateDocumentBoundaries(documents map[string]Document) error {
 		}
 	}
 	return nil
+}
+
+// Capabilities describes implemented extraction/resolution, not grammar availability.
+// With no names it returns the language-specific adapters. Pass grammar names
+// from Languages to inspect additional outline support without eagerly loading
+// every registered grammar.
+func Capabilities(languages ...string) []Capability {
+	if len(languages) == 0 {
+		languages = language.Registered()
+	}
+	var out []Capability
+	for _, name := range languages {
+		entry := grammars.DetectLanguageByName(name)
+		if entry == nil {
+			continue
+		}
+		c := language.Lookup(entry.Name).Describe(*entry)
+		cap := Capability{Language: c.Language, Limitations: c.Limitations}
+		for _, v := range c.Organizations {
+			cap.Organizations = append(cap.Organizations, NodeKind(v))
+		}
+		for _, v := range c.Declarations {
+			cap.Declarations = append(cap.Declarations, NodeKind(v))
+		}
+		for _, v := range c.Relations {
+			cap.Relations = append(cap.Relations, RelationKind(v))
+		}
+		for _, v := range c.Markers {
+			cap.Markers = append(cap.Markers, MarkerKind(v))
+		}
+		out = append(out, cap)
+	}
+	return out
+}
+
+// Languages lists registered grammar names without loading their parsers.
+// Availability is not a guarantee of extraction or semantic completeness.
+func Languages() []string {
+	entries := grammars.AllLanguages()
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		names = append(names, entry.Name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// Language returns the registered grammar name selected for a source path, or
+// an empty string. Recognition does not imply complete semantic coverage.
+func Language(name string) string {
+	if entry := language.Detect(name); entry != nil {
+		return entry.Name
+	}
+	return ""
+}
+
+type Capability struct {
+	// Organizations lists language units assembled from source contributions.
+	Organizations []NodeKind
+	Language      string
+	Declarations  []NodeKind
+	Relations     []RelationKind
+	Markers       []MarkerKind
+	Limitations   []string
 }
