@@ -9,8 +9,7 @@ import (
 )
 
 func Outline(ctx context.Context, f Facts, tree *gts.Tree, entry grammars.LangEntry) (Facts, error) {
-	outliner, err := gts.NewOutliner(tree.Language(), entry.TagsQuery,
-		gts.WithOutlineOwnerRules(grammars.OutlineOwnerRules(entry)))
+	outliner, err := outlineProgram(tree.Language(), entry)
 	if err != nil {
 		f.Issues = append(f.Issues, Issue{Code: "outline_incomplete", Message: err.Error(), Subject: "declarations", Span: Span{End: len(f.Source)}})
 	} else {
