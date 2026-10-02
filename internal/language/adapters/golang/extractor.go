@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/compforge/codegraph/internal/language/syntax"
 	gts "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
 )
@@ -11,7 +12,7 @@ import (
 type Adapter struct{}
 
 func (Adapter) Extract(ctx context.Context, f Facts, tree *gts.Tree, entry grammars.LangEntry) (Facts, error) {
-	program, err := gts.NewFactProgram(tree.Language(), gts.FactDefinitions|gts.FactCalls|gts.FactImports)
+	program, err := syntax.FactProgram(tree.Language(), gts.FactDefinitions|gts.FactCalls|gts.FactImports)
 	if err != nil {
 		return f, err
 	}

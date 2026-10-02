@@ -14,7 +14,7 @@ func (x ModuleExtractor) Extract(ctx context.Context, f Facts, tree *gts.Tree, e
 	if err != nil {
 		return f, err
 	}
-	program, err := gts.NewFactProgram(tree.Language(), gts.FactImports|gts.FactCalls)
+	program, err := FactProgram(tree.Language(), gts.FactImports|gts.FactCalls)
 	if err != nil {
 		return f, err
 	}
