@@ -2,39 +2,52 @@
 
 English | [简体中文](README.zh-CN.md)
 
-An embeddable, multilingual code property graph library written in Go. Code review and
-impact analysis tools can query related files, declarations, and the evidence behind their relationships.
-It runs in your process, without a separate database service or mandatory disk persistence.
+CodeGraph is a multilingual code analysis library you can embed in a Go program. Supply a set of source
+files, and it statically builds a graph of symbols and their relationships. Code review, impact analysis,
+and source navigation tools can query those connections and inspect the evidence behind them.
+It runs in your process, without a separate database service or a requirement to write source files to disk.
 
-## Capabilities
+## What it helps you answer
 
-- Extract declarations, imports, references, calls, type relations, and intent markers from source.
-- Analyze Go, Python, JavaScript, TypeScript, and TSX with language-specific binding rules;
-  use registered grammars for outline extraction in other languages.
-- Connect facts across supplied files, preserving recursion, multiple call sites, and relation evidence.
-- Build from memory or caller-provided repository snapshots, including opaque gitlink entries.
-- Query nodes, relations, and bounded paths with parameterized, read-only Cypher or Go accessors.
-- Report candidate targets and local analysis gaps alongside the usable graph.
+Code tools often start from a change or a symbol and need to find code worth examining next:
 
-CodeGraph provides static evidence within the supplied scope. It does not perform compiler type
-checking or guarantee complete runtime dispatch analysis. Repository discovery, Git reads, dependency
-acquisition, and decisions about change impact or test selection belong to the caller.
+- **Calls and references:** Who calls this function? Which declarations reference this type?
+- **Structure and dependencies:** What members belong to a type? Which modules does a file import?
+  Which types declare inheritance or implementation relationships?
+- **Evidence:** Where does a connection occur in the source? Is its target established or only a candidate?
+  Which locations remain unresolved?
 
-## Core concepts
+CodeGraph supplies queryable relationships and their evidence. Your application can use them to select
+review context, investigate potential impact, or navigate source. Your own rules determine which code
+to review and which tests to run.
 
-You provide **Documents**: logical paths paired with source content or a pinned gitlink commit.
-An **Extractor** produces reusable single-document **Facts**. A **Builder** binds those facts
-with snapshot-specific resolution context and publishes a read-only **Graph**. Typed access needs
-no query index; Cypher storage is created when first queried.
+## Inputs and results
 
-Nodes use concrete kinds such as `Document`, `Package`, `Module`, `Class`, and `Function`.
-“Symbol” describes declarations; “Namespace” describes how languages organize members.
-These roles can overlap: a class both declares a type and organizes members.
+```text
+Source files (path + content) → Static analysis → Symbol graph → Relationship and evidence queries
+```
 
-Relations connect these nodes: `declares` records source contributions, `contains` records direct
-membership, and `imports`, `references`, `calls`, `extends`, and `implements` describe code relationships.
-Each relation preserves its occurrence and evidence. Confidence is `exact`, `scoped`, `name_only` or `heuristic`, not a
-probability of downstream impact. Missing targets remain diagnostics instead of invented nodes.
+**A Document is an input material.** It usually contains a logical path and complete source content,
+obtained from memory, a working tree, or a Git revision. The path need not exist on disk, but all materials
+in one graph must belong to the same snapshot. You select and read the materials; CodeGraph analyzes
+the supplied scope without scanning repositories or downloading dependencies.
+
+**A Graph is the analysis result.** Declarations such as functions, types, and fields form symbol nodes.
+Calls, references, membership, imports, and type relationships connect them. The graph also retains
+files and organizational entities such as packages and modules. For example, when `Entry()` calls
+`Work()`, the graph records `Entry → calls → Work`: you can find callees from Entry or callers from Work.
+Go accessors and read-only Cypher queries return nodes, relationships, and their source locations.
+
+**Evidence and diagnostics tell you what conclusions a result supports.** Each relationship retains its
+derivation and confidence. Some targets are established within the supplied materials; others are
+candidates constrained by names, imports, or type information. Missing targets and unsupported analysis
+leave local diagnostics. A candidate may warrant further inspection, and an absent relationship does
+not prove that no connection exists elsewhere in the repository.
+
+Go, Python, JavaScript, TypeScript, and TSX have language-specific name binding and relationship analysis.
+Other registered grammars primarily provide declaration structure. Coverage varies by language and code
+construct; see [language support and limitations](docs/language-support.md) (in Chinese).
+CodeGraph does not perform compiler type checking or guarantee complete runtime dispatch analysis.
 
 ## Quick start
 
@@ -82,4 +95,10 @@ func main() {
 Output: `Entry`. Successful construction may still report local analysis gaps; callers decide
 which gaps matter to their task. More executable examples are in [example_test.go](example_test.go).
 
-See the [usage guide](docs/usage.md) (in Chinese) for batch construction and more queries.
+## Further reading
+
+The following guides are in Chinese:
+
+- [Usage guide](docs/usage.md): add materials in batches, reuse analysis results, locate source, and query relationships; also covers retained intermediate results such as outlines.
+- [Document contract](docs/document.md): material identity, snapshot consistency, and Git submodule boundaries.
+- [Kernel design](docs/kernel.md): analysis stages and responsibilities for contributors and extension authors.

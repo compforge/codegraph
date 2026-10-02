@@ -48,6 +48,36 @@ Facts 内部持有完整只读材料，公开字段用于检查；修改字段�
 跨快照共享 Extractor，并通过其 `ExtractionOptions.Cache` 配置有界缓存；
 也可直接复用已持有的 Facts。两种方式都不复用绑定关系，不绕过构图预算。
 
+## 读取 Document Outline
+
+无需构图即可获取文件结构，直接返回 gotreesitter 的 `[]OutlineSymbol` 和 `OutlineReport`：
+
+```go
+extractor, err := codegraph.NewExtractor(codegraph.ExtractionOptions{})
+if err != nil { return err }
+symbols, report, err := extractor.Outline(ctx, document)
+if err != nil { return err }
+for _, symbol := range symbols {
+    fmt.Println(symbol.Name, symbol.Kind, symbol.Range, symbol.Children)
+}
+_ = report // 检查 DeclineReason、Truncated 和遗漏计数。
+```
+
+已调用 `Extract` 或等待 `Submit` 结果时，使用 `facts.Outline()`，无需再次提取。
+两种入口共享 Extractor 的容量与解析限制；跨调用复用由 `ExtractionOptions.Cache` 控制。
+`Facts.Outline()` 每次返回独立值，修改 Children 等内容不影响后续读取或构图。
+
+- Children 表达词法嵌套；Owner 保留非词法 owner 名称。例如 Go 接收者方法仍是文件顶层条目，
+  所属类型由图构建阶段绑定。Outline 名称和 Kind 不作为 Graph 的节点身份。
+- Range / NameRange 沿用上游坐标：字节范围结束位置不包含在内，Point 的行列从零开始；
+  与 CodeGraph Location 的一基行列不同。结果不提供签名或渲染文本。
+- 结构覆盖由语言适配器的声明 query 决定，未必等于全部图声明；Go 图声明有额外的语义提取。
+  无遗漏表示 query 候选未被丢弃，不证明源码声明全部被识别。
+- query 拒绝执行时，error 可以为空，原因保存在 `report.DeclineReason`；存在部分结果时保留
+  条目及报告。无 grammar、gitlink、query 编译失败或解析失败通过 error 表达。
+- 解析沿用严格模式，语法错误不会作为成功的恢复树 Outline 返回。空文件结构与不支持的材料
+  可以据 error 和报告区分。
+
 ## 兼容的构建与补料
 
 一次性处理材料可使用 Build；需要逐批提供材料时，先 New，再 AddDocuments。

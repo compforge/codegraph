@@ -1,5 +1,7 @@
 package analysis
 
+import gts "github.com/odvcencio/gotreesitter"
+
 type Span struct{ Start, End int }
 type Declaration struct {
 	Name, QualifiedName, Kind string
@@ -81,12 +83,16 @@ type Facts struct {
 	PackageSpan             Span
 	Source                  []byte
 	LineStarts              []int
-	Declarations            []Declaration
-	Imports                 []Import
-	Calls                   []Call
-	References              []Reference
-	TypeRelations           []TypeRelation
-	Issues                  []Issue
+	// Outline preserves the parser's lexical view independently of semantic ownership.
+	Outline       []gts.OutlineSymbol
+	OutlineReport gts.OutlineReport
+	OutlineError  error
+	Declarations  []Declaration
+	Imports       []Import
+	Calls         []Call
+	References    []Reference
+	TypeRelations []TypeRelation
+	Issues        []Issue
 	// Exports maps a public alias to its local name for explicit export
 	// aliases; extraction records them for consumer-side module resolution.
 	Exports map[string]string
