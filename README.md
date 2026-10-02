@@ -2,20 +2,21 @@
 
 English | [简体中文](README.zh-CN.md)
 
-An embeddable, multilingual code property graph library written in Go. Code review and
-impact analysis tools can query related files, declarations, and the evidence behind their relationships.
+An embeddable, multilingual code property graph library written in Go. It statically analyzes input
+Documents to build a graph of symbols and their relationships for code review and impact analysis.
+The analysis also retains intermediate results, such as file outlines, for consumers to reuse.
 It runs in your process, without a separate database service or mandatory disk persistence.
 
 ## Capabilities
 
 - Extract declarations, imports, references, calls, type relations, and intent markers from source.
-- Read file outlines without building a graph, preserving lexical nesting, source ranges, and extraction reports.
 - Analyze Go, Python, JavaScript, TypeScript, and TSX with language-specific binding rules;
   use registered grammars for outline extraction in other languages.
 - Connect facts across supplied files, preserving recursion, multiple call sites, and relation evidence.
 - Build from memory or caller-provided repository snapshots, including opaque gitlink entries.
 - Query nodes, relations, and bounded paths with parameterized, read-only Cypher or Go accessors.
 - Report candidate targets and local analysis gaps alongside the usable graph.
+- Access file outlines retained during analysis before completing graph construction, including lexical nesting, source ranges, and extraction reports.
 
 CodeGraph provides static evidence within the supplied scope. It does not perform compiler type
 checking or guarantee complete runtime dispatch analysis. Repository discovery, Git reads, dependency
