@@ -12,6 +12,10 @@ import (
 type Adapter struct{}
 
 func (Adapter) Extract(ctx context.Context, f Facts, tree *gts.Tree, entry grammars.LangEntry) (Facts, error) {
+	// Go declarations use semantic enrichment; navigation keeps the upstream
+	// lexical outline, including out-of-line receiver names, from the same tree.
+	entry.TagsQuery = grammars.ResolveTagsQuery(entry)
+	f = syntax.CaptureOutline(f, tree, entry)
 	program, err := syntax.FactProgram(tree.Language(), gts.FactDefinitions|gts.FactCalls|gts.FactImports)
 	if err != nil {
 		return f, err

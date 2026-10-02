@@ -15,6 +15,13 @@
 grammar 可用不表示语义完整。具体类别与语言覆盖以实际注册项、契约测试及本次 BuildReport 为准。
 没有 grammar 的材料处理见 [Document 契约](document.md)。
 
+## Document Outline
+
+`Extractor.Outline` 与 `Facts.Outline` 返回 gotreesitter 的 `OutlineSymbol` 和 `OutlineReport`。
+Outline 复用语言适配器的声明 query；Go 使用上游 grammar query，Python 和通用适配器使用
+注册 query，JS/TS 使用其适配器维护的声明 query。每次提取保留层级、范围和覆盖报告，
+不把图的语义成员关系投影成词法嵌套。使用方式与坐标约定见 [使用指南](usage.md#读取-document-outline)。
+
 ## 共同证据规则
 
 Go、Python、JS/TS 保留标识符使用位置及其最内层声明归属；声明名、注释和字符串不作为引用。

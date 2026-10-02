@@ -23,6 +23,11 @@ Document 表达一份输入材料：逻辑路径对应源码内容或 gitlink �
 Extractor 负责有界解析并产出 Facts，Facts 保存脱离 AST 的完整单文件材料，包括词法线索、
 语言专有证据、候选关系与局部诊断。Facts 的身份由路径和材料内容决定，可以跨快照复用。
 
+Outline 是 Document 的结构视图，与声明及关系线索共用一次解析。公开结果直接使用 gotreesitter
+的 OutlineSymbol / OutlineReport 值类型，保留词法嵌套及非词法 owner 线索；图中的成员归属由
+后续语言绑定确定。消费者可独立获取 Outline，也可从已提取的 Facts 读取，不要求构图。
+结构显示与 token 裁剪由消费者负责。
+
 Builder 接纳 Facts 和快照专属 ResolutionContext，执行组织、绑定与解析，原子发布只读 Graph。
 ResolutionContext 承载调用方已获得的模块根和导入路径证据，候选只与本轮材料集合连接，
 其精度限制后续绑定。获取文件、理解仓库配置与选择探索范围属于调用方。

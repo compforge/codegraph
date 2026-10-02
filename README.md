@@ -9,6 +9,7 @@ It runs in your process, without a separate database service or mandatory disk p
 ## Capabilities
 
 - Extract declarations, imports, references, calls, type relations, and intent markers from source.
+- Read file outlines without building a graph, preserving lexical nesting, source ranges, and extraction reports.
 - Analyze Go, Python, JavaScript, TypeScript, and TSX with language-specific binding rules;
   use registered grammars for outline extraction in other languages.
 - Connect facts across supplied files, preserving recursion, multiple call sites, and relation evidence.

@@ -12,7 +12,7 @@ CodeGraph 是可内嵌的代码属性图 Go 库，将调用方提供的快照材
 VERSION                                # 项目版本
 model.go                               # 公共图值类型、诊断、报告与错误
 document.go、facts.go                   # 输入材料、身份与完整 Facts 检查视图
-extractor.go                           # 有界提取、任务与缓存
+extractor.go、outline.go                # 有界提取、任务、缓存与上游 Outline 访问
 builder.go、graph.go                    # 接纳、构图发布及只读查询结果
 session.go、compat.go                   # 私有异步会话与兼容入口
 internal/
@@ -36,7 +36,7 @@ docs/kernel.md                          # 稳定模型、主流程与设计依�
 1. Node 使用具体语言类别；Symbol 与 Namespace 是可重叠的逻辑角色。源码贡献、成员归属和词法可见性分别由 declares、contains 与 Scope/Binding 表达。
 2. 关系身份保留端点、种类及发生位置，多条依据汇入 Evidence，Relation.Confidence 由 Evidence 的最高档推导；单条证据的必要推导链取最低档。保留候选与局部缺口，不虚构目标，也不将证据强度解释为业务影响概率。
 3. 同一 Graph 只容纳同一快照。Extractor 拥有解析与缓存；Builder 拥有构图、预算及原子发布，Graph 是只读结果；语言实现通过阶段接口提供事实、关系与诊断，不获取材料或直接操作图存储。
-4. AST 与引擎对象不穿透公共 API，提取结果脱离 parser 生命周期。新增语言能力同步更新注册声明及契约测试，grammar 可用不等于语义完整。
+4. AST 与引擎对象不穿透公共 API，提取结果脱离 parser 生命周期；Outline 直接复用 gotreesitter 的 OutlineSymbol / OutlineReport 值类型。新增语言能力同步更新注册声明及契约测试，grammar 可用不等于语义完整。
 5. 执行失败由 error 表达；局部诊断不否定无关事实。根包测试验证公共契约，内部机制测试随所属包维护；跨阶段语言回归放在 tests/semantics，真实语料验证语义覆盖，消费者验证自身策略与执行行为。
 6. 验证入口为 `make lint test build`，测试启用 race detector；工具准备和语料命令见 [评测执行入口](docs/corpus.md#执行与证据)。
 7. `VERSION` 格式为 X.Y.Z，任何代码文件变更（含测试、增删及重命名）须在同一提交 bump，默认递增 patch；纯文档变更无需 bump。
