@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/odvcencio/gotreesitter/grammars"
 )
 
 // +case=File outlines are derived from graph declarations and lexical edges, without reading source or parser outlines again.
@@ -168,5 +170,92 @@ func TestSourceStructureIndependentOfBinding(t *testing.T) {
 	rows[0]["n"].(Node).NameLocation.Path = "corrupt"
 	if n, _ := after.Node(original.ID); n.NameLocation.Path != method.Path {
 		t.Fatal("Query aliases graph name location")
+	}
+}
+
+// +case=Cached extraction feeds graph production once; every outline view reads only published nodes and relations.
+func TestGraphOutlineFromCachedProduction(t *testing.T) {
+	ctx := context.Background()
+	cache := extractionCache(t, 4, 4096)
+	e := newTestExtractor(t, cache)
+	parsed := 0
+	parseObserver = func(string) { parsed++ }
+	defer func() { parseObserver = nil }()
+	doc := Document{Path: "box.ts", Content: []byte("export class Box { run() {} }\n")}
+	facts, err := e.Extract(ctx, doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := buildTestFacts(t, "first", Options{}, facts)
+	again, err := e.Submit(ctx, doc).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+	second := buildTestFacts(t, "second", Options{}, again)
+	if parsed != 1 {
+		t.Fatalf("parsed %d times, want one", parsed)
+	}
+	want := "Class Box\n  Method run\n"
+	if graphOutline(t, first, doc.Path) != want || graphOutline(t, second, doc.Path) != want {
+		t.Fatal("cached production changed graph structure")
+	}
+	doc.Content = []byte("export function changed() {}\n")
+	changed, err := e.Extract(ctx, doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	third := buildTestFacts(t, "third", Options{}, changed)
+	if parsed != 2 || graphOutline(t, third, doc.Path) != "Function changed\n" {
+		t.Fatal("changed content reused stale structure")
+	}
+	if graphOutline(t, first, doc.Path) != want {
+		t.Fatal("later production changed a published outline")
+	}
+}
+
+// +case=Consumers distinguish an empty file outline from unavailable analysis using the published coverage report.
+func TestGraphOutlineCoverage(t *testing.T) {
+	for _, tc := range []struct {
+		doc        Document
+		diagnostic string
+	}{
+		{Document{Path: "empty.go", Content: []byte("package p\n")}, ""},
+		{Document{Path: "unknown.zzz", Content: []byte("some text")}, "unsupported_language"},
+		{Document{Path: "sdk", Gitlink: strings.Repeat("a", 40)}, ""},
+		{Document{Path: "data.json", Content: []byte(`{"x":1}`)}, "outline_incomplete"},
+	} {
+		t.Run(tc.doc.Path, func(t *testing.T) {
+			g, report, err := Build(context.Background(), "coverage", []Document{tc.doc}, Options{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if graphOutline(t, g, tc.doc.Path) != "" {
+				t.Fatal("invented declarations")
+			}
+			if _, ok := g.Node(tc.doc.ID()); !ok {
+				t.Fatal("missing document")
+			}
+			if tc.diagnostic != "" && !hasDiagnostic(report, tc.diagnostic) {
+				t.Fatal(report)
+			}
+			if tc.diagnostic == "" && len(report.Diagnostics) != 0 {
+				t.Fatal(report)
+			}
+		})
+	}
+}
+
+func TestInvalidOutlineQueryReportsGraphGap(t *testing.T) {
+	entry := *grammars.DetectLanguageByName("python")
+	entry.Name, entry.Extensions = "codegraph-structure-invalid-query", []string{".cgstructureinvalid"}
+	entry.TagsQuery = `(node_that_does_not_exist) @definition.function`
+	grammars.Register(entry)
+	doc := Document{Path: "app.cgstructureinvalid", Content: []byte("def run():\n    pass\n")}
+	g, report, err := Build(context.Background(), "invalid-query", []Document{doc}, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasDiagnostic(report, "outline_incomplete") || graphOutline(t, g, doc.Path) != "" {
+		t.Fatalf("query gap missing from published graph report: %+v", report)
 	}
 }

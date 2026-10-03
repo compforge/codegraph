@@ -13,6 +13,7 @@ import (
 
 // Graph is a read-only publication with a lazily materialized query index.
 // Builder.Build results never change; New supports incremental document admission.
+// +spec=Node and Relation values are the sole code-fact source for graph consumers; derived views never read extraction artifacts.
 type Graph struct {
 	legacy    *Builder
 	snapshot  string

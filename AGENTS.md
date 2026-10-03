@@ -3,8 +3,10 @@
 ## 项目定位与边界
 
 CodeGraph 是解析和组织代码事实的 Go 库，首要目标是对输入 Documents 做静态分析，构造符号及其关系图。
-Graph 保留声明的源码结构与跨文件语义关系，支持派生文件 outline、成员视图和关系路径。
-分析过程也开放声明文档和上游 Outline 等可复用解析产物。
+Graph 是静态代码的结构化表示；NodeKind 与 RelationKind 定义对象和联系的映射范围，
+源码结构与跨文件语义关系支持派生文件 outline、成员视图和关系路径。
+Graph 消费侧以 Node + Relation 为唯一代码事实来源，outline、成员列表等结果均由图派生。
+Outline 只在生产侧辅助提取声明关系；声明文档、位置和证据随节点或关系提供。
 本库拥有代码事实与通用查询；repocli 据此确定改动和测试范围，CCR 据此确定 review 范围。
 仓库读取、影响判定、评审组织及执行策略由消费者负责。
 稳定模型与设计理由见 [内核设计](docs/kernel.md)，使用入口见 [README](README.zh-CN.md)。
@@ -15,7 +17,7 @@ Graph 保留声明的源码结构与跨文件语义关系，支持派生文件 o
 VERSION                                # 项目版本
 model.go                               # 公共图值类型、诊断、报告与错误
 document.go、facts.go                   # 输入材料、身份与完整 Facts 检查视图
-extractor.go、outline.go                # 有界提取、任务、缓存与上游 Outline 访问
+extractor.go                           # 生产侧有界提取、任务与缓存
 builder.go、graph.go                    # 接纳、构图发布及只读查询结果
 session.go、compat.go                   # 私有异步会话与兼容入口
 internal/
@@ -39,7 +41,7 @@ docs/kernel.md                          # 稳定模型、主流程与设计依�
 1. Node 使用具体语言类别；Symbol 与 Namespace 是可重叠的逻辑角色。源码贡献、声明的词法嵌套、语义成员归属和词法可见性分别由 declares、encloses、contains 与 Scope/Binding 表达。
 2. 关系身份保留端点、种类及发生位置，多条依据汇入 Evidence，Relation.Confidence 由 Evidence 的最高档推导；单条证据的必要推导链取最低档。保留候选与局部缺口，不虚构目标，也不将证据强度解释为业务影响概率。
 3. 同一 Graph 只容纳同一快照。Extractor 拥有解析与缓存；Builder 拥有构图、预算及原子发布，Graph 是只读结果；语言实现通过阶段接口提供事实、关系与诊断，不获取材料或直接操作图存储。
-4. AST 与引擎对象不穿透公共 API，提取结果脱离 parser 生命周期；Outline 直接复用 gotreesitter 的 OutlineSymbol / OutlineReport 值类型。新增语言能力同步更新注册声明及契约测试，grammar 可用不等于语义完整。
+4. 消费侧视图只读取 Node + Relation；缺少信息时补足图表达，不回读 Facts 或解析树。Facts 服务生产侧的依赖探索、解析与构图；Outline 在提取内部复用 gotreesitter，转换为声明和覆盖诊断后释放。AST 与引擎对象不穿透公共 API。新增语言能力同步更新注册声明及契约测试，grammar 可用不等于语义完整。
 5. 执行失败由 error 表达；局部诊断不否定无关事实。根包测试验证公共契约，内部机制测试随所属包维护；跨阶段语言回归放在 tests/semantics，真实语料验证语义覆盖，消费者验证自身策略与执行行为。
 6. 验证入口为 `make lint test build`，测试启用 race detector；工具准备和语料命令见 [评测执行入口](docs/corpus.md#执行与证据)。
 7. `VERSION` 格式为 X.Y.Z，任何代码文件变更（含测试、增删及重命名）须在同一提交 bump，默认递增 patch；纯文档变更无需 bump。

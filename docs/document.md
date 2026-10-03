@@ -27,8 +27,8 @@ codegraph.Document{
 源码解析失败同样保留材料身份及文档级诊断，不补造声明。
 
 Extractor 统一分类与提取材料，返回可独立传给 Builder 的 Facts。
-Outline 是同份材料的结构解析结果，可通过 Extractor.Outline 或 Facts.Outline 独立读取。Facts 保留完整只读材料，
-可跨快照直接复用；公开字段是独立检查视图。使用方式见 [使用指南](usage.md)。
+Facts 保留完整只读构图材料，可跨快照复用；公开字段用于生产侧检查与依赖探索。
+消费侧通过 Document 节点及其 declares、encloses 关系读取文件结构，见 [使用指南](usage.md#从-graph-读取文件结构)。
 
 调用方可用 `ExtractionOptions.Cache` 在共享 Extractor 内复用单文件事实，
 兼容入口也支持 `Options.ExtractionCache`。缓存身份包含逻辑路径、
