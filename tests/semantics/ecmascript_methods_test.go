@@ -32,7 +32,7 @@ func TestECMAScriptGeneratorAndPrivateDeclarations(t *testing.T) {
 			}
 			generators := []string{"function* syncItems() { yield 1; }", "async function* asyncItems() { yield 1; }"}
 			source := "// +spec=Stream values\nexport " + generators[0] + "\nexport " + generators[1] + "\nclass Box {\n" + strings.Join(methods, "\n") + "\n}"
-			g, report, err := codegraph.Build(context.Background(), "callables", []codegraph.Document{{Path: path, Content: []byte(source)}}, codegraph.Options{})
+			g, report, err := buildTestBuilder(context.Background(), "callables", []codegraph.Document{{Path: path, Content: []byte(source)}}, codegraph.Options{})
 			if err != nil || hasDiagnostic(report, "outline_incomplete") {
 				t.Fatal(report, err)
 			}
@@ -56,7 +56,7 @@ func TestECMAScriptGeneratorAndPrivateDeclarations(t *testing.T) {
 					kind       codegraph.NodeKind
 				}{[]string{"syncItems", "asyncItems"}[i], generator, codegraph.Function}
 			}
-			for _, node := range g.Nodes() {
+			for _, node := range g.Result().Nodes() {
 				if node.Kind != codegraph.Method && node.Kind != codegraph.Function {
 					continue
 				}
@@ -69,11 +69,11 @@ func TestECMAScriptGeneratorAndPrivateDeclarations(t *testing.T) {
 				}
 				delete(expected, node.Location.StartByte)
 				if node.Kind == codegraph.Method {
-					edges := g.RelationsTo(node.ID, codegraph.Contains)
+					edges := g.Result().RelationsTo(node.ID, codegraph.Contains)
 					if len(edges) != 1 {
 						t.Fatal("method owner", node, edges)
 					}
-					owner, ok := g.Node(edges[0].Source)
+					owner, ok := g.Result().Node(edges[0].Source)
 					if !ok || owner.Name != "Box" {
 						t.Fatal("wrong owner", owner)
 					}

@@ -37,6 +37,11 @@ func enrichGoDeclarations(f *Facts, file *ast.File, fset *token.FileSet) {
 			}
 			i := upsert(n.Name, kind, n, n.Doc)
 			f.Declarations[i].Receiver = receiver
+			end := offset(n.End())
+			if n.Body != nil {
+				end = offset(n.Body.Pos())
+			}
+			f.Declarations[i].SignatureSpan = signatureSpan(f, offset(n.Pos()), end)
 		case *ast.GenDecl:
 			for _, spec := range n.Specs {
 				switch spec := spec.(type) {
@@ -52,7 +57,15 @@ func enrichGoDeclarations(f *Facts, file *ast.File, fset *token.FileSet) {
 					if spec.Assign.IsValid() {
 						kind = "type_alias"
 					}
-					upsert(spec.Name, kind, spec, doc)
+					i := upsert(spec.Name, kind, spec, doc)
+					end := offset(spec.End())
+					switch typ := spec.Type.(type) {
+					case *ast.StructType:
+						end = offset(typ.Fields.Opening)
+					case *ast.InterfaceType:
+						end = offset(typ.Methods.Opening)
+					}
+					f.Declarations[i].SignatureSpan = signatureSpan(f, offset(spec.Pos()), end)
 					switch typ := spec.Type.(type) {
 					case *ast.StructType:
 						appendGoMembers(f, typ.Fields, "field", fset)
@@ -60,7 +73,7 @@ func enrichGoDeclarations(f *Facts, file *ast.File, fset *token.FileSet) {
 						appendGoMembers(f, typ.Methods, "method", fset)
 					}
 				case *ast.ValueSpec:
-					if len(spec.Names) != 1 || n.Tok != token.CONST && n.Tok != token.VAR {
+					if n.Tok != token.CONST && n.Tok != token.VAR {
 						continue
 					}
 					kind := "variable"
@@ -68,7 +81,14 @@ func enrichGoDeclarations(f *Facts, file *ast.File, fset *token.FileSet) {
 						kind = "constant"
 					}
 					doc := declarationDoc(spec.Doc, n.Doc, len(n.Specs))
-					upsertSpan(spec.Names[0], kind, offset(spec.Names[0].Pos()), offset(spec.End()), doc)
+					for _, name := range spec.Names {
+						i := upsertSpan(name, kind, offset(name.Pos()), offset(spec.End()), doc)
+						end := offset(spec.Names[len(spec.Names)-1].End())
+						if spec.Type != nil {
+							end = offset(spec.Type.End())
+						}
+						f.Declarations[i].SignatureSpan = signatureSpan(f, offset(spec.Pos()), end)
+					}
 				}
 			}
 		}
@@ -133,6 +153,7 @@ func appendGoMembers(f *Facts, fields *ast.FieldList, kind string, fset *token.F
 			}
 			f.Declarations = append(f.Declarations, Declaration{
 				Name: name, Kind: kind, NameSpan: nameSpan,
+				SignatureSpan: signatureSpan(f, fset.Position(field.Pos()).Offset, fset.Position(field.End()).Offset),
 				Span:          Span{Start: fset.Position(start).Offset, End: fset.Position(field.End()).Offset},
 				Comments:      comments(field.Doc, fset),
 				Documentation: documentation(f, field.Doc, fset),
@@ -196,8 +217,12 @@ func assignDeclarationParents(decls []Declaration) {
 		} else if d.Receiver != "" {
 			d.QualifiedName = d.Receiver + "." + d.Name
 		}
-		if d.Kind != "field" {
+		if d.Kind != "field" && d.Kind != "variable" && d.Kind != "constant" {
 			stack = append(stack, i)
 		}
 	}
+}
+
+func signatureSpan(f *Facts, start, end int) Span {
+	return Span{Start: start, End: start + len(bytes.TrimRight(f.Source[start:end], " \t\r\n"))}
 }

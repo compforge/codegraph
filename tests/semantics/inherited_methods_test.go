@@ -81,7 +81,7 @@ func TestInheritedMethodOverrideAndMultipleBases(t *testing.T) {
 
 func TestInheritedMethodImportedBaseIncremental(t *testing.T) {
 	ctx := context.Background()
-	g, _, err := codegraph.Build(ctx, "batch", []codegraph.Document{{Path: "main.ts", Content: []byte("import {Base} from './barrel';class Child extends Base {entry(){this.run()}}")}}, codegraph.Options{})
+	g, _, err := buildTestBuilder(ctx, "batch", []codegraph.Document{{Path: "main.ts", Content: []byte("import {Base} from './barrel';class Child extends Base {entry(){this.run()}}")}}, codegraph.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,9 +93,9 @@ func TestInheritedMethodImportedBaseIncremental(t *testing.T) {
 		t.Fatal(report, err)
 	}
 	count := 0
-	for _, r := range g.Relations() {
+	for _, r := range g.Result().Relations() {
 		if r.Kind == codegraph.Calls {
-			n, _ := g.Node(r.Target)
+			n, _ := g.Result().Node(r.Target)
 			if n.Kind == codegraph.Method {
 				count++
 				if n.Location.Path != "base.ts" || r.Evidence[0].Basis != "inherited_method" || r.Location.Path != "main.ts" {
@@ -105,7 +105,7 @@ func TestInheritedMethodImportedBaseIncremental(t *testing.T) {
 		}
 	}
 	if count != 1 {
-		t.Fatal(g.Relations())
+		t.Fatal(g.Result().Relations())
 	}
 }
 
@@ -135,18 +135,18 @@ func TestInheritedMethodCyclesAndNoImplementsInheritance(t *testing.T) {
 
 func TestInheritedMethodBudgetRollback(t *testing.T) {
 	ctx := context.Background()
-	g, _, err := codegraph.Build(ctx, "budget", []codegraph.Document{{Path: "base.js", Content: []byte("export class Base {run(){}}")}}, codegraph.Options{MaxRelations: 7})
+	g, _, err := buildTestBuilder(ctx, "budget", []codegraph.Document{{Path: "base.js", Content: []byte("export class Base {run(){}}")}}, codegraph.Options{MaxRelations: 7})
 	if err != nil {
 		t.Fatal(err)
 	}
-	before := len(g.Nodes())
+	before := len(g.Result().Nodes())
 	if err = g.AddDocuments(ctx, codegraph.Document{Path: "child.js", Content: []byte("import {Base} from './base';class Child extends Base {entry(){this.run()}}")}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = g.Wait(ctx); !errors.Is(err, codegraph.ErrBuildBudget) {
 		t.Fatal(err)
 	}
-	if len(g.Nodes()) != before {
+	if len(g.Result().Nodes()) != before {
 		t.Fatal("failed batch published")
 	}
 }

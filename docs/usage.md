@@ -71,6 +71,16 @@ ORDER BY n.startByte, n.id
 此视图覆盖 Graph 已保留的声明，不等于完整 AST。缺失声明仍由 BuildReport 的覆盖诊断说明；
 补入依赖可以丰富 contains / calls 等语义关系，同一文件的 encloses 结构保持不变。
 
+## 读取声明签名
+
+`Node.Signature` 是声明头原文，`SignatureLocation` 指向对应源码范围，保留类型、参数及修饰符，
+排除函数或类的实现体。支持 Go 声明以及 Python、JS/TS 的受支持声明；缺少提取规则时两者为空。
+例如 Go 的 `func F(x int) int` 与 `func F(x any) any` 在图中可区分，单独修改函数体不改变签名。
+签名使用原始语法，不进行格式化、类型求值或兼容性判断。
+
+Cypher 可读取 `n.signature`、`n.signatureStartByte`、`n.signatureEndByte` 和相应行列属性；
+`RETURN n` 与直接节点访问返回相同文本和位置。具体声明覆盖见 [语言能力](language-support.md)。
+
 ## 读取声明文档
 
 `Node.Documentation` 保留普通声明文档的原文和来源。通过声明身份查找，
@@ -92,25 +102,25 @@ for _, node := range g.Find("work.go", codegraph.Function, "Work") {
 `Limitations` 声明；空列表只表示当前规则没有提取到文档。各语言的归属规则见
 [语言能力](language-support.md#声明文档)。
 
-## 生产侧：兼容的构建与补料
+## 生产侧：异步构建与补料
 
-一次性处理材料可使用 Build；需要逐批提供材料时，先 New，再 AddDocuments。
+一次性处理材料可使用 Build；需要逐批提供材料时，先 NewBuilder，再 AddDocuments。
 以下片段放在已引入 context、fmt、codegraph 的调用方函数中，ctx 为该操作的上下文：
 
 ```go
-g, err := codegraph.New("revision-1", codegraph.Options{})
+builder, err := codegraph.NewBuilder("revision-1", codegraph.Options{})
 if err != nil {
     return err
 }
 main := codegraph.Document{
     Path: "main.go", Content: []byte("package demo\nfunc Entry(){ Work() }"),
 }
-if err := g.AddDocuments(ctx, main,
+if err := builder.AddDocuments(ctx, main,
     codegraph.Document{Path: "work.go", Content: []byte("package demo\nfunc Work(){}")},
 ); err != nil {
     return err
 }
-task, err := g.GetDocument(main.ID())
+task, err := builder.GetDocument(main.ID())
 if err != nil {
     return err
 }
@@ -119,11 +129,12 @@ if err != nil {
     return err
 }
 _ = facts // 可用于发现依赖，不表示跨文件关系已经发布。
-report, err := g.Wait(ctx)
+report, err := builder.Wait(ctx)
 if err != nil {
     return err
 }
-fmt.Println(report.Diagnostics)
+g := builder.Result() // 此后补料不会改变 g。
+fmt.Println(g.Snapshot(), report.Diagnostics)
 ```
 
 相关入口各自负责：
@@ -136,14 +147,14 @@ fmt.Println(report.Diagnostics)
 | FindAsync | 从已提交材料的单文件结果中提前查声明 |
 | Wait | 等待调用前已提交工作完成，并取得构建报告 |
 
-后台构建自行解析和发布，不依赖 Wait 触发。构建期间查询上一已发布批次；后续提交可能与等待中的
+后台构建自行解析和发布，不依赖 Wait 触发。构建期间通过 Builder.Result 查询上一已发布批次；后续提交可能与等待中的
 工作共享一次发布。GetDocument 对未提交 ID 返回 ErrDocumentNotFound。
 
 补充依赖后可以再次提交并等待，关系会基于全部已加载材料重新解析。
-before / after 应使用不同 Graph；同路径不同内容会产生 ErrSnapshotChanged。
+before / after 应使用不同 Builder；同路径不同内容会产生 ErrSnapshotChanged。
 
 重复分析相邻快照时，可创建 `NewExtractionCache(maxDocuments, maxSourceBytes)`，
-将同一个缓存通过 `Options.ExtractionCache` 传给两个 Graph，复用未变文件的提取结果。
+将同一个缓存通过 `Options.ExtractionCache` 传给两个 Builder，复用未变文件的提取结果。
 缓存只保留单文件事实，不复用已绑定关系；容量与生命周期见 [Document 契约](document.md)。
 
 ### 取消与容量
@@ -152,7 +163,7 @@ before / after 应使用不同 Graph；同路径不同内容会产生 ErrSnapsho
 - 单文件解析失败保留 Document 与诊断，其他文件的可用事实仍可发布。
 - 预算失败、快照冲突及构建取消阻止整个失败批次发布；查询错误不返回部分行。
 - Options 为材料、事实、时间和查询结果提供有限预算；MaxEvidence 与 MaxRelations 分别限制证据及关系发生数。
-- ExtractionOptions.Concurrency 限制共享 Extractor 的提取并发；兼容入口使用 Options.BuildConcurrency。
+- ExtractionOptions.Concurrency 限制共享 Extractor 的提取并发；Builder 的材料提交接口使用 Options.BuildConcurrency。
 
 配置字段及默认值见 [Options](../graph.go)。材料接纳与内存所有权见 [Document 契约](document.md)。
 

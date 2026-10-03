@@ -10,7 +10,7 @@ import (
 // selection and source loading belong to the caller; this entrypoint never
 // discovers additional files implicitly.
 func Build(ctx context.Context, snapshot string, documents []Document, opts Options) (*Graph, BuildReport, error) {
-	g, err := New(snapshot, opts)
+	g, err := NewBuilder(snapshot, opts)
 	if err != nil {
 		return nil, BuildReport{}, err
 	}
@@ -21,51 +21,7 @@ func Build(ctx context.Context, snapshot string, documents []Document, opts Opti
 	if err != nil {
 		return nil, r, err
 	}
-	return g, r, nil
-}
-
-// AddDocuments is the legacy incremental wrapper. Builder.Build results reject
-// mutation; New and the package-level Build retain document admission support.
-func (g *Graph) AddDocuments(ctx context.Context, docs ...Document) error {
-	if g.legacy == nil {
-		return ErrReadOnly
-	}
-	return g.legacy.AddDocuments(ctx, docs...)
-}
-
-func (g *Graph) AddDocument(ctx context.Context, doc Document) pond.ResultTask[Facts] {
-	if g.legacy == nil {
-		return completedTask[Facts]{Err: ErrReadOnly}
-	}
-	return g.legacy.AddDocument(ctx, doc)
-}
-
-func (g *Graph) Extract(ctx context.Context, doc Document) (Facts, error) {
-	if g.legacy == nil {
-		return Facts{}, ErrReadOnly
-	}
-	return g.legacy.Extract(ctx, doc)
-}
-
-func (g *Graph) GetDocument(id string) (pond.ResultTask[Facts], error) {
-	if g.legacy == nil {
-		return nil, ErrDocumentNotFound
-	}
-	return g.legacy.GetDocument(id)
-}
-
-func (g *Graph) FindAsync(path string, kind NodeKind, name string) (pond.ResultTask[[]Node], bool) {
-	if g.legacy == nil {
-		return nil, false
-	}
-	return g.legacy.FindAsync(path, kind, name)
-}
-
-func (g *Graph) Wait(ctx context.Context) (BuildReport, error) {
-	if g.legacy == nil {
-		return g.Report(), ctx.Err()
-	}
-	return g.legacy.Wait(ctx)
+	return g.Result(), r, nil
 }
 
 // AddDocuments admits an explicit batch and starts background graph construction.
@@ -73,7 +29,7 @@ func (g *Graph) Wait(ctx context.Context) (BuildReport, error) {
 // submission; callers can use GetDocument or FindAsync for early facts, and
 // Wait to wait for complete graph publication. Input bytes are copied.
 func (b *Builder) AddDocuments(ctx context.Context, docs ...Document) error {
-	s, err := b.legacySession()
+	s, err := b.documentSession()
 	if err != nil {
 		return err
 	}
@@ -84,7 +40,7 @@ func (b *Builder) AddDocuments(ctx context.Context, docs ...Document) error {
 // result. The graph builds independently; Wait observes publication when a
 // caller needs a complete report for the submitted workset.
 func (b *Builder) AddDocument(ctx context.Context, doc Document) pond.ResultTask[Facts] {
-	s, err := b.legacySession()
+	s, err := b.documentSession()
 	if err != nil {
 		return completedTask[Facts]{Err: err}
 	}
@@ -100,7 +56,7 @@ func (b *Builder) AddDocument(ctx context.Context, doc Document) pond.ResultTask
 // Gitlinks yield only their path and commit, without attempting language parsing.
 // +spec=`Exploration extraction never reparses identical snapshot content`
 func (b *Builder) Extract(ctx context.Context, doc Document) (Facts, error) {
-	s, err := b.legacySession()
+	s, err := b.documentSession()
 	if err != nil {
 		return Facts{}, err
 	}
@@ -112,7 +68,7 @@ func (b *Builder) Extract(ctx context.Context, doc Document) (Facts, error) {
 // starts extraction implicitly. The task can be awaited without waiting for
 // the complete graph.
 func (b *Builder) GetDocument(id string) (pond.ResultTask[Facts], error) {
-	s, err := b.legacySession()
+	s, err := b.documentSession()
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +79,7 @@ func (b *Builder) GetDocument(id string) (pond.ResultTask[Facts], error) {
 // as its extraction completes. These detached nodes do not imply that cross-
 // document relations or the queryable graph have been published.
 func (b *Builder) FindAsync(path string, kind NodeKind, name string) (pond.ResultTask[[]Node], bool) {
-	s, err := b.legacySession()
+	s, err := b.documentSession()
 	if err != nil {
 		return nil, false
 	}
@@ -136,24 +92,14 @@ func (b *Builder) FindAsync(path string, kind NodeKind, name string) (pond.Resul
 // this wait.
 // +spec=`Submission drives graph construction; Wait only waits for its completion`
 func (b *Builder) Wait(ctx context.Context) (BuildReport, error) {
-	s, err := b.legacySession()
+	s, err := b.documentSession()
 	if err != nil {
 		return b.Report(), err
 	}
 	return s.Wait(ctx)
 }
 
-// New creates the compatibility incremental facade. Prefer NewBuilder when
-// extraction and snapshot construction have separate lifetimes.
-func New(snapshot string, opts Options) (*Graph, error) {
-	b, err := NewBuilder(snapshot, opts)
-	if err != nil {
-		return nil, err
-	}
-	return &Graph{legacy: b}, nil
-}
-
-func (b *Builder) legacySession() (*session, error) {
+func (b *Builder) documentSession() (*session, error) {
 	b.sessionOnce.Do(func() { b.session, b.sessionErr = newSession(b) })
 	return b.session, b.sessionErr
 }

@@ -27,7 +27,7 @@ func TestPythonSplatSuffixFactsAndGraph(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			source := "def sink(*args):\n    pass\ndef target():\n    pass\ndef entry(items):\n    sink(*" + tc.expression + ", target)\n"
-			g, err := codegraph.New("splat", codegraph.Options{})
+			g, err := codegraph.NewBuilder("splat", codegraph.Options{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -54,7 +54,7 @@ func TestPythonSplatSuffixFactsAndGraph(t *testing.T) {
 			if _, err := g.Wait(context.Background()); err != nil {
 				t.Fatal(err)
 			}
-			assertPythonParserGraph(t, g, source, "sink", "sink(*"+tc.expression+", target)")
+			assertPythonParserGraph(t, g.Result(), source, "sink", "sink(*"+tc.expression+", target)")
 		})
 	}
 }

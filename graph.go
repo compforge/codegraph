@@ -12,10 +12,9 @@ import (
 )
 
 // Graph is a read-only publication with a lazily materialized query index.
-// Builder.Build results never change; New supports incremental document admission.
+// Every constructor returns a fixed snapshot of nodes and relations.
 // +spec=Node and Relation values are the sole code-fact source for graph consumers; derived views never read extraction artifacts.
 type Graph struct {
-	legacy    *Builder
 	snapshot  string
 	nodes     map[string]Node
 	relations map[string]Relation
@@ -26,11 +25,10 @@ type Graph struct {
 	store     *graphstore.Store
 }
 
-func (g *Graph) Snapshot() string { return g.current().snapshot }
+func (g *Graph) Snapshot() string { return g.snapshot }
 
 // Nodes returns independent values in source-ID order.
 func (g *Graph) Nodes() []Node {
-	g = g.current()
 	out := make([]Node, 0, len(g.nodes))
 	for _, n := range g.nodes {
 		out = append(out, cloneNode(n))
@@ -40,7 +38,6 @@ func (g *Graph) Nodes() []Node {
 }
 
 func (g *Graph) Relations() []Relation {
-	g = g.current()
 	out := make([]Relation, 0, len(g.relations))
 	for _, r := range g.relations {
 		out = append(out, cloneRelation(r))
@@ -50,7 +47,6 @@ func (g *Graph) Relations() []Relation {
 }
 
 func (g *Graph) Report() BuildReport {
-	g = g.current()
 	return cloneReport(g.report)
 }
 
@@ -60,7 +56,6 @@ func (g *Graph) Report() BuildReport {
 // Document to find its package/module contributions.
 // The returned nodes are detached values and can be safely modified.
 func (g *Graph) Find(path string, kind NodeKind, qualifiedName string) []Node {
-	g = g.current()
 	out := make([]Node, 0)
 	for _, node := range g.nodes {
 		if node.Kind == DocumentKind || node.Location == nil || node.Location.Path != path {
@@ -85,7 +80,6 @@ func (g *Graph) Find(path string, kind NodeKind, qualifiedName string) []Node {
 
 // Node returns a detached node by its source identity.
 func (g *Graph) Node(id string) (Node, bool) {
-	g = g.current()
 	node, ok := g.nodes[id]
 	if !ok {
 		return Node{}, false
@@ -104,7 +98,6 @@ func (g *Graph) RelationsTo(id string, kinds ...RelationKind) []Relation {
 }
 
 func (g *Graph) adjacent(id string, incoming bool, kinds ...RelationKind) []Relation {
-	g = g.current()
 	allowed := make(map[RelationKind]bool, len(kinds))
 	for _, kind := range kinds {
 		allowed[kind] = true
@@ -136,7 +129,6 @@ func (g *Graph) adjacent(id string, incoming bool, kinds ...RelationKind) []Rela
 // returned when execution fails. Variable paths require explicit upper bounds.
 // +rule=`Query entities must use source identities; Cypher id(n) is opaque and not portable between batches`
 func (g *Graph) Query(ctx context.Context, q string, params map[string]any) ([]map[string]any, error) {
-	g = g.current()
 	ctx, cancel := context.WithTimeout(ctx, g.timeout)
 	defer cancel()
 	// Serialize index construction only. Failed/canceled materialization leaves
@@ -241,6 +233,12 @@ func (g *Graph) materialize(ctx context.Context, nodes map[string]Node, relation
 			props["startByte"], props["endByte"] = n.Location.StartByte, n.Location.EndByte
 			props["endLine"], props["endColumn"] = n.Location.EndLine, n.Location.EndColumn
 		}
+		if loc := n.SignatureLocation; loc != nil {
+			props["signature"] = n.Signature
+			props["signatureStartByte"], props["signatureEndByte"] = loc.StartByte, loc.EndByte
+			props["signatureLine"], props["signatureColumn"] = loc.Line, loc.Column
+			props["signatureEndLine"], props["signatureEndColumn"] = loc.EndLine, loc.EndColumn
+		}
 		if loc := n.NameLocation; loc != nil {
 			props["nameStartByte"], props["nameEndByte"] = loc.StartByte, loc.EndByte
 			props["nameLine"], props["nameColumn"] = loc.Line, loc.Column
@@ -304,15 +302,6 @@ func evidenceBases(r Relation) []string {
 }
 
 func evidenceJSON(r Relation) string { b, _ := json.Marshal(r.Evidence); return string(b) }
-
-// Graphs returned by Builder.Build own their values and never change. New and
-// package-level Build retain an incremental compatibility session.
-func (g *Graph) current() *Graph {
-	if g.legacy != nil {
-		return g.legacy.Result()
-	}
-	return g
-}
 
 // newGraph takes ownership of the completed values; callers must not mutate them.
 func newGraph(snapshot string, opts Options, nodes map[string]Node, relations map[string]Relation, report BuildReport) *Graph {

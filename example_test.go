@@ -23,8 +23,8 @@ func ExampleBuild() {
 	// Output: 0 Entry
 }
 
-func ExampleGraph_AddDocuments() {
-	g, err := codegraph.New("revision-1", codegraph.Options{})
+func ExampleBuilder_AddDocuments() {
+	g, err := codegraph.NewBuilder("revision-1", codegraph.Options{})
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -42,7 +42,7 @@ func ExampleGraph_AddDocuments() {
 		fmt.Println(err)
 		return
 	}
-	work := g.Find("work.go", codegraph.Function, "Work")
-	fmt.Println(len(report.Diagnostics), len(g.RelationsTo(work[0].ID, codegraph.Calls)))
+	work := g.Result().Find("work.go", codegraph.Function, "Work")
+	fmt.Println(len(report.Diagnostics), len(g.Result().RelationsTo(work[0].ID, codegraph.Calls)))
 	// Output: 0 1
 }

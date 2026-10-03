@@ -88,7 +88,7 @@ func TestModuleBindingShadowingAndVisibility(t *testing.T) {
 func TestModuleBindingCandidatesCyclesAndIncremental(t *testing.T) {
 	ctx := context.Background()
 	doc := codegraph.Document{Path: "app.ts", Content: []byte("import {work} from './lib'; function entry(){ work(); }")}
-	g, report, err := codegraph.Build(ctx, "batch", []codegraph.Document{doc}, codegraph.Options{})
+	g, report, err := buildTestBuilder(ctx, "batch", []codegraph.Document{doc}, codegraph.Options{})
 	if err != nil || !hasDiagnostic(report, "unresolved_import_binding") {
 		t.Fatal(report, err)
 	}
@@ -99,7 +99,7 @@ func TestModuleBindingCandidatesCyclesAndIncremental(t *testing.T) {
 	if err != nil || hasDiagnostic(report, "unresolved_import_binding") {
 		t.Fatal(report, err)
 	}
-	rows := query(t, g, `MATCH (:Function {name:'entry'})-[r:calls]->(:Function {name:'work'}) RETURN r`, nil)
+	rows := query(t, g.Result(), `MATCH (:Function {name:'entry'})-[r:calls]->(:Function {name:'work'}) RETURN r`, nil)
 	if len(rows) != 2 {
 		t.Fatal(rows)
 	}
@@ -116,21 +116,21 @@ func TestModuleBindingCandidatesCyclesAndIncremental(t *testing.T) {
 	if err != nil || !hasDiagnostic(report, "unresolved_import_binding") {
 		t.Fatal(report, err)
 	}
-	limited, err := codegraph.New("budget", codegraph.Options{MaxRelations: 4})
+	limited, err := codegraph.NewBuilder("budget", codegraph.Options{MaxRelations: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = limited.AddDocuments(ctx, doc, codegraph.Document{Path: "lib.ts", Content: []byte("export function work() {}")}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = limited.Wait(ctx); !errors.Is(err, codegraph.ErrBuildBudget) || len(limited.Nodes()) != 0 {
-		t.Fatal(err, limited.Nodes())
+	if _, err = limited.Wait(ctx); !errors.Is(err, codegraph.ErrBuildBudget) || len(limited.Result().Nodes()) != 0 {
+		t.Fatal(err, limited.Result().Nodes())
 	}
 }
 
 func TestImportBindingFactsDetached(t *testing.T) {
 	ctx := context.Background()
-	g, err := codegraph.New("facts", codegraph.Options{})
+	g, err := codegraph.NewBuilder("facts", codegraph.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

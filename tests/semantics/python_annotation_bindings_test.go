@@ -66,7 +66,7 @@ func TestPythonSignatureReferences(t *testing.T) {
 
 func TestPythonParameterBindingFacts(t *testing.T) {
 	source := []byte("def use(a, b: Model, c=Model, d: Model=Model, /, *args: Model, e: Model=Model, **kwargs: Model) -> Model:\n    return a, b, c, d, args, e, kwargs\n")
-	g, err := codegraph.New("facts", codegraph.Options{})
+	g, err := codegraph.NewBuilder("facts", codegraph.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

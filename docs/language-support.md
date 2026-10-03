@@ -164,9 +164,29 @@ this、显式类型、局部实例初始化及显式导入的类可提供候选�
 
 通过 gotreesitter 的 grammars.Register / RegisterExtension 注册 grammar 后，通用适配器
 使用 tags 和所有权规则提取具体声明、源码贡献及声明内成员。
-未知声明类别保留诊断；缺少 outline、未支持的类别及关系解析能力分别报告覆盖缺口。
+grammar 明确提供 body 边界时，声明节点也保留签名。未知声明类别保留诊断；缺少 outline、未支持的类别及关系解析能力分别报告覆盖缺口。
 仅提供 grammar 的语言以 unsupported_resolution 表示引用未覆盖，不使用通用 Symbol 节点兜底。
 
 Java、Rust、C/C++、Ruby 有真实源码声明契约测试；grammar 接入示例见
 [language_extension_test.go](../language_extension_test.go)。完整组织与绑定规则需要实现内部阶段接口，
 见 [语言构建流程](language-pipeline.md)。
+
+## 声明到图的覆盖契约
+
+枚举值说明图能表达什么；语言能力声明说明适配器承诺什么；BuildReport 说明本次输入遇到了什么缺口。
+测试 [static_structure_test.go](../tests/semantics/static_structure_test.go) 同时检查类别、名称位置、签名与关系，
+避免只验证存在同名节点。
+
+| 输入结构 | 图中表达 | 覆盖边界 |
+|---|---|---|
+| Go `var A, B int` / 多名 const | 每个名称独立 Variable / Constant、declares、encloses；签名可共享同一源码范围 | 变量不成为其他同组变量的词法父级 |
+| Go 函数、方法、类型、字段 | 具体节点、名称范围、声明头签名 | 保留显式语法；不代替 go/types |
+| Python 函数、类、方法 | Function / Class / Method、词法结构、声明头签名 | 动态绑定仍按语言限制报告 |
+| JS/TS 类字段、TS 接口属性与方法 | Field / Property / Method，词法和成员关系 | 未支持的计算名称、解构和签名形态记录 unsupported_declaration |
+| TS/TSX 具名 namespace | Namespace、encloses、contains；内部绑定与显式导出访问 | 合并声明记录 unsupported_namespace_merge；点分声明、ambient module 保留缺口并隔离其子声明 |
+
+普通函数 calls 与对应 references 使用同一词法证明，多个已保留绑定提供 scoped 候选；
+未知绑定遮蔽同名函数。未支持的容器不把子声明提升为文件顶层声明。
+词法父级必须在同一文件严格包含子声明范围，因此每个已保留声明有唯一、无环的 encloses 路径。
+
+已知缺口检测不等于全语言完备性：尚未建模的语法仍需由能力说明、语料对照和新增契约测试发现。

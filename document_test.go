@@ -25,14 +25,14 @@ func TestDocumentsMatchFilesystem(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	g, err := New("rev", opts)
+	g, err := NewBuilder("rev", opts)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := g.addDocumentsSync(ctx, inputs...); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(g.Nodes(), want.Nodes()) || !reflect.DeepEqual(g.Relations(), want.Relations()) || !reflect.DeepEqual(g.Report(), want.Report()) {
+	if !reflect.DeepEqual(g.Result().Nodes(), want.Nodes()) || !reflect.DeepEqual(g.Result().Relations(), want.Relations()) || !reflect.DeepEqual(g.Report(), want.Report()) {
 		t.Fatal("document and filesystem inputs produced different graph facts or coverage")
 	}
 }
@@ -40,7 +40,7 @@ func TestDocumentsMatchFilesystem(t *testing.T) {
 func TestDocumentsResolveAcrossBatchesAndInputForms(t *testing.T) {
 	ctx := context.Background()
 	source := fixture()
-	g, err := New("rev", Options{ModulePath: "example.org/demo"})
+	g, err := NewBuilder("rev", Options{ModulePath: "example.org/demo"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,14 +57,14 @@ func TestDocumentsResolveAcrossBatchesAndInputForms(t *testing.T) {
 	if err != nil || len(r.Diagnostics) != 0 {
 		t.Fatal(r, err)
 	}
-	if got := query(t, g, `MATCH (:Function {name:'Entry'})-[:calls]->(n:Function {name:'Work'}) RETURN n`, nil); len(got) != 2 {
+	if got := query(t, g.Result(), `MATCH (:Function {name:'Entry'})-[:calls]->(n:Function {name:'Work'}) RETURN n`, nil); len(got) != 2 {
 		t.Fatalf("cross-document calls missing: %v", got)
 	}
-	nodes, relations, report := g.Nodes(), g.Relations(), g.Report()
+	nodes, relations, report := g.Result().Nodes(), g.Result().Relations(), g.Report()
 	if _, err := g.addDocumentsSync(ctx, main, Document{Path: "helper.go", Content: source["helper.go"].Data}); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(nodes, g.Nodes()) || !reflect.DeepEqual(relations, g.Relations()) || !reflect.DeepEqual(report, g.Report()) {
+	if !reflect.DeepEqual(nodes, g.Result().Nodes()) || !reflect.DeepEqual(relations, g.Result().Relations()) || !reflect.DeepEqual(report, g.Report()) {
 		t.Fatal("re-adding files as documents changed identities or coverage")
 	}
 	if _, err := g.addDocumentsSync(ctx, Document{Path: "helper.go", Content: []byte("package app\nfunc Changed(){}")}); !errors.Is(err, ErrSnapshotChanged) {
@@ -74,7 +74,7 @@ func TestDocumentsResolveAcrossBatchesAndInputForms(t *testing.T) {
 	if _, err := g.addDocumentsSync(ctx, Document{Path: "main.go", Content: changed["main.go"].Data}); !errors.Is(err, ErrSnapshotChanged) {
 		t.Fatalf("document identity not shared with files: %v", err)
 	}
-	if !reflect.DeepEqual(nodes, g.Nodes()) || !reflect.DeepEqual(relations, g.Relations()) || !reflect.DeepEqual(report, g.Report()) {
+	if !reflect.DeepEqual(nodes, g.Result().Nodes()) || !reflect.DeepEqual(relations, g.Result().Relations()) || !reflect.DeepEqual(report, g.Report()) {
 		t.Fatal("conflicting input changed graph")
 	}
 }
@@ -83,7 +83,7 @@ func TestDocumentsOwnContent(t *testing.T) {
 	ctx := context.Background()
 	content := []byte("package app\nfunc Entry(){ Work() }\n")
 	original := bytes.Clone(content)
-	g, err := New("rev", Options{})
+	g, err := NewBuilder("rev", Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestDocumentsOwnContent(t *testing.T) {
 	if err != nil || len(r.Diagnostics) != 0 {
 		t.Fatal(r, err)
 	}
-	if got := query(t, g, `MATCH (:Function {name:'Entry'})-[:calls]->(n:Function {name:'Work'}) RETURN n`, nil); len(got) != 1 {
+	if got := query(t, g.Result(), `MATCH (:Function {name:'Entry'})-[:calls]->(n:Function {name:'Work'}) RETURN n`, nil); len(got) != 1 {
 		t.Fatalf("caller mutation corrupted retained source: %v", got)
 	}
 }
@@ -126,14 +126,14 @@ func TestDocumentsRollback(t *testing.T) {
 		{name: "canceled", documents: []Document{added}, wantErr: context.Canceled, cancel: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			g, err := New("rev", tc.opts)
+			g, err := NewBuilder("rev", tc.opts)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if _, err := g.addDocumentsSync(context.Background(), seed); err != nil {
 				t.Fatal(err)
 			}
-			nodes, relations, report := g.Nodes(), g.Relations(), g.Report()
+			nodes, relations, report := g.Result().Nodes(), g.Result().Relations(), g.Report()
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			if tc.cancel {
@@ -143,7 +143,7 @@ func TestDocumentsRollback(t *testing.T) {
 			if err == nil || (tc.wantErr != nil && !errors.Is(err, tc.wantErr)) {
 				t.Fatalf("error = %v, want %v", err, tc.wantErr)
 			}
-			if !reflect.DeepEqual(nodes, g.Nodes()) || !reflect.DeepEqual(relations, g.Relations()) || !reflect.DeepEqual(report, g.Report()) || !reflect.DeepEqual(report, r) {
+			if !reflect.DeepEqual(nodes, g.Result().Nodes()) || !reflect.DeepEqual(relations, g.Result().Relations()) || !reflect.DeepEqual(report, g.Report()) || !reflect.DeepEqual(report, r) {
 				t.Fatal("failed batch changed published state")
 			}
 		})
@@ -151,7 +151,7 @@ func TestDocumentsRollback(t *testing.T) {
 }
 
 func TestDocumentsPartialCoverage(t *testing.T) {
-	g, err := New("rev", Options{Scope: []string{"src"}})
+	g, err := NewBuilder("rev", Options{Scope: []string{"src"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -209,7 +209,7 @@ func TestDocumentOnlyDocumentsEnterGraph(t *testing.T) {
 
 func TestDocumentOnlyDocumentsIdentity(t *testing.T) {
 	ctx := context.Background()
-	g, err := New("rev", Options{})
+	g, err := NewBuilder("rev", Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,17 +217,17 @@ func TestDocumentOnlyDocumentsIdentity(t *testing.T) {
 	if _, err := g.addDocumentsSync(ctx, notes); err != nil {
 		t.Fatal(err)
 	}
-	nodes, relations, report := g.Nodes(), g.Relations(), g.Report()
+	nodes, relations, report := g.Result().Nodes(), g.Result().Relations(), g.Report()
 	if _, err := g.addDocumentsSync(ctx, notes, notes); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(nodes, g.Nodes()) || !reflect.DeepEqual(relations, g.Relations()) || !reflect.DeepEqual(report, g.Report()) {
+	if !reflect.DeepEqual(nodes, g.Result().Nodes()) || !reflect.DeepEqual(relations, g.Result().Relations()) || !reflect.DeepEqual(report, g.Report()) {
 		t.Fatal("re-adding a file-only document changed identities or coverage")
 	}
 	if _, err := g.addDocumentsSync(ctx, Document{Path: notes.Path, Content: []byte("changed notes")}); !errors.Is(err, ErrSnapshotChanged) {
 		t.Fatalf("conflicting file-only content = %v", err)
 	}
-	if !reflect.DeepEqual(nodes, g.Nodes()) || !reflect.DeepEqual(relations, g.Relations()) || !reflect.DeepEqual(report, g.Report()) {
+	if !reflect.DeepEqual(nodes, g.Result().Nodes()) || !reflect.DeepEqual(relations, g.Result().Relations()) || !reflect.DeepEqual(report, g.Report()) {
 		t.Fatal("conflicting input changed graph")
 	}
 }
@@ -235,7 +235,7 @@ func TestDocumentOnlyDocumentsIdentity(t *testing.T) {
 func TestDocumentOnlyDocumentsOwnContent(t *testing.T) {
 	ctx := context.Background()
 	content := []byte("original notes")
-	g, err := New("rev", Options{})
+	g, err := NewBuilder("rev", Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,18 +265,18 @@ func TestDocumentOnlyDocumentsBudget(t *testing.T) {
 		{"source bytes", Options{MaxSourceBytes: int64(len(seed.Content) + len(notes.Content) - 1)}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			g, err := New("rev", tc.opts)
+			g, err := NewBuilder("rev", tc.opts)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if _, err := g.addDocumentsSync(context.Background(), seed); err != nil {
 				t.Fatal(err)
 			}
-			nodes, relations, report := g.Nodes(), g.Relations(), g.Report()
+			nodes, relations, report := g.Result().Nodes(), g.Result().Relations(), g.Report()
 			if _, err := g.addDocumentsSync(context.Background(), notes); !errors.Is(err, ErrBuildBudget) {
 				t.Fatalf("file-only document bypassed budget: %v", err)
 			}
-			if !reflect.DeepEqual(nodes, g.Nodes()) || !reflect.DeepEqual(relations, g.Relations()) || !reflect.DeepEqual(report, g.Report()) {
+			if !reflect.DeepEqual(nodes, g.Result().Nodes()) || !reflect.DeepEqual(relations, g.Result().Relations()) || !reflect.DeepEqual(report, g.Report()) {
 				t.Fatal("failed batch changed published state")
 			}
 		})
@@ -288,7 +288,7 @@ const gitlinkCommit = "0123456789abcdef0123456789abcdef01234567"
 // +case=`A supplied gitlink is one versioned Document, regardless of filename or checkout availability`
 func TestGitlinkDocumentIdentity(t *testing.T) {
 	ctx := context.Background()
-	g, err := New("parent", Options{})
+	g, err := NewBuilder("parent", Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,14 +302,14 @@ func TestGitlinkDocumentIdentity(t *testing.T) {
 		t.Fatal(facts, err)
 	}
 	report, err := g.Wait(ctx)
-	if err != nil || len(report.Diagnostics) != 0 || len(g.Nodes()) != 1 || len(g.Relations()) != 0 {
-		t.Fatal(report, err, g.Nodes())
+	if err != nil || len(report.Diagnostics) != 0 || len(g.Result().Nodes()) != 1 || len(g.Result().Relations()) != 0 {
+		t.Fatal(report, err, g.Result().Nodes())
 	}
-	node, ok := g.Node(document.ID())
+	node, ok := g.Result().Node(document.ID())
 	if !ok || node.Kind != DocumentKind || node.Gitlink != gitlinkCommit || node.Location.Path != document.Path || node.Location.EndByte != 0 {
 		t.Fatal(node)
 	}
-	rows := query(t, g, `MATCH (n:Document {gitlink:$commit}) RETURN n,n.gitlink AS revision`, map[string]any{"commit": gitlinkCommit})
+	rows := query(t, g.Result(), `MATCH (n:Document {gitlink:$commit}) RETURN n,n.gitlink AS revision`, map[string]any{"commit": gitlinkCommit})
 	if len(rows) != 1 || !reflect.DeepEqual(rows[0]["n"], node) || rows[0]["revision"] != gitlinkCommit {
 		t.Fatal(rows)
 	}
@@ -328,7 +328,7 @@ func TestGitlinkDocumentIdentity(t *testing.T) {
 	if err != nil || fresh.Gitlink != strings.Repeat("b", 64) {
 		t.Fatal("exploration reused another revision", fresh, err)
 	}
-	still, _ := g.Node(document.ID())
+	still, _ := g.Result().Node(document.ID())
 	if still.Gitlink != gitlinkCommit {
 		t.Fatal("exploration changed published graph", still)
 	}
@@ -411,7 +411,7 @@ func TestGitlinkBatchAndBudgets(t *testing.T) {
 	ctx := context.Background()
 	gitlink := Document{Path: "sdk", Gitlink: gitlinkCommit}
 	source := Document{Path: "app.ts", Content: []byte("import './sdk/api';")}
-	g, _, err := Build(ctx, "parent", []Document{source}, Options{})
+	g, _, err := buildTestBuilder(ctx, "parent", []Document{source}, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -422,11 +422,11 @@ func TestGitlinkBatchAndBudgets(t *testing.T) {
 		t.Fatal(err)
 	}
 	all, _, err := Build(ctx, "parent", []Document{gitlink, source}, Options{})
-	if err != nil || !reflect.DeepEqual(g.Nodes(), all.Nodes()) || !reflect.DeepEqual(g.Relations(), all.Relations()) {
+	if err != nil || !reflect.DeepEqual(g.Result().Nodes(), all.Nodes()) || !reflect.DeepEqual(g.Result().Relations(), all.Relations()) {
 		t.Fatal("batch order changed graph", err)
 	}
 	for _, options := range []Options{{MaxDocumentBytes: 39}, {MaxSourceBytes: 79}, {MaxDocuments: 1}, {MaxNodes: 1}} {
-		g, err := New("limited", options)
+		g, err := NewBuilder("limited", options)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -434,8 +434,8 @@ func TestGitlinkBatchAndBudgets(t *testing.T) {
 		if err == nil {
 			_, err = g.Wait(ctx)
 		}
-		if !errors.Is(err, ErrBuildBudget) || len(g.Nodes()) != 0 {
-			t.Fatal("gitlink bypassed budget or partial publication", options, err, g.Nodes())
+		if !errors.Is(err, ErrBuildBudget) || len(g.Result().Nodes()) != 0 {
+			t.Fatal("gitlink bypassed budget or partial publication", options, err, g.Result().Nodes())
 		}
 	}
 }
@@ -448,7 +448,7 @@ func TestGitlinkInvalidAndOverlappingMaterials(t *testing.T) {
 		{Path: "sdk", Gitlink: strings.Repeat("z", 40)},
 		{Path: "sdk", Gitlink: gitlinkCommit, Content: []byte("source")},
 	} {
-		g, _ := New("invalid", Options{})
+		g, _ := NewBuilder("invalid", Options{})
 		if _, err := g.Extract(ctx, bad); err == nil {
 			t.Fatal("invalid extraction accepted", bad)
 		}
@@ -462,7 +462,7 @@ func TestGitlinkInvalidAndOverlappingMaterials(t *testing.T) {
 	link := Document{Path: "sdk", Gitlink: gitlinkCommit}
 	child := Document{Path: "sdk/api.ts", Content: []byte("export function work(){}")}
 	for _, docs := range [][]Document{{link, child}, {child, link}, {link, {Path: "sdk/nested", Gitlink: gitlinkCommit}}} {
-		g, _ := New("overlap", Options{})
+		g, _ := NewBuilder("overlap", Options{})
 		if err := g.AddDocuments(ctx, docs...); err == nil {
 			t.Fatal("mixed snapshots admitted", err)
 		}
@@ -473,7 +473,7 @@ func TestGitlinkInvalidAndOverlappingMaterials(t *testing.T) {
 		}
 	}
 	for _, docs := range [][]Document{{link, child}, {child, link}} {
-		g, _ := New("batches", Options{})
+		g, _ := NewBuilder("batches", Options{})
 		if err := g.AddDocuments(ctx, docs[0]); err != nil {
 			t.Fatal(err)
 		}

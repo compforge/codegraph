@@ -16,11 +16,11 @@ func TestGoReceiverAndCallableCandidates(t *testing.T) {
  func Work(){}
  func Entry(b *Box){ b.Run(); x:=Box{}; x.Run(); cb:=Work; cb(); method:=b.Run; method() }
  `
-	g, _, err := codegraph.Build(ctx, "go-calls", []codegraph.Document{{Path: "app.go", Content: []byte(source)}}, codegraph.Options{})
+	g, _, err := buildTestBuilder(ctx, "go-calls", []codegraph.Document{{Path: "app.go", Content: []byte(source)}}, codegraph.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows := query(t, g, `MATCH (:Function {name:'Entry'})-[r:calls]->(target) RETURN r,target`, nil)
+	rows := query(t, g.Result(), `MATCH (:Function {name:'Entry'})-[r:calls]->(target) RETURN r,target`, nil)
 	if len(rows) != 4 {
 		t.Fatal(rows, g.Report())
 	}
@@ -57,7 +57,7 @@ func TestGoReceiverAndCallableCandidates(t *testing.T) {
 
 func TestGoCrossFileImportedReceiver(t *testing.T) {
 	ctx := context.Background()
-	g, report, err := codegraph.Build(ctx, "go-batch", []codegraph.Document{{Path: "app.go", Content: []byte("package app\nimport lib \"example.org/lib\"\nfunc Entry(box *lib.Box){box.Run()}\n")}}, codegraph.Options{ModulePath: "example.org"})
+	g, report, err := buildTestBuilder(ctx, "go-batch", []codegraph.Document{{Path: "app.go", Content: []byte("package app\nimport lib \"example.org/lib\"\nfunc Entry(box *lib.Box){box.Run()}\n")}}, codegraph.Options{ModulePath: "example.org"})
 	if err != nil || !hasDiagnostic(report, "dynamic_call") {
 		t.Fatal(report, err)
 	}
@@ -67,7 +67,7 @@ func TestGoCrossFileImportedReceiver(t *testing.T) {
 	if _, err = g.Wait(ctx); err != nil {
 		t.Fatal(err)
 	}
-	rows := query(t, g, `MATCH (:Function {name:'Entry'})-[r:calls]->(m:Method {name:'Run'}) RETURN r,m`, nil)
+	rows := query(t, g.Result(), `MATCH (:Function {name:'Entry'})-[r:calls]->(m:Method {name:'Run'}) RETURN r,m`, nil)
 	if len(rows) != 1 || rows[0]["r"].(codegraph.Relation).Confidence != codegraph.Scoped || rows[0]["m"].(codegraph.Node).Location.Path != "lib/method.go" {
 		t.Fatal(rows, g.Report())
 	}
@@ -144,25 +144,25 @@ func TestCallTargetsPreserveClosureAndCallbackGaps(t *testing.T) {
 		{"app.py", "class Box:\n    def run(self):\n        pass\ndef entry(box: Box):\n    return lambda: box.run()\n"},
 	} {
 		t.Run(tc.path, func(t *testing.T) {
-			g, report, err := codegraph.Build(context.Background(), "gap", []codegraph.Document{{Path: tc.path, Content: []byte(tc.source)}}, codegraph.Options{})
+			g, report, err := buildTestBuilder(context.Background(), "gap", []codegraph.Document{{Path: tc.path, Content: []byte(tc.source)}}, codegraph.Options{})
 			if err != nil || !hasDiagnostic(report, "dynamic_call") {
 				t.Fatal(report, err)
 			}
-			rows := query(t, g, `MATCH (source)-[:calls]->(target) RETURN source,target`, nil)
+			rows := query(t, g.Result(), `MATCH (source)-[:calls]->(target) RETURN source,target`, nil)
 			if len(rows) != 0 {
 				t.Fatal(rows)
 			}
 		})
 	}
-	g, err := codegraph.New("budget", codegraph.Options{MaxRelations: 3})
+	g, err := codegraph.NewBuilder("budget", codegraph.Options{MaxRelations: 3})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = g.AddDocuments(context.Background(), codegraph.Document{Path: "app.ts", Content: []byte("class Box {run(){} entry(){this.run();}}")}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = g.Wait(context.Background()); !errors.Is(err, codegraph.ErrBuildBudget) || len(g.Nodes()) != 0 {
-		t.Fatal(err, g.Nodes())
+	if _, err = g.Wait(context.Background()); !errors.Is(err, codegraph.ErrBuildBudget) || len(g.Result().Nodes()) != 0 {
+		t.Fatal(err, g.Result().Nodes())
 	}
 }
 

@@ -16,14 +16,9 @@ func resolveReferences(ctx context.Context, files map[string]analysis.Facts, nam
 			if err := ctx.Err(); err != nil {
 				return nil, nil, err
 			}
-			targets := []Ref{}
-			confidence, basis := analysis.NameOnly, "lexical_name"
-			if state := r.BindingState(); state != analysis.NotApplicable {
-				if state == analysis.Bound {
-					targets = append(targets, analysis.SourceRef(name, r.Target))
-					confidence, basis = "exact", "lexical_binding"
-				}
-			} else {
+			targets, confidence := lexicalReferenceTargets(f, r)
+			basis := "lexical_binding"
+			if r.BindingState() == analysis.NotApplicable {
 				imported, matched, err := binder.useTargets(f, r.Name, r.Receiver, r.Span)
 				if err != nil {
 					return nil, nil, err

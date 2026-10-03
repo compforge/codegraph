@@ -10,7 +10,7 @@ import (
 func TestReferenceFactsAndRelations(t *testing.T) {
 	ctx := context.Background()
 	source := []byte("package app\nconst Limit = 3\nfunc target() {}\nfunc use() { _ = Limit; _ = Limit; callback := target; callback() }\n")
-	g, err := codegraph.New("references", codegraph.Options{})
+	g, err := codegraph.NewBuilder("references", codegraph.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func TestReferenceFactsAndRelations(t *testing.T) {
 	if _, err = g.Wait(ctx); err != nil {
 		t.Fatal(err)
 	}
-	rows := query(t, g, `MATCH (a:Function {name:'use'})-[r:references]->(b) RETURN r,b`, nil)
+	rows := query(t, g.Result(), `MATCH (a:Function {name:'use'})-[r:references]->(b) RETURN r,b`, nil)
 	if len(rows) != 3 {
 		t.Fatal(rows)
 	}
@@ -144,12 +144,12 @@ func TestReferenceImportedNameAndShadowedReceiver(t *testing.T) {
 
 func TestReferencesRebuildAndBudget(t *testing.T) {
 	ctx := context.Background()
-	g, _, err := codegraph.Build(ctx, "batch", []codegraph.Document{{Path: "use.go", Content: []byte("package app\nfunc use(){ _ = Value }\n")}}, codegraph.Options{})
+	g, _, err := buildTestBuilder(ctx, "batch", []codegraph.Document{{Path: "use.go", Content: []byte("package app\nfunc use(){ _ = Value }\n")}}, codegraph.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(g.RelationsFrom(g.Find("use.go", codegraph.Function, "use")[0].ID, codegraph.References)) != 0 {
-		t.Fatal(g.Relations())
+	if len(g.Result().RelationsFrom(g.Result().Find("use.go", codegraph.Function, "use")[0].ID, codegraph.References)) != 0 {
+		t.Fatal(g.Result().Relations())
 	}
 	if err = g.AddDocuments(ctx, codegraph.Document{Path: "value.go", Content: []byte("package app\nconst Value = 1\n")}); err != nil {
 		t.Fatal(err)
@@ -163,23 +163,23 @@ func TestReferencesRebuildAndBudget(t *testing.T) {
 			t.Fatal(report)
 		}
 	}
-	if len(g.RelationsFrom(g.Find("use.go", codegraph.Function, "use")[0].ID, codegraph.References)) != 1 {
-		t.Fatal(g.Relations())
+	if len(g.Result().RelationsFrom(g.Result().Find("use.go", codegraph.Function, "use")[0].ID, codegraph.References)) != 1 {
+		t.Fatal(g.Result().Relations())
 	}
-	limited, err := codegraph.New("budget", codegraph.Options{MaxRelations: 2})
+	limited, err := codegraph.NewBuilder("budget", codegraph.Options{MaxRelations: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = limited.AddDocuments(ctx, codegraph.Document{Path: "app.go", Content: []byte("package app\nconst Value=1\nfunc use(){ _ = Value }\n")}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = limited.Wait(ctx); err == nil || len(limited.Nodes()) != 0 {
+	if _, err = limited.Wait(ctx); err == nil || len(limited.Result().Nodes()) != 0 {
 		t.Fatal("reference edges must respect atomic build budgets", err)
 	}
 }
 
 func TestReferenceFactsExcludeBindingNamesAndText(t *testing.T) {
-	g, err := codegraph.New("lexical", codegraph.Options{})
+	g, err := codegraph.NewBuilder("lexical", codegraph.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

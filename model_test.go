@@ -96,7 +96,7 @@ func TestOutlineGapPreservesUsableFacts(t *testing.T) {
 (function_definition parameters: (parameters (identifier) @name)) @definition.function`
 	grammars.Register(entry)
 	source := "def retry(text):\n    pass\ndef healthy():\n    pass\n"
-	g, err := New("rev", Options{})
+	g, err := NewBuilder("rev", Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,13 +141,13 @@ func TestOutlineGapPreservesUsableFacts(t *testing.T) {
 	if d.Location.Path != document.Path || d.Location.StartByte != 0 || d.Location.EndByte != len(source) {
 		t.Fatalf("upstream counters must describe the document, not a guessed declaration: %+v", d.Location)
 	}
-	if len(g.Find(document.Path, Function, "healthy")) != 1 {
+	if len(g.Result().Find(document.Path, Function, "healthy")) != 1 {
 		t.Fatal("unrelated declaration disappeared")
 	}
-	edges := g.RelationsFrom(module.ID(), Imports)
+	edges := g.Result().RelationsFrom(module.ID(), Imports)
 	moduleEdge := false
 	for _, edge := range edges {
-		target, ok := g.Node(edge.Target)
+		target, ok := g.Result().Node(edge.Target)
 		if ok && target.Kind == Module && target.QualifiedName == "work" && edge.Confidence == Exact {
 			moduleEdge = true
 		}
@@ -252,12 +252,12 @@ func withoutReferenceDiagnostics(diagnostics []Diagnostic) []Diagnostic {
 }
 
 func TestEvidenceBudgetIsAtomic(t *testing.T) {
-	g, _ := New("budget", Options{MaxEvidence: 1})
+	g, _ := NewBuilder("budget", Options{MaxEvidence: 1})
 	if err := g.AddDocuments(context.Background(), Document{Path: "a.go", Content: []byte("package a;func f(){}")}); err != nil {
 		t.Fatal(err)
 	}
 	_, err := g.Wait(context.Background())
-	if !errors.Is(err, ErrBuildBudget) || len(g.Nodes()) != 0 {
-		t.Fatal(err, g.Nodes())
+	if !errors.Is(err, ErrBuildBudget) || len(g.Result().Nodes()) != 0 {
+		t.Fatal(err, g.Result().Nodes())
 	}
 }

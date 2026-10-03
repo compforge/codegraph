@@ -56,7 +56,7 @@ func TestNamespaceECMAScriptModules(t *testing.T) {
 		}
 	}
 	// Rebuilding from a later batch must not change source-module identities.
-	later, _, err := codegraph.Build(ctx, "modules", docs[1:2], codegraph.Options{})
+	later, _, err := buildTestBuilder(ctx, "modules", docs[1:2], codegraph.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func TestNamespaceECMAScriptModules(t *testing.T) {
 	if _, err = later.Wait(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(g.Nodes(), later.Nodes()) || !reflect.DeepEqual(g.Relations(), later.Relations()) {
+	if !reflect.DeepEqual(g.Nodes(), later.Result().Nodes()) || !reflect.DeepEqual(g.Relations(), later.Result().Relations()) {
 		t.Fatal("batch order changed the organization graph")
 	}
 }
@@ -77,18 +77,18 @@ func TestNamespaceECMAScriptBudgetRollback(t *testing.T) {
 	if _, _, err := codegraph.Build(ctx, "budget", []codegraph.Document{doc}, codegraph.Options{MaxNodes: 1}); !errors.Is(err, codegraph.ErrBuildBudget) {
 		t.Fatalf("module not included in node budget: %v", err)
 	}
-	g, _, err := codegraph.Build(ctx, "budget", []codegraph.Document{doc}, codegraph.Options{MaxNodes: 2})
+	g, _, err := buildTestBuilder(ctx, "budget", []codegraph.Document{doc}, codegraph.Options{MaxNodes: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
-	before := g.Nodes()
+	before := g.Result().Nodes()
 	if err = g.AddDocuments(ctx, codegraph.Document{Path: "other.ts", Content: []byte("")}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = g.Wait(ctx); !errors.Is(err, codegraph.ErrBuildBudget) {
 		t.Fatalf("want budget error: %v", err)
 	}
-	if !reflect.DeepEqual(before, g.Nodes()) {
+	if !reflect.DeepEqual(before, g.Result().Nodes()) {
 		t.Fatal("failed batch published partial namespace graph")
 	}
 }

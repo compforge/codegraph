@@ -21,17 +21,23 @@ func resolveCalls(ctx context.Context, f analysis.Facts, files map[string]analys
 		if err := ctx.Err(); err != nil {
 			return nil, nil, err
 		}
-		source := analysis.SourceRef(f.Path, -1)
-		best := len(f.Source) + 1
+		source := analysis.SourceRef(f.Path, analysis.EnclosingDeclaration(f, call.Span))
 		var targets []Ref
-		for i, d := range f.Declarations {
-			if d.Start <= call.Start && d.End >= call.End && d.End-d.Start < best {
-				source = analysis.DeclarationRef(f.Path, i)
-				best = d.End - d.Start
+		confidence := analysis.Exact
+		// Calls and references share the same lexical proof. Missing retained
+		// parents or a same-spelled module member cannot establish visibility.
+		for _, ref := range f.References {
+			if ref.Start < call.Start || ref.End > call.End || ref.Name != call.Name || ref.Receiver != call.Receiver {
+				continue
 			}
-			if d.Parent == -1 && d.Kind == "function" && d.Name == call.Name {
-				targets = append(targets, analysis.SourceRef(f.Path, i))
+			bound, precision := lexicalReferenceTargets(f, ref)
+			confidence = precision
+			for _, target := range bound {
+				if f.Declarations[target.Declaration].Kind == "function" {
+					targets = append(targets, target)
+				}
 			}
+			break
 		}
 		supplement, err := resolveCallTargets(ctx, f, call, files, "", methods, limit-len(edges))
 		if err != nil {
@@ -61,7 +67,7 @@ func resolveCalls(ctx context.Context, f analysis.Facts, files map[string]analys
 			}
 			continue
 		}
-		if call.Blocked || call.Receiver != "" {
+		if call.Blocked || call.Receiver != "" && len(targets) == 0 {
 			issues = append(issues, Issue{Path: f.Path, Code: "dynamic_call", Reference: call.Name, Relation: "calls", Span: call.Span})
 			continue
 		}
@@ -69,12 +75,8 @@ func resolveCalls(ctx context.Context, f analysis.Facts, files map[string]analys
 			issues = append(issues, Issue{Path: f.Path, Code: "unresolved_call", Reference: call.Name, Relation: "calls", Span: call.Span})
 			continue
 		}
-		confidence := analysis.Exact
-		if len(targets) > 1 {
-			confidence = "scoped"
-		}
 		for _, target := range targets {
-			if err := add(Edge{Source: source, Target: target, Kind: "calls", Confidence: confidence, Basis: "module_function", Path: f.Path, Span: call.Span}); err != nil {
+			if err := add(Edge{Source: source, Target: target, Kind: "calls", Confidence: confidence, Basis: "lexical_binding", Path: f.Path, Span: call.Span}); err != nil {
 				return nil, nil, err
 			}
 		}

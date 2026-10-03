@@ -122,14 +122,14 @@ func TestGoResultTypeCallTargets(t *testing.T) {
 			t.Fatal(row)
 		}
 	}
-	limited, err := codegraph.New("result-budget", codegraph.Options{MaxRelations: len(g.Relations()) - 1})
+	limited, err := codegraph.NewBuilder("result-budget", codegraph.Options{MaxRelations: len(g.Relations()) - 1})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = limited.AddDocuments(context.Background(), codegraph.Document{Path: "app.go", Content: []byte(source)}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = limited.Wait(context.Background()); err == nil || len(limited.Nodes()) != 0 {
+	if _, err = limited.Wait(context.Background()); err == nil || len(limited.Result().Nodes()) != 0 {
 		t.Fatalf("result propagation must preserve atomic budget: %v", err)
 	}
 }
@@ -137,7 +137,7 @@ func TestGoResultTypeCallTargets(t *testing.T) {
 func TestGoResultTypeDeclarationContext(t *testing.T) {
 	ctx := context.Background()
 	source := `package app;import lib "example.org/factory";import types "example.org/decoy";var decoy types.Leaf;func Entry(){_=lib.Make().Name}`
-	g, _, err := codegraph.Build(ctx, "context", []codegraph.Document{
+	g, _, err := buildTestBuilder(ctx, "context", []codegraph.Document{
 		{Path: "app.go", Content: []byte(source)},
 		{Path: "factory/make.go", Content: []byte("package factory;import types \"example.org/model\";func Make()*types.Leaf{return nil}")},
 		{Path: "decoy/type.go", Content: []byte("package decoy;type Leaf struct{Name string}")},
@@ -147,7 +147,7 @@ func TestGoResultTypeDeclarationContext(t *testing.T) {
 	}
 	check := func(want int) {
 		t.Helper()
-		rows := query(t, g, `MATCH (:Function {name:'Entry'})-[r:references]->(target:Field {name:'Name'}) RETURN target`, nil)
+		rows := query(t, g.Result(), `MATCH (:Function {name:'Entry'})-[r:references]->(target:Field {name:'Name'}) RETURN target`, nil)
 		if len(rows) != want {
 			t.Fatal(rows)
 		}

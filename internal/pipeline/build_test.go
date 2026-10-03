@@ -32,7 +32,7 @@ func (f resolverFunc) Resolve(c context.Context, i *analysis.Index, n int) ([]an
 func TestLanguageStagesAndSharedMembership(t *testing.T) {
 	files := map[string]analysis.Facts{
 		"a.probe": {Path: "a.probe", Language: "alpha", Declarations: []analysis.Declaration{
-			{Name: "N", Kind: "namespace", Parent: -1}, {Name: "C", Kind: "class", Parent: 0},
+			{Name: "N", Kind: "namespace", Parent: -1, Span: analysis.Span{End: 30}}, {Name: "C", Kind: "class", Parent: 0, Span: analysis.Span{Start: 2, End: 20}},
 		}},
 		"b.probe": {Path: "b.probe", Language: "beta", Declarations: []analysis.Declaration{
 			{Name: "run", Kind: "method", Parent: -1, Receiver: "C"},
@@ -149,7 +149,7 @@ func TestStageFailureAndBudgetReturnNoIndex(t *testing.T) {
 func TestDeclaredNamespaceRootAndLaterOrganization(t *testing.T) {
 	files := map[string]analysis.Facts{
 		"a.probe": {Path: "a.probe", Language: "alpha", Declarations: []analysis.Declaration{
-			{Name: "N", Kind: "namespace", Parent: -1},
+			{Name: "N", Kind: "namespace", Parent: -1, Span: analysis.Span{End: 30}},
 			{Name: "C", Kind: "class", Parent: -1},
 		}},
 		"b.probe": {Path: "b.probe", Language: "beta"},

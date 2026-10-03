@@ -29,7 +29,7 @@ type Builder struct {
 	sourceBytes int64
 	failures    map[string]Diagnostic
 	result      *Graph
-	// Compatibility scheduling has an independent, lazy lifetime.
+	// Document extraction scheduling has an independent, lazy lifetime.
 	sessionOnce sync.Once
 	session     *session
 	sessionErr  error
@@ -363,6 +363,12 @@ func (g *Builder) assemble(ctx context.Context, files map[string]analysis.Facts,
 			for _, m := range e.Comments {
 				n.Markers = append(n.Markers, Marker{Kind: MarkerKind(m.Kind), Text: m.Text, Location: location(f, m.Span)})
 			}
+		}
+		if e.SignatureLocation != nil {
+			f := files[e.SignatureLocation.Path]
+			span := e.SignatureLocation.Span
+			n.Signature = string(f.Source[span.Start:span.End])
+			n.SignatureLocation = locationPtr(f, span)
 		}
 		if e.NameLocation != nil {
 			n.NameLocation = locationPtr(files[e.NameLocation.Path], e.NameLocation.Span)

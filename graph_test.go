@@ -94,7 +94,7 @@ func TestMarkerRoundTrip(t *testing.T) {
 func TestExtendAndSnapshotIdentity(t *testing.T) {
 	ctx := context.Background()
 	source := fixture()
-	g, r, err := Build(ctx, "rev-A", documents(source, "main.go"), Options{ModulePath: "example.org/demo"})
+	g, r, err := buildTestBuilder(ctx, "rev-A", documents(source, "main.go"), Options{ModulePath: "example.org/demo"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,19 +105,19 @@ func TestExtendAndSnapshotIdentity(t *testing.T) {
 	if err != nil || len(r.Diagnostics) != 0 {
 		t.Fatal(r, err)
 	}
-	nodes, edges := g.Nodes(), g.Relations()
+	nodes, edges := g.Result().Nodes(), g.Result().Relations()
 	r, err = g.addDocumentsSync(ctx, documents(source, "main.go", "helper.go", "lib/work.go")...)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(nodes, g.Nodes()) || !reflect.DeepEqual(edges, g.Relations()) {
+	if !reflect.DeepEqual(nodes, g.Result().Nodes()) || !reflect.DeepEqual(edges, g.Result().Relations()) {
 		t.Fatal("re-add changed identities")
 	}
 	source["main.go"] = &fstest.MapFile{Data: []byte("package app\nfunc Changed(){}")}
 	if _, err = g.addDocumentsSync(ctx, documents(source, "main.go")...); !errors.Is(err, ErrSnapshotChanged) {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(nodes, g.Nodes()) {
+	if !reflect.DeepEqual(nodes, g.Result().Nodes()) {
 		t.Fatal("failed batch changed graph")
 	}
 	fresh, _, err := Build(ctx, "rev-B", documents(source, "main.go"), Options{})
@@ -155,7 +155,7 @@ func TestExpansionAndScope(t *testing.T) {
 
 func TestBuildFailuresAndBudget(t *testing.T) {
 	ctx := context.Background()
-	g := built(t, Options{})
+	g := builtBuilder(t, Options{})
 	bad := fstest.MapFS{"bad.go": {Data: []byte("package broken\nfunc (")}, "script.unknown-codegraph": {Data: []byte("def hello(): pass")}}
 	r, err := g.addDocumentsSync(ctx, documents(bad, "bad.go", "script.unknown-codegraph")...)
 	if err != nil {
@@ -167,14 +167,14 @@ func TestBuildFailuresAndBudget(t *testing.T) {
 	if _, err := g.addDocumentsSync(ctx, Document{Path: "../outside.go", Content: []byte("package p")}); err == nil {
 		t.Fatal("path traversal accepted")
 	}
-	g2, err := New("rev", Options{MaxDocuments: 1})
+	g2, err := NewBuilder("rev", Options{MaxDocuments: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err = g2.addDocumentsSync(ctx, documents(fixture(), "main.go", "helper.go")...); !errors.Is(err, ErrBuildBudget) {
 		t.Fatal(err)
 	}
-	if len(g2.Nodes()) != 0 {
+	if len(g2.Result().Nodes()) != 0 {
 		t.Fatal("budget published partial graph")
 	}
 	ctx, cancel := context.WithCancel(ctx)
@@ -241,12 +241,12 @@ func TestQueryBoundary(t *testing.T) {
 }
 
 func TestConcurrentReadersAndExtension(t *testing.T) {
-	g := built(t, Options{})
+	g := builtBuilder(t, Options{})
 	var wg sync.WaitGroup
 	for range 4 {
 		wg.Go(func() {
 			for range 5 {
-				if _, err := g.Query(context.Background(), `MATCH (n:Function) RETURN n`, nil); err != nil {
+				if _, err := g.Result().Query(context.Background(), `MATCH (n:Function) RETURN n`, nil); err != nil {
 					t.Error(err)
 				}
 			}
@@ -262,13 +262,13 @@ func TestConcurrentReadersAndExtension(t *testing.T) {
 }
 
 func TestOptions(t *testing.T) {
-	if _, err := New("", Options{}); err == nil {
+	if _, err := NewBuilder("", Options{}); err == nil {
 		t.Fatal("empty snapshot accepted")
 	}
-	if _, err := New("x", Options{MaxDocuments: -1}); err == nil {
+	if _, err := NewBuilder("x", Options{MaxDocuments: -1}); err == nil {
 		t.Fatal("negative limit accepted")
 	}
-	if _, err := New("x", Options{Scope: []string{"../"}}); err == nil {
+	if _, err := NewBuilder("x", Options{Scope: []string{"../"}}); err == nil {
 		t.Fatal("invalid scope accepted")
 	}
 	if !fs.ValidPath("main.go") || !strings.HasPrefix(DocumentID("main.go"), "document:") {
@@ -285,14 +285,14 @@ func TestAllBuildBudgetsRollback(t *testing.T) {
 	for _, opts := range []Options{
 		{MaxDocumentBytes: 10}, {MaxSourceBytes: 10}, {MaxNodes: 1}, {MaxRelations: 1},
 	} {
-		g, err := New("rev", opts)
+		g, err := NewBuilder("rev", opts)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if _, err = g.addDocumentsSync(context.Background(), documents(source, "main.go", "a/a.go", "b/b.go")...); !errors.Is(err, ErrBuildBudget) {
 			t.Fatalf("opts=%+v err=%v", opts, err)
 		}
-		if len(g.Nodes()) != 0 {
+		if len(g.Result().Nodes()) != 0 {
 			t.Fatal("budget published data")
 		}
 	}

@@ -12,7 +12,7 @@ import (
 
 // +spec=`Parameter targets bind only local names; defaults remain in the prelude`
 func TestPythonContextParameterBindings(t *testing.T) {
-	g, err := codegraph.New("parameters", codegraph.Options{})
+	g, err := codegraph.NewBuilder("parameters", codegraph.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestPythonGeneratedAPIContext(t *testing.T) {
 `, i)
 	}
 	source.WriteString("import final_dependency\n")
-	g, err := codegraph.New("generated", codegraph.Options{})
+	g, err := codegraph.NewBuilder("generated", codegraph.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestPythonGeneratedAPIContext(t *testing.T) {
 }
 
 func TestPythonContextStillReportsExhaustion(t *testing.T) {
-	g, err := codegraph.New("budget", codegraph.Options{})
+	g, err := codegraph.NewBuilder("budget", codegraph.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestPythonContextStillReportsExhaustion(t *testing.T) {
 }
 
 func TestPythonStringInterpolationRetainsCalls(t *testing.T) {
-	g, err := codegraph.New("strings", codegraph.Options{})
+	g, err := codegraph.NewBuilder("strings", codegraph.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func TestPythonStringInterpolationRetainsCalls(t *testing.T) {
 }
 
 func TestPythonContextLambdaDefaultRetainsCalls(t *testing.T) {
-	g, err := codegraph.New("lambda", codegraph.Options{})
+	g, err := codegraph.NewBuilder("lambda", codegraph.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

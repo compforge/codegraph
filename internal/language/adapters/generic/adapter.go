@@ -15,6 +15,7 @@ func (Adapter) Extract(ctx context.Context, f Facts, tree *gts.Tree, entry gramm
 	entry.TagsQuery = grammars.ResolveTagsQuery(entry)
 	f, err := syntax.Outline(ctx, f, tree, entry)
 	if err == nil {
+		syntax.CaptureSignatures(&f, tree)
 		f.Issues = append(f.Issues, analysis.Issue{Code: "unsupported_resolution", Message: "declaration outline only; reference resolution and markers are not implemented for " + f.Language, Subject: "document", Span: analysis.Span{End: len(f.Source)}})
 	}
 	return f, err

@@ -9,7 +9,7 @@ import (
 )
 
 func TestPythonStatementFacts(t *testing.T) {
-	g, err := codegraph.New("rev", codegraph.Options{})
+	g, err := codegraph.NewBuilder("rev", codegraph.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ except ImportError:
 }
 
 func TestGoEmbedIssue(t *testing.T) {
-	g, err := codegraph.New("rev", codegraph.Options{})
+	g, err := codegraph.NewBuilder("rev", codegraph.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +106,7 @@ func TestGoEmbedIssue(t *testing.T) {
 }
 
 func TestImportBindingFacts(t *testing.T) {
-	g, err := codegraph.New("rev", codegraph.Options{})
+	g, err := codegraph.NewBuilder("rev", codegraph.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

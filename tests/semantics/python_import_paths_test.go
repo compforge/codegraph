@@ -47,7 +47,7 @@ func TestPythonAbsoluteImportsBelowSnapshotRoot(t *testing.T) {
 
 func TestPythonPackageLayoutReExportAndReload(t *testing.T) {
 	ctx := context.Background()
-	g, report, err := codegraph.Build(ctx, "reload", []codegraph.Document{{Path: "sdk/pkg/app.py", Content: []byte("from pkg import run\ndef entry(): return run()\n")}}, codegraph.Options{})
+	g, report, err := buildTestBuilder(ctx, "reload", []codegraph.Document{{Path: "sdk/pkg/app.py", Content: []byte("from pkg import run\ndef entry(): return run()\n")}}, codegraph.Options{})
 	if err != nil || !hasDiagnostic(report, "unresolved_import") {
 		t.Fatal(report, err)
 	}
@@ -60,7 +60,7 @@ func TestPythonPackageLayoutReExportAndReload(t *testing.T) {
 	if _, err := g.Wait(ctx); err != nil {
 		t.Fatal(err)
 	}
-	rows := query(t, g, `MATCH (:Function {name:'entry'})-[r:calls]->(target:Function {name:'work'}) RETURN r,target`, nil)
+	rows := query(t, g.Result(), `MATCH (:Function {name:'entry'})-[r:calls]->(target:Function {name:'work'}) RETURN r,target`, nil)
 	if len(rows) != 1 || rows[0]["r"].(codegraph.Relation).Confidence != codegraph.Scoped || rows[0]["target"].(codegraph.Node).Location.Path != "sdk/pkg/lib.py" {
 		t.Fatal(rows)
 	}
@@ -118,7 +118,7 @@ func TestPythonPackageLayoutStubsAndRelativeImports(t *testing.T) {
 
 func TestPythonPackageLayoutBudgetIsAtomic(t *testing.T) {
 	ctx := context.Background()
-	g, err := codegraph.New("budget", codegraph.Options{MaxRelations: 1})
+	g, err := codegraph.NewBuilder("budget", codegraph.Options{MaxRelations: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestPythonPackageLayoutBudgetIsAtomic(t *testing.T) {
 	); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := g.Wait(ctx); !errors.Is(err, codegraph.ErrBuildBudget) || len(g.Nodes()) != 0 || len(g.Relations()) != 0 {
-		t.Fatal(err, g.Nodes(), g.Relations())
+	if _, err := g.Wait(ctx); !errors.Is(err, codegraph.ErrBuildBudget) || len(g.Result().Nodes()) != 0 || len(g.Result().Relations()) != 0 {
+		t.Fatal(err, g.Result().Nodes(), g.Result().Relations())
 	}
 }

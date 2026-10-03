@@ -49,7 +49,7 @@ func TestImportedTypeRelationsAndIncrementalBinding(t *testing.T) {
 		{"app.ts", "import {Parent} from './barrel';class Child extends Parent {}", "barrel.ts", "export {Base as Parent} from './base'", codegraph.Exact},
 	} {
 		t.Run(tc.path, func(t *testing.T) {
-			g, report, err := codegraph.Build(context.Background(), "types", []codegraph.Document{{Path: tc.path, Content: []byte(tc.source)}}, codegraph.Options{ModulePath: "example.org"})
+			g, report, err := buildTestBuilder(context.Background(), "types", []codegraph.Document{{Path: tc.path, Content: []byte(tc.source)}}, codegraph.Options{ModulePath: "example.org"})
 			if err != nil || !hasDiagnostic(report, "unresolved_type_relation") {
 				t.Fatal(report, err)
 			}
@@ -65,7 +65,7 @@ func TestImportedTypeRelationsAndIncrementalBinding(t *testing.T) {
 				t.Fatal(report, err)
 			}
 			count := 0
-			for _, r := range g.Relations() {
+			for _, r := range g.Result().Relations() {
 				if r.Kind == codegraph.Extends {
 					count++
 					if r.Confidence != tc.confidence {
@@ -74,18 +74,18 @@ func TestImportedTypeRelationsAndIncrementalBinding(t *testing.T) {
 				}
 			}
 			if count != 1 {
-				t.Fatal(g.Relations())
+				t.Fatal(g.Result().Relations())
 			}
 		})
 	}
 }
 
 func TestTypeRelationGapsAndDetachedFacts(t *testing.T) {
-	g, report, err := codegraph.Build(context.Background(), "gaps", []codegraph.Document{{Path: "main.py", Content: []byte("class Base: pass\nclass Child(factory(Base)): pass\nclass Missing(Unknown): pass\n")}}, codegraph.Options{})
+	g, report, err := buildTestBuilder(context.Background(), "gaps", []codegraph.Document{{Path: "main.py", Content: []byte("class Base: pass\nclass Child(factory(Base)): pass\nclass Missing(Unknown): pass\n")}}, codegraph.Options{})
 	if err != nil || !hasDiagnostic(report, "unsupported_type_relation") || !hasDiagnostic(report, "unresolved_type_relation") {
 		t.Fatal(report, err)
 	}
-	for _, r := range g.Relations() {
+	for _, r := range g.Result().Relations() {
 		if r.Kind == codegraph.Extends {
 			t.Fatal(r)
 		}
@@ -168,19 +168,19 @@ func TestTypeRelationsGenericsNamespaceAndShadowing(t *testing.T) {
 }
 
 func TestTypeRelationBudgetRollback(t *testing.T) {
-	g, _, err := codegraph.Build(context.Background(), "budget", []codegraph.Document{{Path: "base.ts", Content: []byte("export class Base {}")}}, codegraph.Options{MaxRelations: 4})
+	g, _, err := buildTestBuilder(context.Background(), "budget", []codegraph.Document{{Path: "base.ts", Content: []byte("export class Base {}")}}, codegraph.Options{MaxRelations: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
-	before := len(g.Nodes())
+	before := len(g.Result().Nodes())
 	if err = g.AddDocuments(context.Background(), codegraph.Document{Path: "child.ts", Content: []byte("import {Base} from './base';class Child extends Base {}")}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = g.Wait(context.Background()); err == nil {
 		t.Fatal("expected relation budget failure")
 	}
-	if len(g.Nodes()) != before {
-		t.Fatal("failed batch published", g.Nodes())
+	if len(g.Result().Nodes()) != before {
+		t.Fatal("failed batch published", g.Result().Nodes())
 	}
 }
 
