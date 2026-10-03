@@ -23,7 +23,7 @@ func TestAsyncDocumentAndSymbolWithoutWait(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc := Document{Path: "main.go", Content: []byte("package demo\nfunc Entry(){}\n")}
+	doc := Document{Path: "main.go", Content: []byte("package demo\n// Entry docs.\nfunc Entry(){}\n")}
 	if doc.ID() != DocumentID(doc.Path) {
 		t.Fatalf("document ID = %q", doc.ID())
 	}
@@ -45,6 +45,9 @@ func TestAsyncDocumentAndSymbolWithoutWait(t *testing.T) {
 	symbols, err := symbolTask.Wait()
 	if err != nil || len(symbols) != 1 || symbols[0].Name != "Entry" {
 		t.Fatalf("symbols = %+v, %v", symbols, err)
+	}
+	if len(symbols[0].Documentation) != 1 || symbols[0].Documentation[0].Text != "// Entry docs." {
+		t.Fatalf("async symbol lost documentation: %+v", symbols[0])
 	}
 	// Observe the build barrier directly: publication must finish even if the
 	// caller never invokes Wait.

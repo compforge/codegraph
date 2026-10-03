@@ -1,9 +1,12 @@
 package golang
 
 import (
+	"bytes"
 	"go/ast"
 	"go/token"
 	"sort"
+
+	"github.com/compforge/codegraph/internal/analysis"
 )
 
 func enrichGoDeclarations(f *Facts, file *ast.File, fset *token.FileSet) {
@@ -19,7 +22,7 @@ func enrichGoDeclarations(f *Facts, file *ast.File, fset *token.FileSet) {
 			decls[start] = i
 			f.Declarations = append(f.Declarations, Declaration{})
 		}
-		f.Declarations[i] = Declaration{Name: name, Kind: kind, Span: Span{Start: start, End: end}, Comments: comments(doc, fset)}
+		f.Declarations[i] = Declaration{Name: name, Kind: kind, Span: Span{Start: start, End: end}, Comments: comments(doc, fset), Documentation: documentation(f, doc, fset)}
 		return i
 	}
 	upsert := func(name, kind string, n ast.Node, doc *ast.CommentGroup) int {
@@ -74,6 +77,29 @@ func enrichGoDeclarations(f *Facts, file *ast.File, fset *token.FileSet) {
 	assignDeclarationParents(f.Declarations)
 }
 
+func documentation(f *Facts, group *ast.CommentGroup, fset *token.FileSet) []analysis.Documentation {
+	if group == nil {
+		return nil
+	}
+	// go/ast strips carriage returns from Comment.Text, so Comment.End may
+	// precede the original terminator. Bind with the AST, slice the source.
+	last := fset.Position(group.List[len(group.List)-1].Pos()).Offset
+	tail := f.Source[last:]
+	end := len(tail)
+	if bytes.HasPrefix(tail, []byte("/*")) {
+		if at := bytes.Index(tail, []byte("*/")); at >= 0 {
+			end = at + 2
+		}
+	} else if at := bytes.IndexByte(tail, '\n'); at >= 0 {
+		end = at
+		if end > 0 && tail[end-1] == '\r' {
+			end--
+		}
+	}
+	span := Span{Start: fset.Position(group.Pos()).Offset, End: last + end}
+	return []analysis.Documentation{{Text: string(f.Source[span.Start:span.End]), Span: span}}
+}
+
 func declarationDoc(spec, group *ast.CommentGroup, groupSize int) *ast.CommentGroup {
 	if spec == nil && groupSize == 1 {
 		return group
@@ -99,8 +125,9 @@ func appendGoMembers(f *Facts, fields *ast.FieldList, kind string, fset *token.F
 			}
 			f.Declarations = append(f.Declarations, Declaration{
 				Name: name, Kind: kind,
-				Span:     Span{Start: fset.Position(start).Offset, End: fset.Position(field.End()).Offset},
-				Comments: comments(field.Doc, fset),
+				Span:          Span{Start: fset.Position(start).Offset, End: fset.Position(field.End()).Offset},
+				Comments:      comments(field.Doc, fset),
+				Documentation: documentation(f, field.Doc, fset),
 			})
 		}
 	}

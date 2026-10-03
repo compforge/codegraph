@@ -17,9 +17,9 @@ Code tools often start from a change or a symbol and need to find code worth exa
 - **Evidence:** Where does a connection occur in the source? Is its target established or only a candidate?
   Which locations remain unresolved?
 
-CodeGraph supplies queryable relationships and their evidence. Your application can use them to select
-review context, investigate potential impact, or navigate source. Your own rules determine which code
-to review and which tests to run.
+CodeGraph parses and organizes code facts, exposing queryable symbols, relationships, and evidence.
+Applications apply their own rules to those facts: repocli determines change impact and test scope,
+while CCR determines review scope and assembles review context.
 
 ## Inputs and results
 

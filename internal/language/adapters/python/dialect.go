@@ -10,6 +10,7 @@ import (
 type Dialect struct{}
 
 func (Dialect) Enrich(f *Facts, tree *gts.Tree) {
+	attachDocumentation(f, tree)
 	for i := range f.Imports {
 		imp := &f.Imports[i]
 		local := imp.Binding

@@ -258,6 +258,16 @@ func (g *Graph) materialize(ctx context.Context, nodes map[string]Node, relation
 			return nil, err
 		}
 		props["markerData"] = string(encoded)
+		documentation := make([]string, 0, len(n.Documentation))
+		for _, doc := range n.Documentation {
+			documentation = append(documentation, doc.Text)
+		}
+		props["documentation"] = documentation
+		encoded, err = json.Marshal(n.Documentation)
+		if err != nil {
+			return nil, err
+		}
+		props["documentationData"] = string(encoded)
 		if err := s.AddNode(n.ID, string(n.Kind), props); err != nil {
 			return nil, err
 		}

@@ -62,13 +62,14 @@ type Location struct {
 type Node struct {
 	ID string `json:"id"`
 	// Gitlink is set only on an opaque gitlink Document, never on symbols.
-	Gitlink       string    `json:"gitlink,omitempty"`
-	Kind          NodeKind  `json:"kind"`
-	Name          string    `json:"name"`
-	QualifiedName string    `json:"qualifiedName,omitempty"`
-	Language      string    `json:"language"`
-	Location      *Location `json:"location,omitempty"`
-	Markers       []Marker  `json:"markers,omitempty"`
+	Gitlink       string          `json:"gitlink,omitempty"`
+	Kind          NodeKind        `json:"kind"`
+	Name          string          `json:"name"`
+	QualifiedName string          `json:"qualifiedName,omitempty"`
+	Language      string          `json:"language"`
+	Location      *Location       `json:"location,omitempty"`
+	Markers       []Marker        `json:"markers,omitempty"`
+	Documentation []Documentation `json:"documentation,omitempty"`
 }
 
 func cloneNode(n Node) Node {
@@ -77,6 +78,7 @@ func cloneNode(n Node) Node {
 		n.Location = &loc
 	}
 	n.Markers = append([]Marker(nil), n.Markers...)
+	n.Documentation = append([]Documentation(nil), n.Documentation...)
 	return n
 }
 
@@ -211,6 +213,17 @@ func cloneDiagnostics(in []Diagnostic) []Diagnostic {
 		}
 	}
 	return out
+}
+
+// Documentation preserves a declaration's ordinary documentation as exact source.
+// Text equals the bytes at Location, including comment delimiters or string
+// prefixes/quotes. It is neither unescaped nor summarized. Fragments are ordered
+// by source position; an empty slice means no documentation was extracted under
+// the language adapter's supported rules (see Capabilities).
+// +spec=Documentation retains source identity and never substitutes for explicit intent markers.
+type Documentation struct {
+	Text     string   `json:"text"`
+	Location Location `json:"location"`
 }
 
 type MarkerKind string

@@ -9,7 +9,7 @@
 |---|---|
 | Language(path) | 路径对应的注册 grammar |
 | Languages() | 已注册的 grammar 名称，不加载全部 parser |
-| Capabilities() | 内置语言适配器的组织、声明、关系、marker 与限制 |
+| Capabilities() | 内置语言适配器的组织、声明、关系、文档、marker 与限制 |
 | Capabilities("rust", "java") | 按需查询其他注册语言的 outline 能力；未知名称不返回能力 |
 
 grammar 可用不表示语义完整。具体类别与语言覆盖以实际注册项、契约测试及本次 BuildReport 为准。
@@ -21,6 +21,21 @@ grammar 可用不表示语义完整。具体类别与语言覆盖以实际注册
 Outline 复用语言适配器的声明 query；Go 使用上游 grammar query，Python 和通用适配器使用
 注册 query，JS/TS 使用其适配器维护的声明 query。每次提取保留层级、范围和覆盖报告，
 不把图的语义成员关系投影成词法嵌套。使用方式与坐标约定见 [使用指南](usage.md#读取-document-outline)。
+
+## 声明文档
+
+`Capability.Documentation` 表示适配器支持普通声明文档提取；`Limitations` 同时声明语言规则。
+文档复用已有解析过程，绑定到具体声明发生位置，不按裸名称关联，也不从普通文档推导 marker。
+
+| 语言 | 提取范围与归属规则 |
+|---|---|
+| Go | AST 关联的声明、字段和接口方法前置文档注释；单项声明可继承组注释，多项组注释不分配给某个成员；不提取行尾注释 |
+| Python | 类和函数体的首条普通字符串表达式，包括嵌套、decorator、async、括号和相邻字符串；排除 bytes、f-string、后续字符串与模块 docstring |
+| JS / TS / TSX | 已提取声明紧邻的独立 JSDoc 块，支持 export、ambient 和单项变量声明包装；排除空行分隔、行尾及多项变量语句的共享注释 |
+| 其他 grammar | 尚未提供普通文档提取，Documentation 为 false |
+
+源码原文及坐标契约见 [使用指南](usage.md#读取声明文档)。空列表表示当前提取规则没有得到文档，
+不能据此判断源码在所有文档约定下都没有说明。
 
 ## 共同证据规则
 

@@ -113,7 +113,8 @@ func (g *session) FindAsync(path string, kind NodeKind, qualifiedName string) (p
 				ID:   declarationID(path, d.Kind, d.QualifiedName, d.Location.StartByte),
 				Kind: d.Kind, Name: d.Name, QualifiedName: d.QualifiedName,
 				Language: facts.Language, Location: &d.Location,
-				Markers: append([]Marker(nil), d.Markers...),
+				Markers:       append([]Marker(nil), d.Markers...),
+				Documentation: append([]Documentation(nil), d.Documentation...),
 			})
 		}
 		return nodes, nil

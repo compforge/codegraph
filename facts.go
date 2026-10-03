@@ -53,6 +53,7 @@ type FactDeclaration struct {
 	Kind                NodeKind
 	Location            Location
 	Markers             []Marker
+	Documentation       []Documentation
 }
 
 type FactImport struct {
@@ -120,6 +121,7 @@ func projectFacts(f analysis.Facts) (Facts, error) {
 		for _, m := range d.Comments {
 			decl.Markers = append(decl.Markers, Marker{Kind: MarkerKind(m.Kind), Text: m.Text, Location: location(f, m.Span)})
 		}
+		decl.Documentation = projectDocumentation(f, d.Documentation)
 		out.Declarations = append(out.Declarations, decl)
 	}
 	imports := make([]FactImport, 0, len(f.Imports))
@@ -166,6 +168,14 @@ func projectFacts(f analysis.Facts) (Facts, error) {
 		out.Issues = append(out.Issues, extractionDiagnostic(f, issue))
 	}
 	return out, nil
+}
+
+func projectDocumentation(f analysis.Facts, docs []analysis.Documentation) []Documentation {
+	var out []Documentation
+	for _, doc := range docs {
+		out = append(out, Documentation{Text: doc.Text, Location: location(f, doc.Span)})
+	}
+	return out
 }
 
 func projectExpression(e analysis.Expression) Expression {
