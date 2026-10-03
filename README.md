@@ -38,6 +38,9 @@ files and organizational entities such as packages and modules. For example, whe
 `Work()`, the graph records `Entry → calls → Work`: you can find callees from Entry or callers from Work.
 Go accessors and read-only Cypher queries return nodes, relationships, and their source locations.
 Consumer views derive their code facts exclusively from these nodes and relationships.
+Extracted calls and identifier uses also have their own source nodes, even when their targets are absent
+from the supplied files. Adding documents produces a new graph with recomputed targets and evidence;
+previous candidate relationships can be revised as well as new ones added.
 
 **Evidence and diagnostics tell you what conclusions a result supports.** Each relationship retains its
 derivation and confidence. Some targets are established within the supplied materials; others are

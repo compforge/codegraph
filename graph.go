@@ -51,14 +51,14 @@ func (g *Graph) Report() BuildReport {
 }
 
 // Find returns declaration nodes in source order. An empty kind matches every
-// declaration kind; an empty qualifiedName matches every name. Documents and
-// organizations without a single Location are excluded. Follow declares from a
+// declaration kind; an empty qualifiedName matches every name. Source uses,
+// Documents and organizations without a single Location are excluded. Follow declares from a
 // Document to find its package/module contributions.
 // The returned nodes are detached values and can be safely modified.
 func (g *Graph) Find(path string, kind NodeKind, qualifiedName string) []Node {
 	out := make([]Node, 0)
 	for _, node := range g.nodes {
-		if node.Kind == DocumentKind || node.Location == nil || node.Location.Path != path {
+		if node.Kind == DocumentKind || node.Kind == CallSite || node.Kind == ReferenceSite || node.Location == nil || node.Location.Path != path {
 			continue
 		}
 		if kind != "" && node.Kind != kind {
@@ -225,6 +225,9 @@ func (g *Graph) materialize(ctx context.Context, nodes map[string]Node, relation
 			return nil, err
 		}
 		props := map[string]any{"id": n.ID, "kind": string(n.Kind), "name": n.Name, "qualifiedName": n.QualifiedName, "language": n.Language, "snapshot": g.snapshot}
+		if n.Kind == CallSite || n.Kind == ReferenceSite {
+			props["receiver"] = n.Receiver
+		}
 		if n.Gitlink != "" {
 			props["gitlink"] = n.Gitlink
 		}

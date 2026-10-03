@@ -30,6 +30,10 @@ func evaluate(o *oracle, a observed) evaluation {
 			}
 			continue
 		}
+		if n.Kind == cg.CallSite || n.Kind == cg.ReferenceSite {
+			e.Unassessed["occurrence/"+string(n.Kind)]++
+			continue
+		}
 		if n.Kind == cg.DocumentKind {
 			continue
 		}

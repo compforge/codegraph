@@ -3,8 +3,8 @@
 ## 项目定位与边界
 
 CodeGraph 是解析和组织代码事实的 Go 库，首要目标是对输入 Documents 做静态分析，构造符号及其关系图。
-Graph 是静态代码的结构化表示；NodeKind 与 RelationKind 定义对象和联系的映射范围，
-源码结构与跨文件语义关系支持派生文件 outline、成员视图和关系路径。
+Graph 是已接纳 Documents 范围内静态代码的结构化表示，可以是局部图。NodeKind 与 RelationKind
+定义对象和联系的映射范围，源码结构与跨文件语义关系支持派生文件 outline、成员视图和关系路径。
 Graph 消费侧以 Node + Relation 为唯一代码事实来源，outline、成员列表等结果均由图派生。
 Outline 只在生产侧辅助提取声明关系；声明文档、位置和证据随节点或关系提供。
 本库拥有代码事实与通用查询；repocli 据此确定改动和测试范围，CCR 据此确定 review 范围。
@@ -19,6 +19,7 @@ model.go                               # 公共图值类型、诊断、报告与
 document.go、facts.go                   # 输入材料、身份与完整 Facts 检查视图
 extractor.go                           # 生产侧有界提取、任务与缓存
 builder.go、graph.go                    # 接纳、构图发布及只读查询结果
+occurrences.go                         # 将源码使用位置及其候选目标发布为图事实
 session.go、builder_documents.go        # Builder 的异步材料提交与构建调度
 internal/
   confidence/                           # 公共 API 与分析过程共用的证据精度及排序
@@ -39,8 +40,8 @@ docs/kernel.md                          # 稳定模型、主流程与设计依�
 ## 关键约定
 
 1. Node 使用具体语言类别；Symbol 与 Namespace 是可重叠的逻辑角色。源码贡献、声明的词法嵌套、语义成员归属和词法可见性分别由 declares、encloses、contains 与 Scope/Binding 表达。
-2. 关系身份保留端点、种类及发生位置，多条依据汇入 Evidence，Relation.Confidence 由 Evidence 的最高档推导；单条证据的必要推导链取最低档。保留候选与局部缺口，不虚构目标，也不将证据强度解释为业务影响概率。
-3. 同一 Graph 只容纳同一快照。Extractor 拥有解析与缓存；Builder 拥有构图、预算及原子发布，Graph 是只读结果；语言实现通过阶段接口提供事实、关系与诊断，不获取材料或直接操作图存储。
+2. 使用节点独立于目标绑定存在；局部图保留候选与缺口，不虚构外部目标。关系身份保留端点、种类及发生位置；独立 Evidence 取最高档，单条证据的必要推导链取最低档，不将证据强度解释为业务影响概率。源码使用与绑定模型见内核设计。
+3. 同一 Graph 只容纳同一快照。Extractor 拥有解析与缓存；Builder 拥有构图、预算及原子发布，Graph 是只读结果；补入 Document 后重新组织与绑定，最新结果可修订既有节点、关系和证据，旧结果不变。语言实现通过阶段接口提供事实、关系与诊断，不获取材料或直接操作图存储。
 4. 消费侧视图只读取 Node + Relation；缺少信息时补足图表达，不回读 Facts 或解析树。Facts 服务生产侧的依赖探索、解析与构图；Outline 在提取内部复用 gotreesitter，转换为声明和覆盖诊断后释放。AST 与引擎对象不穿透公共 API。新增语言能力同步更新注册声明及契约测试，grammar 可用不等于语义完整。
 5. 执行失败由 error 表达；局部诊断不否定无关事实。根包测试验证公共契约，内部机制测试随所属包维护；跨阶段语言回归放在 tests/semantics，真实语料验证语义覆盖，消费者验证自身策略与执行行为。
 6. 验证入口为 `make lint test build`，测试启用 race detector；工具准备和语料命令见 [评测执行入口](docs/corpus.md#执行与证据)。
