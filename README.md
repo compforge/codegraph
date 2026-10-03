@@ -37,6 +37,7 @@ Calls, references, membership, imports, and type relationships connect them. The
 files and organizational entities such as packages and modules. For example, when `Entry()` calls
 `Work()`, the graph records `Entry → calls → Work`: you can find callees from Entry or callers from Work.
 Go accessors and read-only Cypher queries return nodes, relationships, and their source locations.
+Consumer views derive their code facts exclusively from these nodes and relationships.
 
 **Evidence and diagnostics tell you what conclusions a result supports.** Each relationship retains its
 derivation and confidence. Some targets are established within the supplied materials; others are
@@ -99,6 +100,6 @@ which gaps matter to their task. More executable examples are in [example_test.g
 
 The following guides are in Chinese:
 
-- [Usage guide](docs/usage.md): add materials in batches, reuse analysis results, locate source, and query relationships; also covers retained intermediate results such as outlines.
+- [Usage guide](docs/usage.md): add materials in batches, reuse analysis results, locate source, query relationships, and derive file outlines from the graph.
 - [Document contract](docs/document.md): material identity, snapshot consistency, and Git submodule boundaries.
 - [Kernel design](docs/kernel.md): analysis stages and responsibilities for contributors and extension authors.

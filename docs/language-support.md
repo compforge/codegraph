@@ -15,12 +15,14 @@
 grammar 可用不表示语义完整。具体类别与语言覆盖以实际注册项、契约测试及本次 BuildReport 为准。
 没有 grammar 的材料处理见 [Document 契约](document.md)。
 
-## Document Outline
+## 文件结构
 
-`Extractor.Outline` 与 `Facts.Outline` 返回 gotreesitter 的 `OutlineSymbol` 和 `OutlineReport`。
-Outline 复用语言适配器的声明 query；Go 使用上游 grammar query，Python 和通用适配器使用
-注册 query，JS/TS 使用其适配器维护的声明 query。每次提取保留层级、范围和覆盖报告，
-不把图的语义成员关系投影成词法嵌套。使用方式与坐标约定见 [使用指南](usage.md#读取-document-outline)。
+Graph 通过 encloses 和声明位置保留词法嵌套，通过 contains 保留语义成员归属。
+消费侧从节点和关系生成文件 outline，见 [从 Graph 读取文件结构](usage.md#从-graph-读取文件结构)。
+
+Python 和通用适配器使用注册的声明 query，JS/TS 使用适配器维护的声明 query，
+内部复用 gotreesitter Outline 提取声明与层级；Go 通过专有声明分析提取。
+结构视图覆盖图已接纳的声明，query 遗漏及未支持的结构由 BuildReport 说明。
 
 ## 声明文档
 
@@ -129,11 +131,11 @@ Lambda 默认值调用属于创建函数时的表达式，函数体调用仍保�
 
 ### 单文件语句事实
 
-Facts.Statements 保留语句顺序、作用域和受限表达式词汇，供消费者解释搜索路径等线索。
+Facts.Statements 保留语句顺序、作用域和受限表达式词汇，供生产侧解析搜索路径等线索。
 参数目标只保留绑定名，默认值独立保留在函数 prelude；注释和普通字符串内部文本不消耗上下文展开预算，
 字符串插值仍保留可执行表达式。达到语句、表达式或深度预算时保留 `context_limit` 诊断。
 import 事实保存绑定名及语句挂靠。结构是语言中立的，当前只有 Python 捕获，未实现的语言为空。
-图模型不依赖消费者对语句的解释。测量边界见 [Python 仓库评测](python-corpus.md)。
+图消费侧读取绑定后的节点与关系。测量边界见 [Python 仓库评测](python-corpus.md)。
 
 ## JavaScript / TypeScript / TSX
 

@@ -62,12 +62,16 @@ type Location struct {
 type Node struct {
 	ID string `json:"id"`
 	// Gitlink is set only on an opaque gitlink Document, never on symbols.
-	Gitlink       string          `json:"gitlink,omitempty"`
-	Kind          NodeKind        `json:"kind"`
-	Name          string          `json:"name"`
-	QualifiedName string          `json:"qualifiedName,omitempty"`
-	Language      string          `json:"language"`
-	Location      *Location       `json:"location,omitempty"`
+	Gitlink       string    `json:"gitlink,omitempty"`
+	Kind          NodeKind  `json:"kind"`
+	Name          string    `json:"name"`
+	QualifiedName string    `json:"qualifiedName,omitempty"`
+	Language      string    `json:"language"`
+	Location      *Location `json:"location,omitempty"`
+	// NameLocation identifies the name token/capture, independently of the full
+	// declaration Location. It is absent for documents, synthetic organizations,
+	// or declarations whose extractor cannot provide it.
+	NameLocation  *Location       `json:"nameLocation,omitempty"`
 	Markers       []Marker        `json:"markers,omitempty"`
 	Documentation []Documentation `json:"documentation,omitempty"`
 }
@@ -76,6 +80,10 @@ func cloneNode(n Node) Node {
 	if n.Location != nil {
 		loc := *n.Location
 		n.Location = &loc
+	}
+	if n.NameLocation != nil {
+		loc := *n.NameLocation
+		n.NameLocation = &loc
 	}
 	n.Markers = append([]Marker(nil), n.Markers...)
 	n.Documentation = append([]Documentation(nil), n.Documentation...)
@@ -92,6 +100,10 @@ func declarationKind(kind string) (NodeKind, error) {
 type RelationKind string
 
 const (
+	// Encloses is direct lexical nesting among retained declarations in one
+	// document. Top-level declarations are enclosed by the Document itself.
+	// Contains independently records semantic membership, including cross-file owners.
+	Encloses   RelationKind = "encloses"
 	Contains   RelationKind = "contains"
 	Declares   RelationKind = "declares"
 	Imports    RelationKind = "imports"

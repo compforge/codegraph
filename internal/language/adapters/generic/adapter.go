@@ -21,5 +21,5 @@ func (Adapter) Extract(ctx context.Context, f Facts, tree *gts.Tree, entry gramm
 }
 func Describe(entry grammars.LangEntry) analysis.Capability {
 	entry.TagsQuery = grammars.ResolveTagsQuery(entry)
-	return analysis.Capability{Language: entry.Name, Declarations: syntax.DeclarationKinds(entry), Relations: []string{"declares", "contains"}, Limitations: []string{"outline is limited to grammar tags; runtime omissions are diagnostics", "syntax/outline fallback only; reference resolution and markers are not implemented; builds report partial coverage"}}
+	return analysis.Capability{Language: entry.Name, Declarations: syntax.DeclarationKinds(entry), Relations: []string{"declares", "contains", "encloses"}, Limitations: []string{"outline is limited to grammar tags; runtime omissions are diagnostics", "syntax/outline fallback only; reference resolution and markers are not implemented; builds report partial coverage"}}
 }

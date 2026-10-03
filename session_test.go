@@ -70,6 +70,53 @@ func TestAsyncDocumentAndSymbolWithoutWait(t *testing.T) {
 	}
 }
 
+// +case=Async symbol results own their name locations across repeated waits and document-fact inspection.
+func TestAsyncSymbolNameLocationDetached(t *testing.T) {
+	ctx := context.Background()
+	b, err := NewBuilder("async-name", Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := Document{Path: "main.go", Content: []byte("package p\nfunc Entry(){}\n")}
+	facts, err := b.AddDocument(ctx, doc).Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if _, err := b.Wait(ctx); err != nil {
+			t.Error(err)
+		}
+	})
+	task, ok := b.FindAsync(doc.Path, Function, "Entry")
+	if !ok {
+		t.Fatal("missing symbol task")
+	}
+	first, err := task.Wait()
+	if err != nil || len(first) != 1 || first[0].NameLocation == nil {
+		t.Fatalf("symbols=%+v err=%v", first, err)
+	}
+	want := *first[0].NameLocation
+	first[0].NameLocation.StartByte = 999
+	second, err := task.Wait()
+	if err != nil || len(second) != 1 || second[0].NameLocation == nil {
+		t.Fatalf("symbols=%+v err=%v", second, err)
+	}
+	if *second[0].NameLocation != want || *facts.Declarations[0].NameLocation != want {
+		t.Fatalf("async mutation escaped: second=%+v facts=%+v want=%+v", second[0].NameLocation, facts.Declarations[0].NameLocation, want)
+	}
+	facts.Declarations[0].NameLocation.Path = "mutated.go"
+	if *second[0].NameLocation != want {
+		t.Fatal("document facts alias an already returned symbol")
+	}
+	if _, err := b.Wait(ctx); err != nil {
+		t.Fatal(err)
+	}
+	node, ok := b.Result().Node(second[0].ID)
+	if !ok || node.NameLocation == nil || *node.NameLocation != want {
+		t.Fatalf("published name location changed: %+v", node)
+	}
+}
+
 func waitBackgroundBuild(t *testing.T, g *session) BuildReport {
 	t.Helper()
 	g.asyncMu.Lock()

@@ -13,6 +13,7 @@ type Entity struct {
 	Ref                                 Ref
 	Kind, Name, QualifiedName, Language string
 	Location                            *SourceLocation
+	NameLocation                        *SourceLocation
 	Comments                            []Comment
 	Documentation                       []Documentation
 }
@@ -113,14 +114,19 @@ func (x *Index) AddSources(ctx context.Context, names []string) error {
 				return fmt.Errorf("%s: unsupported declaration kind %q", p, d.Kind)
 			}
 			ref := DeclarationRef(p, i)
-			x.Entities[ref] = Entity{Ref: ref, Kind: kind, Name: d.Name, QualifiedName: d.QualifiedName, Language: f.Language, Location: &SourceLocation{Path: p, Span: d.Span}, Comments: d.Comments, Documentation: d.Documentation}
+			e := Entity{Ref: ref, Kind: kind, Name: d.Name, QualifiedName: d.QualifiedName, Language: f.Language, Location: &SourceLocation{Path: p, Span: d.Span}, Comments: d.Comments, Documentation: d.Documentation}
+			if d.NameSpan.End > d.NameSpan.Start {
+				e.NameLocation = &SourceLocation{Path: p, Span: d.NameSpan}
+			}
+			x.Entities[ref] = e
 			x.Add(Edge{Source: DocumentRef(p), Target: ref, Kind: "declares", Confidence: "exact", Basis: "source_declaration", Path: p, Span: d.Span})
 		}
 	}
 	return nil
 }
 
-// AttachDeclarations uses the adapter's semantic root and declared member owners.
+// AttachDeclarations records lexical nesting independently of semantic ownership.
+// +spec=Every retained declaration has one encloses parent in its own document; binding never reparents that lexical edge.
 // +why=`Source provenance cannot substitute for an absent semantic owner`
 func (x *Index) AttachDeclarations(ctx context.Context, names []string) error {
 	for _, p := range names {
@@ -128,6 +134,11 @@ func (x *Index) AttachDeclarations(ctx context.Context, names []string) error {
 			return err
 		}
 		for i, d := range x.Files[p].Declarations {
+			lexical := DocumentRef(p)
+			if d.Parent >= 0 {
+				lexical = DeclarationRef(p, d.Parent)
+			}
+			x.Add(Edge{Source: lexical, Target: DeclarationRef(p, i), Kind: "encloses", Confidence: "exact", Basis: "lexical_nesting", Path: p, Span: d.Span})
 			owner, ok := x.Roots[p]
 			basis := "namespace_member"
 			if d.Parent >= 0 {

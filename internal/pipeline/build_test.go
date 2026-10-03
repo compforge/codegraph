@@ -167,7 +167,7 @@ func TestDeclaredNamespaceRootAndLaterOrganization(t *testing.T) {
 			}}, nil
 		})}
 	}
-	index, _, err := Build(context.Background(), analysis.NewBuildScope(files, ""), 5, 5, 100, lookup)
+	index, _, err := Build(context.Background(), analysis.NewBuildScope(files, ""), 5, 7, 100, lookup)
 	if err != nil {
 		t.Fatal(err)
 	}

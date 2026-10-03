@@ -222,7 +222,7 @@ func TestLanguageDiscoveryAndCapabilities(t *testing.T) {
 		t.Fatal("unknown language capability invented")
 	}
 	for _, cap := range Capabilities() {
-		relations := []RelationKind{Declares, Contains, Imports, Calls, References, Extends}
+		relations := []RelationKind{Declares, Contains, Encloses, Imports, Calls, References, Extends}
 		if cap.Language == "go" || cap.Language == "typescript" || cap.Language == "tsx" {
 			relations = append(relations, Implements)
 		}
@@ -231,7 +231,7 @@ func TestLanguageDiscoveryAndCapabilities(t *testing.T) {
 		}
 	}
 	cap := Capabilities("rust")
-	if len(cap) != 1 || len(cap[0].Declarations) == 0 || !reflect.DeepEqual(cap[0].Relations, []RelationKind{Declares, Contains}) {
+	if len(cap) != 1 || len(cap[0].Declarations) == 0 || !reflect.DeepEqual(cap[0].Relations, []RelationKind{Declares, Contains, Encloses}) {
 		t.Fatal(cap)
 	}
 }

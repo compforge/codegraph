@@ -7,7 +7,9 @@ import (
 )
 
 // Facts owns the complete immutable extraction artifact for one document
-// version. Copying it shares immutable material, including language-specific
+// version for graph production. Graph consumers read Node and Relation values;
+// Facts are inputs for dependency exploration, resolution and Builder.Add.
+// Copying it shares immutable material, including language-specific
 // evidence needed for binding. Exported fields are detached inspection views:
 // changing them does not change what Builder.Add consumes. Use View for a fresh
 // projection. Only Extractor (or legacy Extract) can produce valid Facts.
@@ -26,7 +28,7 @@ type Facts struct {
 	// Cross-module re-exports are recorded on Imports.Bindings.
 	Exports map[string]string
 	// Statements preserve execution order and scope with a bounded expression
-	// vocabulary, for consumer-side interpretation; the graph model never
+	// vocabulary, for producer-side dependency resolution; the graph model never
 	// depends on statement-level facts. Captured for Python sources today,
 	// empty for languages where statement capture is not implemented.
 	Statements []Statement
@@ -52,6 +54,7 @@ type FactDeclaration struct {
 	Name, QualifiedName string
 	Kind                NodeKind
 	Location            Location
+	NameLocation        *Location
 	Markers             []Marker
 	Documentation       []Documentation
 }
@@ -118,6 +121,9 @@ func projectFacts(f analysis.Facts) (Facts, error) {
 			return Facts{}, fmt.Errorf("%s: %w", f.Path, err)
 		}
 		decl := FactDeclaration{Name: d.Name, QualifiedName: d.QualifiedName, Kind: kind, Location: location(f, d.Span)}
+		if d.NameSpan.End > d.NameSpan.Start {
+			decl.NameLocation = locationPtr(f, d.NameSpan)
+		}
 		for _, m := range d.Comments {
 			decl.Markers = append(decl.Markers, Marker{Kind: MarkerKind(m.Kind), Text: m.Text, Location: location(f, m.Span)})
 		}

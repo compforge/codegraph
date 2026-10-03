@@ -7,7 +7,8 @@ Symbol 与 Namespace 是允许重叠的逻辑概念，Class 自身也组织成�
 Document、Package、Module、Class、Function 等 Kind，不增加 Symbol 标签或互斥三分类字段。
 具体 Namespace Kind 留给语言显式声明的 namespace。
 
-`declares` 从 Document 指向它声明或构成的节点，保留源码贡献位置。`contains` 从语义所有者
+`declares` 从 Document 指向它声明或构成的节点，保留源码贡献位置。`encloses` 从 Document
+或声明指向同文件内直接嵌套的已保留声明，表达文件的源码结构。`contains` 从语义所有者
 指向直接成员，支持 Namespace 任意层级嵌套；祖先关系通过有界路径查询获得。
 
 ```text
@@ -23,7 +24,7 @@ Document: src/app/api/user.py ────declares→ Module: app.api.user
 ```
 
 源码来源与语义归属可以跨文件。Go 一个 Package 可以有多份 Document 贡献，接收者方法的
-Document 可以与类型不同。方法归属接收者类型；包级成员归属 Package。找不到接收者时保留
+Document 可以与类型不同。方法通过 contains 归属接收者类型，通过 encloses 保持文件顶层位置；包级成员归属 Package。找不到接收者时保留
 局部诊断和源码贡献，不假定方法是包级函数。再导出产生导入绑定关系，不改写原声明归属。
 
 ## 构建与名称解析
@@ -32,7 +33,7 @@ Document 可以与类型不同。方法归属接收者类型；包级成员归�
 Binder 补充跨文件接收者归属。组织与 Class 共用成员查询入口，源码贡献从 declares 读取。
 成员索引和已绑定的 extends 供后续引用与调用解析使用，阶段接口见 [语言构建流程](language-pipeline.md)。
 
-词法 Scope/Binding 负责可见性与遮蔽，contains 负责成员归属；二者的关系见 [内核设计](kernel.md)。
+encloses 负责声明的源码嵌套，词法 Scope/Binding 负责可见性与遮蔽，contains 负责成员归属；职责划分见 [内核设计](kernel.md)。
 
 Go imports 指向 Package，每条导入语句对一个包只建立一条边。Python imports 指向 Module /
 Package，具名导入另保留最终声明目标；模块名称引用也指向相应组织节点。调用与声明引用仍直接

@@ -109,13 +109,14 @@ func (g *session) FindAsync(path string, kind NodeKind, qualifiedName string) (p
 			if kind != "" && d.Kind != kind || qualifiedName != "" && d.QualifiedName != qualifiedName {
 				continue
 			}
-			nodes = append(nodes, Node{
+			// The pooled task reuses its Facts value across waits; detach every
+			// mutable node field before handing it to an async consumer.
+			nodes = append(nodes, cloneNode(Node{
 				ID:   declarationID(path, d.Kind, d.QualifiedName, d.Location.StartByte),
 				Kind: d.Kind, Name: d.Name, QualifiedName: d.QualifiedName,
-				Language: facts.Language, Location: &d.Location,
-				Markers:       append([]Marker(nil), d.Markers...),
-				Documentation: append([]Documentation(nil), d.Documentation...),
-			})
+				Language: facts.Language, Location: &d.Location, NameLocation: d.NameLocation,
+				Markers: d.Markers, Documentation: d.Documentation,
+			}))
 		}
 		return nodes, nil
 	}}, true

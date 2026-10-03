@@ -25,7 +25,7 @@ func lineStarts(source []byte) []int {
 // imports, or calls — mirroring how reference code-graph indexers track
 // file-level-only languages (stored file record, zero symbol nodes).
 func DocumentOnly(name string, source []byte) analysis.Facts {
-	return analysis.Facts{Path: name, Source: source, LineStarts: lineStarts(source), OutlineError: fmt.Errorf("outline %s: material has no parsed source", name)}
+	return analysis.Facts{Path: name, Source: source, LineStarts: lineStarts(source)}
 }
 
 // Analyze releases the syntax tree before returning detached facts. Language

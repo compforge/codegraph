@@ -8,23 +8,14 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
-// CaptureOutline retains upstream value types while the shared tree is alive.
-// Language adapters may extract richer declarations without altering this view.
-func CaptureOutline(f Facts, tree *gts.Tree, entry grammars.LangEntry) Facts {
-	outliner, err := outlineProgram(tree.Language(), entry)
-	f.OutlineError = err
-	if err == nil {
-		f.Outline, f.OutlineReport = outliner.OutlineTree(tree)
-	}
-	return f
-}
-
+// Outline uses the upstream tree only to produce detached declarations and
+// coverage diagnostics. Consumers recover structure from graph nodes and edges.
 func Outline(ctx context.Context, f Facts, tree *gts.Tree, entry grammars.LangEntry) (Facts, error) {
-	f = CaptureOutline(f, tree, entry)
-	if f.OutlineError != nil {
-		f.Issues = append(f.Issues, Issue{Code: "outline_incomplete", Message: f.OutlineError.Error(), Subject: "declarations", Span: Span{End: len(f.Source)}})
+	outliner, err := outlineProgram(tree.Language(), entry)
+	if err != nil {
+		f.Issues = append(f.Issues, Issue{Code: "outline_incomplete", Message: err.Error(), Subject: "declarations", Span: Span{End: len(f.Source)}})
 	} else {
-		declarations, report := f.Outline, f.OutlineReport
+		declarations, report := outliner.OutlineTree(tree)
 		// Duplicate candidates retain the same declaration and are not missing
 		// information. All other omissions remain visible at document scope:
 		// upstream reports counts but cannot identify the dropped source ranges.
@@ -68,7 +59,7 @@ func Outline(ctx context.Context, f Facts, tree *gts.Tree, entry grammars.LangEn
 					f.Issues = append(f.Issues, Issue{Code: "unresolved_owner", Message: item.Owner, Subject: "relations", Relation: "contains", Span: span})
 				}
 				index := len(f.Declarations)
-				f.Declarations = append(f.Declarations, Declaration{Name: item.Name, QualifiedName: qualified, Kind: kind, Parent: parent, Span: span})
+				f.Declarations = append(f.Declarations, Declaration{Name: item.Name, QualifiedName: qualified, Kind: kind, Parent: parent, Span: span, NameSpan: Span{Start: int(item.NameRange.StartByte), End: int(item.NameRange.EndByte)}})
 				flatten(item.Children, index)
 			}
 		}

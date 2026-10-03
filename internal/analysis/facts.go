@@ -1,10 +1,11 @@
 package analysis
 
-import gts "github.com/odvcencio/gotreesitter"
-
 type Span struct{ Start, End int }
 type Declaration struct {
 	Name, QualifiedName, Kind string
+	// NameSpan preserves the identifier capture separately from the declaration.
+	// A zero span means the extractor did not supply a name location.
+	NameSpan Span
 	// Parent is the enclosing declaration index, or -1 for a file-level declaration.
 	Parent int
 	// Receiver is an explicit nonlexical member owner, bound by the language adapter.
@@ -91,21 +92,17 @@ type Facts struct {
 	PackageSpan             Span
 	Source                  []byte
 	LineStarts              []int
-	// Outline preserves the parser's lexical view independently of semantic ownership.
-	Outline       []gts.OutlineSymbol
-	OutlineReport gts.OutlineReport
-	OutlineError  error
-	Declarations  []Declaration
-	Imports       []Import
-	Calls         []Call
-	References    []Reference
-	TypeRelations []TypeRelation
-	Issues        []Issue
+	Declarations            []Declaration
+	Imports                 []Import
+	Calls                   []Call
+	References              []Reference
+	TypeRelations           []TypeRelation
+	Issues                  []Issue
 	// Exports maps a public alias to its local name for explicit export
-	// aliases; extraction records them for consumer-side module resolution.
+	// aliases; extraction records them for producer-side module resolution.
 	Exports map[string]string
 	// Statements preserve statement order and scope; their
-	// bounded expression vocabulary is interpreted by consumers.
+	// bounded expression vocabulary supports producer-side dependency exploration.
 	Statements []Statement
 }
 

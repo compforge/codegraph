@@ -13,6 +13,7 @@ import (
 
 // Graph is a read-only publication with a lazily materialized query index.
 // Builder.Build results never change; New supports incremental document admission.
+// +spec=Node and Relation values are the sole code-fact source for graph consumers; derived views never read extraction artifacts.
 type Graph struct {
 	legacy    *Builder
 	snapshot  string
@@ -238,6 +239,12 @@ func (g *Graph) materialize(ctx context.Context, nodes map[string]Node, relation
 		if n.Location != nil {
 			props["path"], props["line"], props["column"] = n.Location.Path, n.Location.Line, n.Location.Column
 			props["startByte"], props["endByte"] = n.Location.StartByte, n.Location.EndByte
+			props["endLine"], props["endColumn"] = n.Location.EndLine, n.Location.EndColumn
+		}
+		if loc := n.NameLocation; loc != nil {
+			props["nameStartByte"], props["nameEndByte"] = loc.StartByte, loc.EndByte
+			props["nameLine"], props["nameColumn"] = loc.Line, loc.Column
+			props["nameEndLine"], props["nameEndColumn"] = loc.EndLine, loc.EndColumn
 		}
 		kinds := []string{}
 		seen := map[MarkerKind]bool{}

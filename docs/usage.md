@@ -13,10 +13,11 @@
 CodeGraph 不跨语言按同名绑定，不自动获取依赖。缺少材料时可以先消费局部事实，再决定是否补料。
 
 `Extract` 提取单 Document 事实而不发布图状态，适合构图前探索 import 或其他线索。
-事实包括声明及其文档、导入绑定、调用候选、引用、类型关系和 marker；语句事实的语言覆盖见 [语言能力](language-support.md)。
-同内容的后续构建复用提取缓存。单文件事实和已解析的跨文件关系是不同产物，不能互相替代。
+这些 Facts 用于生产侧选择材料和提供 ResolutionContext，语句线索的语言覆盖见 [语言能力](language-support.md)。
+同内容的后续构建复用提取缓存。消费侧从已发布 Graph 的 Node + Relation 读取代码事实；
+outline、声明文档展示和调用链等结果均从图生成。
 
-## 独立提取与构图
+## 生产侧：独立提取与构图
 
 需要探索依赖或比较快照时，显式传递 Facts，避免把解析与构图绑定在一起：
 
@@ -48,40 +49,32 @@ Facts 内部持有完整只读材料，公开字段用于检查；修改字段�
 跨快照共享 Extractor，并通过其 `ExtractionOptions.Cache` 配置有界缓存；
 也可直接复用已持有的 Facts。两种方式都不复用绑定关系，不绕过构图预算。
 
-## 读取 Document Outline
+## 从 Graph 读取文件结构
 
-无需构图即可获取文件结构，直接返回 gotreesitter 的 `[]OutlineSymbol` 和 `OutlineReport`：
+通过 declares 取得文件贡献的声明，通过 encloses 取得声明的词法父子关系，按源码位置排序即可
+组织文件的符号 outline。顶层父节点是 Document；Package / Module 等合成组织不进入词法树。
+此 outline 是消费侧投影，全部输入来自图的节点和关系：
 
-```go
-extractor, err := codegraph.NewExtractor(codegraph.ExtractionOptions{})
-if err != nil { return err }
-symbols, report, err := extractor.Outline(ctx, document)
-if err != nil { return err }
-for _, symbol := range symbols {
-    fmt.Println(symbol.Name, symbol.Kind, symbol.Range, symbol.Children)
-}
-_ = report // 检查 DeclineReason、Truncated 和遗漏计数。
+```cypher
+MATCH (:Document {path:$path})-[:declares]->(n)<-[:encloses]-(parent)
+RETURN parent, n
+ORDER BY n.startByte, n.id
 ```
 
-已调用 `Extract` 或等待 `Submit` 结果时，使用 `facts.Outline()`，无需再次提取。
-两种入口共享 Extractor 的容量与解析限制；跨调用复用由 `ExtractionOptions.Cache` 控制。
-`Facts.Outline()` 每次返回独立值，修改 Children 等内容不影响后续读取或构图。
+直接子级可用 `g.RelationsFrom(parentID, codegraph.Encloses)` 读取，返回顺序按源码位置确定；
+`g.Node(edge.Target)` 返回声明及名称位置。递归投影树时使用节点 ID 连接，不能按名称连接。
+类型的语义成员则查询 contains：Go 接收者方法可能在另一个文件，不应被搬进类型文件的 outline。
 
-- Children 表达词法嵌套；Owner 保留非词法 owner 名称。例如 Go 接收者方法仍是文件顶层条目，
-  所属类型由图构建阶段绑定。Outline 名称和 Kind 不作为 Graph 的节点身份。
-- Range / NameRange 沿用上游坐标：字节范围结束位置不包含在内，Point 的行列从零开始；
-  与 CodeGraph Location 的一基行列不同。结果不提供签名或渲染文本。
-- 结构覆盖由语言适配器的声明 query 决定，未必等于全部图声明；Go 图声明有额外的语义提取。
-  无遗漏表示 query 候选未被丢弃，不证明源码声明全部被识别。
-- query 拒绝执行时，error 可以为空，原因保存在 `report.DeclineReason`；存在部分结果时保留
-  条目及报告。无 grammar、gitlink、query 编译失败或解析失败通过 error 表达。
-- 解析沿用严格模式，语法错误不会作为成功的恢复树 Outline 返回。空文件结构与不支持的材料
-  可以据 error 和报告区分。
+`Node.Location` 是完整声明范围，`Node.NameLocation` 是名称 token / 捕获范围，均使用零基字节
+偏移、左闭右开范围和一基行列。合成组织、Document 或提取器未提供名称位置时，NameLocation 为 nil。
+
+此视图覆盖 Graph 已保留的声明，不等于完整 AST。缺失声明仍由 BuildReport 的覆盖诊断说明；
+补入依赖可以丰富 contains / calls 等语义关系，同一文件的 encloses 结构保持不变。
 
 ## 读取声明文档
 
-`Facts.Declarations[].Documentation` 可在构图前读取普通文档；构图后，`Node.Documentation`
-保留相同的原文和来源。通过声明身份查找，避免在消费方再次解析或按裸名称匹配同名方法：
+`Node.Documentation` 保留普通声明文档的原文和来源。通过声明身份查找，
+避免在消费方再次解析或按裸名称匹配同名方法：
 
 ```go
 for _, node := range g.Find("work.go", codegraph.Function, "Work") {
@@ -99,7 +92,7 @@ for _, node := range g.Find("work.go", codegraph.Function, "Work") {
 `Limitations` 声明；空列表只表示当前规则没有提取到文档。各语言的归属规则见
 [语言能力](language-support.md#声明文档)。
 
-## 兼容的构建与补料
+## 生产侧：兼容的构建与补料
 
 一次性处理材料可使用 Build；需要逐批提供材料时，先 New，再 AddDocuments。
 以下片段放在已引入 context、fmt、codegraph 的调用方函数中，ctx 为该操作的上下文：
@@ -138,8 +131,8 @@ fmt.Println(report.Diagnostics)
 | 入口 | 用途 |
 |---|---|
 | AddDocuments | 接纳批次并启动后台构建 |
-| AddDocument | 提交单份材料，直接取得事实任务 |
-| GetDocument | 按已提交的 Document ID 获取事实任务 |
+| AddDocument | 提交单份材料，直接取得构图材料任务 |
+| GetDocument | 按已提交的 Document ID 获取构图材料任务 |
 | FindAsync | 从已提交材料的单文件结果中提前查声明 |
 | Wait | 等待调用前已提交工作完成，并取得构建报告 |
 
@@ -216,6 +209,7 @@ Path 的节点顺序表示遍历方向，关系保留存储方向。返回值与
 | 对象 | 常用查询属性 |
 |---|---|
 | Node | id、kind、name、qualifiedName、language、snapshot；有源码位置时提供 path、line、column、endLine、endColumn、startByte、endByte |
+| 声明名称位置 | nameStartByte、nameEndByte、nameLine、nameColumn、nameEndLine、nameEndColumn；RETURN n 返回 Node.NameLocation |
 | Gitlink Document | gitlink，表示父仓固定的子仓 commit |
 | Documentation | documentation 为原文列表，documentationData 为含源码位置的完整结构 JSON；RETURN n 返回 Node.Documentation |
 | Marker | markers 为种类列表，spec/case/rule/link/doc 为内容列表，markerData 为完整结构 JSON |
