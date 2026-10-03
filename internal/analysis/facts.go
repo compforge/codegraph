@@ -5,6 +5,9 @@ import gts "github.com/odvcencio/gotreesitter"
 type Span struct{ Start, End int }
 type Declaration struct {
 	Name, QualifiedName, Kind string
+	// NameSpan preserves the identifier capture separately from the declaration.
+	// A zero span means the extractor did not supply a name location.
+	NameSpan Span
 	// Parent is the enclosing declaration index, or -1 for a file-level declaration.
 	Parent int
 	// Receiver is an explicit nonlexical member owner, bound by the language adapter.

@@ -2,9 +2,10 @@
 
 ## 定位与责任
 
-CodeGraph 负责解析和组织代码事实，首要目标是对调用方提供的 Documents 做静态分析，构造符号及其关系图。
+CodeGraph 负责解析和组织代码事实，首要目标是对调用方提供的 Documents 做静态分析，构造符号及其关系图。Graph 是所提供代码的静态表示，同时保存源码结构与语义关系。
 分析经过解析、声明提取、组织、绑定与关系解析，原子发布携带来源位置、关系证据和局部覆盖信息的 Graph。
-Outline、声明文档等解析产物按实际消费需要保留并开放，使消费者能够复用这条分析链路的成果。
+文件 outline、类型成员与调用路径可以从同一组图事实投影。解析过程还保留声明文档和上游 Outline，
+供构图前的消费者复用。
 调用方负责获取材料，并将查询结果解释为评审、影响分析或执行决策。
 
 | 层次 | 责任 |
@@ -33,7 +34,7 @@ Graph 是一次成功构建的节点、关系和诊断读模型。Builder 补充
 兼容入口 New 和包级 Build 通过独立 Builder 提供逐批补料接口。
 
 Outline 是静态分析过程中保留的 Document 结构视图，与声明及关系线索共用解析树和提取缓存。
-它可在构图前独立读取，帮助消费者导航源码；图中的语义成员归属仍由语言绑定确定。
+它可在构图前独立读取，帮助消费者导航源码；Graph 的 encloses 保留已接纳声明的词法嵌套，contains 保留语言绑定后的语义成员归属。
 公开结果直接复用 gotreesitter 的 OutlineSymbol / OutlineReport 值类型，保留词法嵌套及非词法
 owner 线索。结构显示与 token 裁剪由消费者负责。
 
@@ -48,9 +49,15 @@ Symbol 表达代码声明，Namespace 表达名称与成员组织；二者是可
 例如 Class 同时承担声明与成员组织，图中仍是同一个 Class 节点。
 语言显式 namespace 声明使用具体 Namespace Kind。
 
-`declares` 记录 Document 对声明或组织的源码贡献；`contains` 记录直接语义归属。
-两种关系分别保存来源与成员组织，使跨文件包、接收者方法和嵌套组织共用同一模型。
+`declares` 记录 Document 对声明或组织的源码贡献；`encloses` 记录同一 Document 内
+已保留声明的直接词法嵌套；`contains` 记录直接语义归属。
+顶层声明由 Document 直接 encloses；嵌套声明由其最近的已保留声明 encloses。Go 方法在文件中
+处于顶层，同时通过 contains 归属接收者类型，类型是否在另一个文件不改变源码嵌套。
+这三种关系共用声明身份，使文件结构、跨文件组织和符号关系能够一起查询。
 Namespace 是实体的成员组织视图，不分配第二份身份。身份和嵌套规则见 [命名空间组织](namespaces.md)。
+
+声明的 Location 保存完整声明范围，NameLocation 保存名称 token 或捕获范围；源码顺序由位置确定。
+二者独立保留，避免导航时重新搜索名称或把语义归属当作源码层级。
 
 节点以源码侧身份寻址，图引擎内部数字 ID 不暴露为持久化身份。
 相同快照与输入应得到可复现身份；跨版本重命名匹配由消费者另行判断。
@@ -66,7 +73,7 @@ BuildScope 表达本轮构建材料集合。
 
 ### Relation 与 Evidence
 
-Relation 表达一次有向代码关系，种类包括 declares、contains、imports、references、calls、extends、implements。
+Relation 表达一次有向代码关系，种类包括 declares、encloses、contains、imports、references、calls、extends、implements。
 身份由 Source、Target、Kind 与发生位置组成，位置使用路径及字节范围。
 相同端点之间的不同关系或不同调用位置保留为独立边，也允许自递归。
 
@@ -97,7 +104,8 @@ Basis 描述“如何得到这条证据”，Confidence 描述“这条证据能
 无法提出目标的引用保留诊断，不虚构关系端点。
 
 confidence 不是概率，exact 也不承诺运行时行为或完整编译器类型检查。
-Path 与 Subgraph 保留原始关系及其证据；跨关系的多跳衰减、影响阈值、筛选与排序由消费者决定。
+符号间的距离取决于所选关系：词法共同祖先、语义共同所有者和调用路径分别表达不同结构。
+通用路径查询提供事实，各消费者选择关系种类及权重。Path 与 Subgraph 保留原始关系及其证据；跨关系的多跳衰减、影响阈值、筛选与排序由消费者决定。
 
 ### 声明文档、Marker 与覆盖信息
 

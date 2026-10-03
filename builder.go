@@ -364,6 +364,9 @@ func (g *Builder) assemble(ctx context.Context, files map[string]analysis.Facts,
 				n.Markers = append(n.Markers, Marker{Kind: MarkerKind(m.Kind), Text: m.Text, Location: location(f, m.Span)})
 			}
 		}
+		if e.NameLocation != nil {
+			n.NameLocation = locationPtr(files[e.NameLocation.Path], e.NameLocation.Span)
+		}
 		ids[ref], nodes[id] = id, n
 	}
 	for _, p := range report.Documents {

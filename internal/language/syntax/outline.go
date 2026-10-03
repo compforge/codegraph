@@ -68,7 +68,7 @@ func Outline(ctx context.Context, f Facts, tree *gts.Tree, entry grammars.LangEn
 					f.Issues = append(f.Issues, Issue{Code: "unresolved_owner", Message: item.Owner, Subject: "relations", Relation: "contains", Span: span})
 				}
 				index := len(f.Declarations)
-				f.Declarations = append(f.Declarations, Declaration{Name: item.Name, QualifiedName: qualified, Kind: kind, Parent: parent, Span: span})
+				f.Declarations = append(f.Declarations, Declaration{Name: item.Name, QualifiedName: qualified, Kind: kind, Parent: parent, Span: span, NameSpan: Span{Start: int(item.NameRange.StartByte), End: int(item.NameRange.EndByte)}})
 				flatten(item.Children, index)
 			}
 		}

@@ -3,7 +3,8 @@
 ## 项目定位与边界
 
 CodeGraph 是解析和组织代码事实的 Go 库，首要目标是对输入 Documents 做静态分析，构造符号及其关系图。
-分析过程保留并开放 Outline、声明文档等有消费价值的中间产物，复用构图所需的解析材料与过程。
+Graph 保留声明的源码结构与跨文件语义关系，支持派生文件 outline、成员视图和关系路径。
+分析过程也开放声明文档和上游 Outline 等可复用解析产物。
 本库拥有代码事实与通用查询；repocli 据此确定改动和测试范围，CCR 据此确定 review 范围。
 仓库读取、影响判定、评审组织及执行策略由消费者负责。
 稳定模型与设计理由见 [内核设计](docs/kernel.md)，使用入口见 [README](README.zh-CN.md)。
@@ -35,7 +36,7 @@ docs/kernel.md                          # 稳定模型、主流程与设计依�
 
 ## 关键约定
 
-1. Node 使用具体语言类别；Symbol 与 Namespace 是可重叠的逻辑角色。源码贡献、成员归属和词法可见性分别由 declares、contains 与 Scope/Binding 表达。
+1. Node 使用具体语言类别；Symbol 与 Namespace 是可重叠的逻辑角色。源码贡献、声明的词法嵌套、语义成员归属和词法可见性分别由 declares、encloses、contains 与 Scope/Binding 表达。
 2. 关系身份保留端点、种类及发生位置，多条依据汇入 Evidence，Relation.Confidence 由 Evidence 的最高档推导；单条证据的必要推导链取最低档。保留候选与局部缺口，不虚构目标，也不将证据强度解释为业务影响概率。
 3. 同一 Graph 只容纳同一快照。Extractor 拥有解析与缓存；Builder 拥有构图、预算及原子发布，Graph 是只读结果；语言实现通过阶段接口提供事实、关系与诊断，不获取材料或直接操作图存储。
 4. AST 与引擎对象不穿透公共 API，提取结果脱离 parser 生命周期；Outline 直接复用 gotreesitter 的 OutlineSymbol / OutlineReport 值类型。新增语言能力同步更新注册声明及契约测试，grammar 可用不等于语义完整。

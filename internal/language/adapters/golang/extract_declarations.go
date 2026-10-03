@@ -15,17 +15,17 @@ func enrichGoDeclarations(f *Facts, file *ast.File, fset *token.FileSet) {
 	for i, d := range f.Declarations {
 		decls[d.Start] = i
 	}
-	upsertSpan := func(name, kind string, start, end int, doc *ast.CommentGroup) int {
+	upsertSpan := func(name *ast.Ident, kind string, start, end int, doc *ast.CommentGroup) int {
 		i, ok := decls[start]
 		if !ok {
 			i = len(f.Declarations)
 			decls[start] = i
 			f.Declarations = append(f.Declarations, Declaration{})
 		}
-		f.Declarations[i] = Declaration{Name: name, Kind: kind, Span: Span{Start: start, End: end}, Comments: comments(doc, fset), Documentation: documentation(f, doc, fset)}
+		f.Declarations[i] = Declaration{Name: name.Name, Kind: kind, NameSpan: Span{Start: offset(name.Pos()), End: offset(name.End())}, Span: Span{Start: start, End: end}, Comments: comments(doc, fset), Documentation: documentation(f, doc, fset)}
 		return i
 	}
-	upsert := func(name, kind string, n ast.Node, doc *ast.CommentGroup) int {
+	upsert := func(name *ast.Ident, kind string, n ast.Node, doc *ast.CommentGroup) int {
 		return upsertSpan(name, kind, offset(n.Pos()), offset(n.End()), doc)
 	}
 	ast.Inspect(file, func(n ast.Node) bool {
@@ -35,7 +35,7 @@ func enrichGoDeclarations(f *Facts, file *ast.File, fset *token.FileSet) {
 			if n.Recv != nil && len(n.Recv.List) > 0 {
 				kind, receiver = "method", receiverName(n.Recv.List[0].Type)
 			}
-			i := upsert(n.Name.Name, kind, n, n.Doc)
+			i := upsert(n.Name, kind, n, n.Doc)
 			f.Declarations[i].Receiver = receiver
 		case *ast.GenDecl:
 			for _, spec := range n.Specs {
@@ -52,7 +52,7 @@ func enrichGoDeclarations(f *Facts, file *ast.File, fset *token.FileSet) {
 					if spec.Assign.IsValid() {
 						kind = "type_alias"
 					}
-					upsert(spec.Name.Name, kind, spec, doc)
+					upsert(spec.Name, kind, spec, doc)
 					switch typ := spec.Type.(type) {
 					case *ast.StructType:
 						appendGoMembers(f, typ.Fields, "field", fset)
@@ -68,7 +68,7 @@ func enrichGoDeclarations(f *Facts, file *ast.File, fset *token.FileSet) {
 						kind = "constant"
 					}
 					doc := declarationDoc(spec.Doc, n.Doc, len(n.Specs))
-					upsertSpan(spec.Names[0].Name, kind, offset(spec.Names[0].Pos()), offset(spec.End()), doc)
+					upsertSpan(spec.Names[0], kind, offset(spec.Names[0].Pos()), offset(spec.End()), doc)
 				}
 			}
 		}
@@ -123,8 +123,16 @@ func appendGoMembers(f *Facts, fields *ast.FieldList, kind string, fset *token.F
 			if len(field.Names) > 0 {
 				start = field.Names[i].Pos()
 			}
+			nameNode := embeddedFieldIdentifier(field.Type)
+			if len(field.Names) > 0 {
+				nameNode = field.Names[i]
+			}
+			var nameSpan Span
+			if nameNode != nil {
+				nameSpan = Span{Start: fset.Position(nameNode.Pos()).Offset, End: fset.Position(nameNode.End()).Offset}
+			}
 			f.Declarations = append(f.Declarations, Declaration{
-				Name: name, Kind: kind,
+				Name: name, Kind: kind, NameSpan: nameSpan,
 				Span:          Span{Start: fset.Position(start).Offset, End: fset.Position(field.End()).Offset},
 				Comments:      comments(field.Doc, fset),
 				Documentation: documentation(f, field.Doc, fset),
@@ -134,18 +142,26 @@ func appendGoMembers(f *Facts, fields *ast.FieldList, kind string, fset *token.F
 }
 
 func embeddedFieldName(e ast.Expr) string {
-	switch e := e.(type) {
-	case *ast.SelectorExpr:
-		return e.Sel.Name
-	case *ast.StarExpr:
-		return embeddedFieldName(e.X)
-	case *ast.IndexExpr:
-		return embeddedFieldName(e.X)
-	case *ast.IndexListExpr:
-		return embeddedFieldName(e.X)
-	default:
-		return receiverName(e)
+	if id := embeddedFieldIdentifier(e); id != nil {
+		return id.Name
 	}
+	return "?"
+}
+
+func embeddedFieldIdentifier(e ast.Expr) *ast.Ident {
+	switch e := e.(type) {
+	case *ast.Ident:
+		return e
+	case *ast.SelectorExpr:
+		return e.Sel
+	case *ast.StarExpr:
+		return embeddedFieldIdentifier(e.X)
+	case *ast.IndexExpr:
+		return embeddedFieldIdentifier(e.X)
+	case *ast.IndexListExpr:
+		return embeddedFieldIdentifier(e.X)
+	}
+	return nil
 }
 
 // Strict span containment gives lexical ownership, not receiver ownership.

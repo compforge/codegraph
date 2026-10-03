@@ -18,9 +18,12 @@ grammar 可用不表示语义完整。具体类别与语言覆盖以实际注册
 ## Document Outline
 
 `Extractor.Outline` 与 `Facts.Outline` 返回 gotreesitter 的 `OutlineSymbol` 和 `OutlineReport`。
+Graph 使用 encloses 和声明位置生成已保留符号的结构视图；使用方式见
+[从 Graph 读取文件结构](usage.md#从-graph-读取文件结构)。下述 Outline 是构图前可读取的上游解析投影。
+
 Outline 复用语言适配器的声明 query；Go 使用上游 grammar query，Python 和通用适配器使用
 注册 query，JS/TS 使用其适配器维护的声明 query。每次提取保留层级、范围和覆盖报告，
-不把图的语义成员关系投影成词法嵌套。使用方式与坐标约定见 [使用指南](usage.md#读取-document-outline)。
+不把图的语义成员关系投影成词法嵌套。使用方式与坐标约定见 [使用指南](usage.md#读取解析阶段的-document-outline)。
 
 ## 声明文档
 

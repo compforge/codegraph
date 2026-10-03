@@ -52,6 +52,7 @@ type FactDeclaration struct {
 	Name, QualifiedName string
 	Kind                NodeKind
 	Location            Location
+	NameLocation        *Location
 	Markers             []Marker
 	Documentation       []Documentation
 }
@@ -118,6 +119,9 @@ func projectFacts(f analysis.Facts) (Facts, error) {
 			return Facts{}, fmt.Errorf("%s: %w", f.Path, err)
 		}
 		decl := FactDeclaration{Name: d.Name, QualifiedName: d.QualifiedName, Kind: kind, Location: location(f, d.Span)}
+		if d.NameSpan.End > d.NameSpan.Start {
+			decl.NameLocation = locationPtr(f, d.NameSpan)
+		}
 		for _, m := range d.Comments {
 			decl.Markers = append(decl.Markers, Marker{Kind: MarkerKind(m.Kind), Text: m.Text, Location: location(f, m.Span)})
 		}

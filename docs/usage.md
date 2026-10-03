@@ -48,7 +48,30 @@ Facts 内部持有完整只读材料，公开字段用于检查；修改字段�
 跨快照共享 Extractor，并通过其 `ExtractionOptions.Cache` 配置有界缓存；
 也可直接复用已持有的 Facts。两种方式都不复用绑定关系，不绕过构图预算。
 
-## 读取 Document Outline
+## 从 Graph 读取文件结构
+
+通过 declares 取得文件贡献的声明，通过 encloses 取得声明的词法父子关系，按源码位置排序即可
+组织文件的符号 outline。顶层父节点是 Document；Package / Module 等合成组织不进入词法树。
+无需重新读取源码或调用解析器：
+
+```cypher
+MATCH (:Document {path:$path})-[:declares]->(n)<-[:encloses]-(parent)
+RETURN parent, n
+ORDER BY n.startByte, n.id
+```
+
+直接子级可用 `g.RelationsFrom(parentID, codegraph.Encloses)` 读取，返回顺序按源码位置确定；
+`g.Node(edge.Target)` 返回声明及名称位置。递归投影树时使用节点 ID 连接，不能按名称连接。
+类型的语义成员则查询 contains：Go 接收者方法可能在另一个文件，不应被搬进类型文件的 outline。
+
+`Node.Location` 是完整声明范围，`Node.NameLocation` 是名称 token / 捕获范围，均使用零基字节
+偏移、左闭右开范围和一基行列；名称坐标同时见 `Facts.Declarations[].NameLocation`。合成组织、
+Document 或提取器未提供名称位置时，NameLocation 为 nil。
+
+此视图覆盖 Graph 已保留的声明，不等于完整 AST。缺失声明仍由 BuildReport 的覆盖诊断说明；
+补入依赖可以丰富 contains / calls 等语义关系，同一文件的 encloses 结构保持不变。
+
+## 读取解析阶段的 Document Outline
 
 无需构图即可获取文件结构，直接返回 gotreesitter 的 `[]OutlineSymbol` 和 `OutlineReport`：
 
@@ -216,6 +239,7 @@ Path 的节点顺序表示遍历方向，关系保留存储方向。返回值与
 | 对象 | 常用查询属性 |
 |---|---|
 | Node | id、kind、name、qualifiedName、language、snapshot；有源码位置时提供 path、line、column、endLine、endColumn、startByte、endByte |
+| 声明名称位置 | nameStartByte、nameEndByte、nameLine、nameColumn、nameEndLine、nameEndColumn；RETURN n 返回 Node.NameLocation |
 | Gitlink Document | gitlink，表示父仓固定的子仓 commit |
 | Documentation | documentation 为原文列表，documentationData 为含源码位置的完整结构 JSON；RETURN n 返回 Node.Documentation |
 | Marker | markers 为种类列表，spec/case/rule/link/doc 为内容列表，markerData 为完整结构 JSON |

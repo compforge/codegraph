@@ -238,6 +238,12 @@ func (g *Graph) materialize(ctx context.Context, nodes map[string]Node, relation
 		if n.Location != nil {
 			props["path"], props["line"], props["column"] = n.Location.Path, n.Location.Line, n.Location.Column
 			props["startByte"], props["endByte"] = n.Location.StartByte, n.Location.EndByte
+			props["endLine"], props["endColumn"] = n.Location.EndLine, n.Location.EndColumn
+		}
+		if loc := n.NameLocation; loc != nil {
+			props["nameStartByte"], props["nameEndByte"] = loc.StartByte, loc.EndByte
+			props["nameLine"], props["nameColumn"] = loc.Line, loc.Column
+			props["nameEndLine"], props["nameEndColumn"] = loc.EndLine, loc.EndColumn
 		}
 		kinds := []string{}
 		seen := map[MarkerKind]bool{}
