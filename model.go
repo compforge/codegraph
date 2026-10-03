@@ -19,11 +19,15 @@ type NodeKind string
 const (
 	// DocumentKind represents the input material itself, including opaque gitlinks.
 	DocumentKind NodeKind = "Document"
-	Struct       NodeKind = "Struct"
-	Interface    NodeKind = "Interface"
-	Field        NodeKind = "Field"
-	Method       NodeKind = "Method"
-	Function     NodeKind = "Function"
+	// CallSite and ReferenceSite identify extracted source uses independently of
+	// whether static analysis can bind a target in the supplied documents.
+	CallSite      NodeKind = "CallSite"
+	ReferenceSite NodeKind = "ReferenceSite"
+	Struct        NodeKind = "Struct"
+	Interface     NodeKind = "Interface"
+	Field         NodeKind = "Field"
+	Method        NodeKind = "Method"
+	Function      NodeKind = "Function"
 	// Type represents a named type whose declaration is not a struct or interface
 	// literal (for example, type ID int); it does not infer an underlying type.
 	Type        NodeKind = "Type"
@@ -62,12 +66,15 @@ type Location struct {
 type Node struct {
 	ID string `json:"id"`
 	// Gitlink is set only on an opaque gitlink Document, never on symbols.
-	Gitlink       string    `json:"gitlink,omitempty"`
-	Kind          NodeKind  `json:"kind"`
-	Name          string    `json:"name"`
-	QualifiedName string    `json:"qualifiedName,omitempty"`
-	Language      string    `json:"language"`
-	Location      *Location `json:"location,omitempty"`
+	Gitlink       string   `json:"gitlink,omitempty"`
+	Kind          NodeKind `json:"kind"`
+	Name          string   `json:"name"`
+	QualifiedName string   `json:"qualifiedName,omitempty"`
+	// Receiver is the extractor's lexical receiver spelling on a source-use
+	// node, not a resolved type or qualified target name.
+	Receiver string    `json:"receiver,omitempty"`
+	Language string    `json:"language"`
+	Location *Location `json:"location,omitempty"`
 	// NameLocation identifies the name token/capture, independently of the full
 	// declaration Location. It is absent for documents, synthetic organizations,
 	// or declarations whose extractor cannot provide it.
@@ -119,6 +126,13 @@ const (
 	References RelationKind = "references"
 	Extends    RelationKind = "extends"
 	Implements RelationKind = "implements"
+	// OccursIn connects a source-use node to its nearest retained declaration,
+	// or its Document when no declaration encloses the use.
+	OccursIn RelationKind = "occurs_in"
+	// ResolvesTo connects a source-use node to each statically supported target.
+	// Its evidence is identical to the corresponding calls/references relation.
+	// No edge means no target was established in this publication, not no use.
+	ResolvesTo RelationKind = "resolves_to"
 )
 
 // Confidence describes evidence strength, not a calibrated probability.

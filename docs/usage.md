@@ -71,6 +71,31 @@ ORDER BY n.startByte, n.id
 此视图覆盖 Graph 已保留的声明，不等于完整 AST。缺失声明仍由 BuildReport 的覆盖诊断说明；
 补入依赖可以丰富 contains / calls 等语义关系，同一文件的 encloses 结构保持不变。
 
+## 读取调用与引用位置
+
+CallSite 和 ReferenceSite 保留已识别的源码使用，即使目标不在本次提供的 Documents 中。
+例如只加入调用方文件时，仍可读取调用位置和所属声明：
+
+```cypher
+MATCH (use:CallSite)-[:occurs_in]->(owner)
+OPTIONAL MATCH (use)-[binding:resolves_to]->(target)
+RETURN use, owner, binding, target
+```
+
+没有目标的使用仍会返回，binding 和 target 为 null。ReferenceSite 使用相同关系；
+节点的 name 和 receiver 是提取到的词法线索，Location 指向源码发生范围。
+Go 访问器可通过 `g.RelationsTo(ownerID, codegraph.OccursIn)` 找使用节点，
+再通过 `g.RelationsFrom(useID, codegraph.ResolvesTo)` 读取各候选及其证据。
+`g.Find` 保持声明查询语义；这些使用节点通过 Nodes、Node、关系访问器或 Cypher 查询。
+
+符号之间的 calls / references 与使用节点的 resolves_to 共享绑定依据。
+补入依赖并等待构建后，`builder.Result()` 中的原使用节点可获得目标；已有目标与证据也会重新计算，
+并非只追加新关系。此前取得的 Graph 保持不变。同一路径源码发生变化时使用新的快照与 Builder。
+
+没有 resolves_to 不保证存在 unresolved 诊断，例如语言内建对象或未发布的局部绑定也可能没有目标。
+关系查询为空时，结合材料范围、Capabilities 和局部诊断判断原因。使用节点覆盖已提取的源码结构，
+不保证静态分析识别了所有调用或引用；语法回退适配器目前仍主要提供声明结构。
+
 ## 读取声明签名
 
 `Node.Signature` 是声明头原文，`SignatureLocation` 指向对应源码范围，保留类型、参数及修饰符，
@@ -221,6 +246,7 @@ Path 的节点顺序表示遍历方向，关系保留存储方向。返回值与
 |---|---|
 | Node | id、kind、name、qualifiedName、language、snapshot；有源码位置时提供 path、line、column、endLine、endColumn、startByte、endByte |
 | 声明名称位置 | nameStartByte、nameEndByte、nameLine、nameColumn、nameEndLine、nameEndColumn；RETURN n 返回 Node.NameLocation |
+| CallSite / ReferenceSite | receiver 为词法接收者线索；name 与位置标识本次使用，QualifiedName 不伪装成已绑定目标 |
 | Gitlink Document | gitlink，表示父仓固定的子仓 commit |
 | Documentation | documentation 为原文列表，documentationData 为含源码位置的完整结构 JSON；RETURN n 返回 Node.Documentation |
 | Marker | markers 为种类列表，spec/case/rule/link/doc 为内容列表，markerData 为完整结构 JSON |

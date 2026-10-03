@@ -398,6 +398,9 @@ func (g *Builder) assemble(ctx context.Context, files map[string]analysis.Facts,
 		}
 		relations[id] = r
 	}
+	if err := publishOccurrences(ctx, files, ids, nodes, relations, g.opts); err != nil {
+		return nil, nil, report, err
+	}
 	for _, i := range issues {
 		report.Diagnostics = append(report.Diagnostics, Diagnostic{Code: i.Code, Message: i.Reference,
 			Subject: RelationsSubject, Relation: RelationKind(i.Relation), Location: location(files[i.Path], i.Span)})

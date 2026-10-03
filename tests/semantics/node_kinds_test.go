@@ -51,12 +51,10 @@ func (u *User) Save(){ Work() }
 		"Limit": codegraph.Constant, "Current": codegraph.Variable, "Work": codegraph.Function, "User.Save": codegraph.Method,
 	}
 	got := map[string]codegraph.NodeKind{}
-	for _, n := range g.Nodes() {
-		if n.Kind != codegraph.DocumentKind && n.Location != nil {
-			got[n.QualifiedName] = n.Kind
-		}
+	for _, n := range g.Find("types.go", "", "") {
+		got[n.QualifiedName] = n.Kind
 	}
-	if !reflect.DeepEqual(got, want) || len(g.Nodes()) != len(want)+2 {
+	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("declarations=%v, want %v", got, want)
 	}
 	for _, row := range query(t, g, `MATCH (n) RETURN n, n.kind AS kind, labels(n) AS labels, properties(n) AS props`, nil) {

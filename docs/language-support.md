@@ -9,7 +9,7 @@
 |---|---|
 | Language(path) | 路径对应的注册 grammar |
 | Languages() | 已注册的 grammar 名称，不加载全部 parser |
-| Capabilities() | 内置语言适配器的组织、声明、关系、文档、marker 与限制 |
+| Capabilities() | 内置语言适配器的组织、声明、使用位置、关系、文档、marker 与限制 |
 | Capabilities("rust", "java") | 按需查询其他注册语言的 outline 能力；未知名称不返回能力 |
 
 grammar 可用不表示语义完整。具体类别与语言覆盖以实际注册项、契约测试及本次 BuildReport 为准。
@@ -42,8 +42,11 @@ Python 和通用适配器使用注册的声明 query，JS/TS 使用适配器维�
 ## 共同证据规则
 
 Go、Python、JS/TS 保留标识符使用位置及其最内层声明归属；声明名、注释和字符串不作为引用。
-Facts.References 保存尚未找到目标的使用，references 从所属声明（无声明时为 Document）指向目标。
-重复使用保留不同发生位置。未知目标留下局部诊断，已知遮蔽阻止同名回退。
+Graph 的 CallSite / ReferenceSite 保存已提取调用和引用发生位置，occurs_in 连接其最内层已保留
+声明或 Document。使用节点独立于目标存在；resolves_to 保留与 calls / references 相同的绑定证据，
+references 仍从所属声明（无声明时为 Document）指向目标。重复使用保留不同发生位置。
+未知目标留下适用的局部诊断，已知遮蔽阻止同名回退。语言内建对象或未保留的局部绑定不制造目标节点。
+Capabilities.Occurrences 声明使用节点提取能力；其他 grammar 的声明支持不自动获得这种能力。
 
 imports 连接语言组织单元，具名导入及显式转导出还可连接最终声明。
 模块绑定供引用、调用及显式类型关系共用；候选模块或目标的不确定性沿转导出链保留。
