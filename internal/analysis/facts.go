@@ -12,7 +12,15 @@ type Declaration struct {
 	// Extension is detached evidence interpreted only by the owning language.
 	Extension Extension
 	Span
-	Comments []Comment
+	Comments      []Comment
+	Documentation []Documentation
+}
+
+// Documentation is an exact source fragment attached to a declaration.
+// Text retains comment delimiters or string syntax; consumers own rendering.
+type Documentation struct {
+	Text string
+	Span
 }
 type Comment struct {
 	Kind, Text string

@@ -13,7 +13,7 @@
 CodeGraph 不跨语言按同名绑定，不自动获取依赖。缺少材料时可以先消费局部事实，再决定是否补料。
 
 `Extract` 提取单 Document 事实而不发布图状态，适合构图前探索 import 或其他线索。
-事实包括声明、导入绑定、调用候选、引用、类型关系和 marker；语句事实的语言覆盖见 [语言能力](language-support.md)。
+事实包括声明及其文档、导入绑定、调用候选、引用、类型关系和 marker；语句事实的语言覆盖见 [语言能力](language-support.md)。
 同内容的后续构建复用提取缓存。单文件事实和已解析的跨文件关系是不同产物，不能互相替代。
 
 ## 独立提取与构图
@@ -77,6 +77,27 @@ _ = report // 检查 DeclineReason、Truncated 和遗漏计数。
   条目及报告。无 grammar、gitlink、query 编译失败或解析失败通过 error 表达。
 - 解析沿用严格模式，语法错误不会作为成功的恢复树 Outline 返回。空文件结构与不支持的材料
   可以据 error 和报告区分。
+
+## 读取声明文档
+
+`Facts.Declarations[].Documentation` 可在构图前读取普通文档；构图后，`Node.Documentation`
+保留相同的原文和来源。通过声明身份查找，避免在消费方再次解析或按裸名称匹配同名方法：
+
+```go
+for _, node := range g.Find("work.go", codegraph.Function, "Work") {
+    for _, doc := range node.Documentation {
+        fmt.Println(doc.Text, doc.Location)
+    }
+}
+```
+
+`Text` 与 `Location` 指定的源码字节完全一致，包含注释定界符、字符串前缀和引号，不做去缩进、
+转义求值或摘要。字节范围左闭右开，行和字节列从 1 开始。返回值可独立修改，不影响缓存或图。
+消费者负责清理展示文本、生成摘要和选择注入范围。
+
+普通文档与显式 `+doc` marker 分别读取。支持范围由 `Capability.Documentation` 和
+`Limitations` 声明；空列表只表示当前规则没有提取到文档。各语言的归属规则见
+[语言能力](language-support.md#声明文档)。
 
 ## 兼容的构建与补料
 
@@ -196,6 +217,7 @@ Path 的节点顺序表示遍历方向，关系保留存储方向。返回值与
 |---|---|
 | Node | id、kind、name、qualifiedName、language、snapshot；有源码位置时提供 path、line、column、endLine、endColumn、startByte、endByte |
 | Gitlink Document | gitlink，表示父仓固定的子仓 commit |
+| Documentation | documentation 为原文列表，documentationData 为含源码位置的完整结构 JSON；RETURN n 返回 Node.Documentation |
 | Marker | markers 为种类列表，spec/case/rule/link/doc 为内容列表，markerData 为完整结构 JSON |
 | Relation | id、kind、source、target、confidence、bases、evidenceData 及发生位置 |
 

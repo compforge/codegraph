@@ -14,6 +14,7 @@ type Entity struct {
 	Kind, Name, QualifiedName, Language string
 	Location                            *SourceLocation
 	Comments                            []Comment
+	Documentation                       []Documentation
 }
 type SourceLocation struct {
 	Path string
@@ -112,7 +113,7 @@ func (x *Index) AddSources(ctx context.Context, names []string) error {
 				return fmt.Errorf("%s: unsupported declaration kind %q", p, d.Kind)
 			}
 			ref := DeclarationRef(p, i)
-			x.Entities[ref] = Entity{Ref: ref, Kind: kind, Name: d.Name, QualifiedName: d.QualifiedName, Language: f.Language, Location: &SourceLocation{Path: p, Span: d.Span}, Comments: d.Comments}
+			x.Entities[ref] = Entity{Ref: ref, Kind: kind, Name: d.Name, QualifiedName: d.QualifiedName, Language: f.Language, Location: &SourceLocation{Path: p, Span: d.Span}, Comments: d.Comments, Documentation: d.Documentation}
 			x.Add(Edge{Source: DocumentRef(p), Target: ref, Kind: "declares", Confidence: "exact", Basis: "source_declaration", Path: p, Span: d.Span})
 		}
 	}

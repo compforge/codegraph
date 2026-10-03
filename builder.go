@@ -359,6 +359,7 @@ func (g *Builder) assemble(ctx context.Context, files map[string]analysis.Facts,
 		if e.Location != nil {
 			f := files[e.Location.Path]
 			n.Location = locationPtr(f, e.Location.Span)
+			n.Documentation = projectDocumentation(f, e.Documentation)
 			for _, m := range e.Comments {
 				n.Markers = append(n.Markers, Marker{Kind: MarkerKind(m.Kind), Text: m.Text, Location: location(f, m.Span)})
 			}

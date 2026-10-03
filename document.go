@@ -121,7 +121,7 @@ func Capabilities(languages ...string) []Capability {
 			continue
 		}
 		c := language.Lookup(entry.Name).Describe(*entry)
-		cap := Capability{Language: c.Language, Limitations: c.Limitations}
+		cap := Capability{Language: c.Language, Limitations: c.Limitations, Documentation: c.Documentation}
 		for _, v := range c.Organizations {
 			cap.Organizations = append(cap.Organizations, NodeKind(v))
 		}
@@ -161,6 +161,9 @@ func Language(name string) string {
 }
 
 type Capability struct {
+	// Documentation reports support for declaration documentation. Language-specific
+	// attachment rules and exclusions are described by Limitations.
+	Documentation bool
 	// Organizations lists language units assembled from source contributions.
 	Organizations []NodeKind
 	Language      string

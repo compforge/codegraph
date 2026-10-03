@@ -10,6 +10,7 @@ import (
 type Dialect struct{}
 
 func (Dialect) Enrich(f *Facts, tree *gts.Tree) {
+	attachDocumentation(f, tree)
 	lang := tree.Language()
 	if f.Exports == nil {
 		f.Exports = map[string]string{}
