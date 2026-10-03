@@ -71,29 +71,29 @@ func TestNamespacePythonNestingAndReload(t *testing.T) {
 		{Path: "elsewhere/app/services/api/user.py", Content: []byte("class Other: pass\n")},
 		{Path: "src/app/use.py", Content: []byte("from . import User\nimport app.services.api.user as users\ndef run():\n    return User(), users\n")},
 	}
-	g, _, err := codegraph.Build(ctx, "nested", []codegraph.Document{leaf}, codegraph.Options{})
+	g, _, err := buildTestBuilder(ctx, "nested", []codegraph.Document{leaf}, codegraph.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	before := query(t, g, `MATCH (m:Module {name:'user'}) RETURN m`, nil)[0]["m"].(codegraph.Node)
+	before := query(t, g.Result(), `MATCH (m:Module {name:'user'}) RETURN m`, nil)[0]["m"].(codegraph.Node)
 	if err = g.AddDocuments(ctx, parents...); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = g.Wait(ctx); err != nil {
 		t.Fatal(err)
 	}
-	after, ok := g.Node(before.ID)
+	after, ok := g.Result().Node(before.ID)
 	if !ok || after.QualifiedName != "app.services.api.user" {
 		t.Fatal(after)
 	}
-	rows := query(t, g, `MATCH (:Package {name:'app'})-[:contains]->(:Package {name:'services'})-[:contains]->(:Package {name:'api'})-[:contains]->(m:Module)-[:contains]->(:Class {name:'User'})-[:contains]->(:Method {name:'save'}) RETURN m`, nil)
+	rows := query(t, g.Result(), `MATCH (:Package {name:'app'})-[:contains]->(:Package {name:'services'})-[:contains]->(:Package {name:'api'})-[:contains]->(m:Module)-[:contains]->(:Class {name:'User'})-[:contains]->(:Method {name:'save'}) RETURN m`, nil)
 	if len(rows) != 1 || rows[0]["m"].(codegraph.Node).ID != before.ID {
 		t.Fatal(rows)
 	}
-	if len(query(t, g, `MATCH (:Function {name:'run'})-[:references]->(m:Module {id:$id}) RETURN m`, map[string]any{"id": before.ID})) != 1 {
+	if len(query(t, g.Result(), `MATCH (:Function {name:'run'})-[:references]->(m:Module {id:$id}) RETURN m`, map[string]any{"id": before.ID})) != 1 {
 		t.Fatal("module references must target modules")
 	}
-	if len(query(t, g, `MATCH (:Package {name:'app'})-[:contains]->(:Class {name:'User'}) RETURN 1`, nil)) != 0 {
+	if len(query(t, g.Result(), `MATCH (:Package {name:'app'})-[:contains]->(:Class {name:'User'}) RETURN 1`, nil)) != 0 {
 		t.Fatal("re-export must not change declaration ownership")
 	}
 	docs := append([]codegraph.Document{leaf}, parents...)
@@ -102,10 +102,10 @@ func TestNamespacePythonNestingAndReload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(g.Nodes(), full.Nodes()) || !reflect.DeepEqual(g.Relations(), full.Relations()) {
+	if !reflect.DeepEqual(g.Result().Nodes(), full.Nodes()) || !reflect.DeepEqual(g.Result().Relations(), full.Relations()) {
 		t.Fatal("batch/order dependent graph")
 	}
-	assertContainsAcyclic(t, g)
+	assertContainsAcyclic(t, g.Result())
 }
 
 func TestNamespaceSameNamesAndStubCandidates(t *testing.T) {
@@ -136,27 +136,27 @@ func TestNamespaceSameNamesAndStubCandidates(t *testing.T) {
 func TestNamespaceBudgetsAndDetachedLocations(t *testing.T) {
 	doc := codegraph.Document{Path: "a.go", Content: []byte("package p\nfunc A(){}\n")}
 	for _, opts := range []codegraph.Options{{MaxNodes: 2}, {MaxRelations: 2}} {
-		g, err := codegraph.New("budget", opts)
+		g, err := codegraph.NewBuilder("budget", opts)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if err = g.AddDocuments(context.Background(), doc); err != nil {
 			t.Fatal(err)
 		}
-		if _, err = g.Wait(context.Background()); !errors.Is(err, codegraph.ErrBuildBudget) || len(g.Nodes()) != 0 || len(g.Relations()) != 0 {
-			t.Fatal(err, g.Nodes(), g.Relations())
+		if _, err = g.Wait(context.Background()); !errors.Is(err, codegraph.ErrBuildBudget) || len(g.Result().Nodes()) != 0 || len(g.Result().Relations()) != 0 {
+			t.Fatal(err, g.Result().Nodes(), g.Result().Relations())
 		}
 	}
-	g, _, err := codegraph.Build(context.Background(), "clone", []codegraph.Document{doc}, codegraph.Options{})
+	g, _, err := buildTestBuilder(context.Background(), "clone", []codegraph.Document{doc}, codegraph.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	n := g.Find("a.go", codegraph.Function, "A")[0]
+	n := g.Result().Find("a.go", codegraph.Function, "A")[0]
 	n.Location.Path = "mutated"
-	if g.Find("a.go", codegraph.Function, "A")[0].Location.Path != "a.go" {
+	if g.Result().Find("a.go", codegraph.Function, "A")[0].Location.Path != "a.go" {
 		t.Fatal("location pointer escaped")
 	}
-	if len(g.Find("a.go", codegraph.Package, "")) != 0 {
+	if len(g.Result().Find("a.go", codegraph.Package, "")) != 0 {
 		t.Fatal("source lookup fabricated organization location")
 	}
 }
@@ -206,7 +206,7 @@ func TestNamespaceIsNotAClassOrCallable(t *testing.T) {
 }
 
 func TestNamespaceUnavailableSources(t *testing.T) {
-	g, report, err := codegraph.Build(context.Background(), "partial", []codegraph.Document{
+	g, report, err := buildTestBuilder(context.Background(), "partial", []codegraph.Document{
 		{Path: "pkg/bad.go", Content: []byte("package p\nfunc {\n")},
 		{Path: "nested/plain/leaf.py", Content: []byte("from .missing import Unknown\nclass Item: pass\n")},
 	}, codegraph.Options{})
@@ -216,19 +216,19 @@ func TestNamespaceUnavailableSources(t *testing.T) {
 	if !hasDiagnostic(report, "parse_error") || !hasDiagnostic(report, "unresolved_import") {
 		t.Fatal(report)
 	}
-	if len(query(t, g, `MATCH (p:Package) RETURN p`, nil)) != 0 {
+	if len(query(t, g.Result(), `MATCH (p:Package) RETURN p`, nil)) != 0 {
 		t.Fatal("missing initializers or failed source created packages")
 	}
-	if len(query(t, g, `MATCH (m:Module) RETURN m`, nil)) != 1 {
+	if len(query(t, g.Result(), `MATCH (m:Module) RETURN m`, nil)) != 1 {
 		t.Fatal("unresolved import fabricated a module")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	before := g.Nodes()
+	before := g.Result().Nodes()
 	if err := g.AddDocuments(ctx, codegraph.Document{Path: "later/__init__.py", Content: []byte("")}); !errors.Is(err, context.Canceled) {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(before, g.Nodes()) {
+	if !reflect.DeepEqual(before, g.Result().Nodes()) {
 		t.Fatal("cancellation changed published organizations")
 	}
 }

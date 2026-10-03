@@ -126,16 +126,16 @@ func Work(){}
 func Local(){ type Box struct{} }
 `)},
 	}
-	g, r, err := codegraph.Build(ctx, "rev", documents(source, "methods.go"), codegraph.Options{})
+	g, r, err := buildTestBuilder(ctx, "rev", documents(source, "methods.go"), codegraph.Options{})
 	if err != nil || (len(r.Diagnostics) == 0) || !hasDiagnostic(r, "unresolved_receiver") {
 		t.Fatal(r, err)
 	}
-	before := query(t, g, `MATCH (m:Method) RETURN m`, nil)[0]["m"].(codegraph.Node)
+	before := query(t, g.Result(), `MATCH (m:Method) RETURN m`, nil)[0]["m"].(codegraph.Node)
 	r, err = addDocumentsSync(g, ctx, documents(source, "types.go")...)
 	if err != nil || len(r.Diagnostics) != 0 {
 		t.Fatal(r, err)
 	}
-	rows := query(t, g, `MATCH (b:Struct)-[r:contains]->(m:Method {name:'Run'}) RETURN b,r,m`, nil)
+	rows := query(t, g.Result(), `MATCH (b:Struct)-[r:contains]->(m:Method {name:'Run'}) RETURN b,r,m`, nil)
 	if len(rows) != 1 {
 		t.Fatal(rows)
 	}
@@ -146,16 +146,16 @@ func Local(){ type Box struct{} }
 	if rows[0]["b"].(codegraph.Node).QualifiedName != "Box" {
 		t.Fatal("receiver resolved to a lexically nested type", rows)
 	}
-	if len(query(t, g, `MATCH (:Function {name:'Local'})-[:contains]->(:Struct {qualifiedName:'Local.Box'}) RETURN 1`, nil)) != 1 {
+	if len(query(t, g.Result(), `MATCH (:Function {name:'Local'})-[:contains]->(:Struct {qualifiedName:'Local.Box'}) RETURN 1`, nil)) != 1 {
 		t.Fatal("nested declaration ownership missing")
 	}
 	// Document ownership and receiver ownership are distinct evidence, not inferred
 	// from the physical location of the receiver's type declaration.
-	if len(query(t, g, `MATCH (:Document {path:'methods.go'})-[:declares]->(:Method) RETURN 1`, nil)) != 1 {
+	if len(query(t, g.Result(), `MATCH (:Document {path:'methods.go'})-[:declares]->(:Method) RETURN 1`, nil)) != 1 {
 		t.Fatal("method's lexical file owner missing")
 	}
-	nodes, edges := g.Nodes(), g.Relations()
-	if _, err = addDocumentsSync(g, ctx, documents(source, "methods.go", "types.go")...); err != nil || !reflect.DeepEqual(nodes, g.Nodes()) || !reflect.DeepEqual(edges, g.Relations()) {
+	nodes, edges := g.Result().Nodes(), g.Result().Relations()
+	if _, err = addDocumentsSync(g, ctx, documents(source, "methods.go", "types.go")...); err != nil || !reflect.DeepEqual(nodes, g.Result().Nodes()) || !reflect.DeepEqual(edges, g.Result().Relations()) {
 		t.Fatal("repeated build changed concrete identities", err)
 	}
 }
@@ -199,14 +199,14 @@ func TestReceiverOwnershipUncertainty(t *testing.T) {
 func TestConcreteKindsBudgetRollback(t *testing.T) {
 	source := fstest.MapFS{"types.go": {Data: []byte("package p; type Box struct{ X, Y int }; func (b Box) Run(){}")}}
 	for _, opts := range []codegraph.Options{{MaxNodes: 4}, {MaxRelations: 4}} {
-		g, err := codegraph.New("rev", opts)
+		g, err := codegraph.NewBuilder("rev", opts)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if _, err = addDocumentsSync(g, context.Background(), documents(source, "types.go")...); !errors.Is(err, codegraph.ErrBuildBudget) {
 			t.Fatal("member/receiver growth bypassed budget", err)
 		}
-		if len(g.Nodes()) != 0 || len(g.Relations()) != 0 {
+		if len(g.Result().Nodes()) != 0 || len(g.Result().Relations()) != 0 {
 			t.Fatal("failed batch published")
 		}
 	}

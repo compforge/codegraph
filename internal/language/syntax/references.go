@@ -35,7 +35,7 @@ func (x ModuleExtractor) extractModuleReferences(f *Facts, tree *gts.Tree) {
 				for _, field := range []string{"name", "left", "parameter", "pattern", "alias"} {
 					if child := parent.ChildByFieldName(field, lang); child != nil && child.StartByte() <= n.StartByte() && child.EndByte() >= n.EndByte() {
 						switch pt {
-						case "function_definition", "function_declaration", "class_definition", "class_declaration", "type_alias_declaration", "interface_declaration", "method_definition", "variable_declarator", "assignment", "assignment_expression", "augmented_assignment", "augmented_assignment_expression", "pair", "enum_assignment", "enum_declaration", "method_signature", "property_signature", "export_specifier", "typed_parameter", "default_parameter", "required_parameter", "optional_parameter", "arrow_function":
+						case "function_definition", "function_declaration", "class_definition", "class_declaration", "type_alias_declaration", "interface_declaration", "method_definition", "variable_declarator", "assignment", "assignment_expression", "augmented_assignment", "augmented_assignment_expression", "pair", "enum_assignment", "enum_declaration", "method_signature", "property_signature", "field_definition", "public_field_definition", "internal_module", "export_specifier", "typed_parameter", "default_parameter", "required_parameter", "optional_parameter", "arrow_function":
 							binding = true
 						}
 					}

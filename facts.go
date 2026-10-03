@@ -12,7 +12,7 @@ import (
 // Copying it shares immutable material, including language-specific
 // evidence needed for binding. Exported fields are detached inspection views:
 // changing them does not change what Builder.Add consumes. Use View for a fresh
-// projection. Only Extractor (or legacy Extract) can produce valid Facts.
+// projection. Only extraction APIs can produce valid Facts.
 type Facts struct {
 	raw                     *analysis.Facts
 	Path, Package, Language string
@@ -55,6 +55,8 @@ type FactDeclaration struct {
 	Kind                NodeKind
 	Location            Location
 	NameLocation        *Location
+	Signature           string
+	SignatureLocation   *Location
 	Markers             []Marker
 	Documentation       []Documentation
 }
@@ -121,6 +123,10 @@ func projectFacts(f analysis.Facts) (Facts, error) {
 			return Facts{}, fmt.Errorf("%s: %w", f.Path, err)
 		}
 		decl := FactDeclaration{Name: d.Name, QualifiedName: d.QualifiedName, Kind: kind, Location: location(f, d.Span)}
+		if d.SignatureSpan.End > d.SignatureSpan.Start {
+			decl.Signature = string(f.Source[d.SignatureSpan.Start:d.SignatureSpan.End])
+			decl.SignatureLocation = locationPtr(f, d.SignatureSpan)
+		}
 		if d.NameSpan.End > d.NameSpan.Start {
 			decl.NameLocation = locationPtr(f, d.NameSpan)
 		}

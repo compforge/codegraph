@@ -100,14 +100,14 @@ func TestGoMemberPropagationDeclarationContext(t *testing.T) {
 		{Path: "middle/type.go", Content: []byte("package middle; import typed \"example.org/end\"; type Box struct{ Items []typed.Leaf; Child *typed.Leaf }")},
 		{Path: "decoy/type.go", Content: []byte("package decoy; type Leaf struct{Name string}")},
 	}
-	g, _, err := codegraph.Build(ctx, "context", docs, codegraph.Options{ModulePath: "example.org"})
+	g, _, err := buildTestBuilder(ctx, "context", docs, codegraph.Options{ModulePath: "example.org"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	check := func(want int) {
 		t.Helper()
 		count := 0
-		for _, row := range query(t, g, `MATCH (:Function {name:'Entry'})-[r:references]->(target:Field {name:'Name'}) RETURN r,target`, nil) {
+		for _, row := range query(t, g.Result(), `MATCH (:Function {name:'Entry'})-[r:references]->(target:Field {name:'Name'}) RETURN r,target`, nil) {
 			count++
 			if row["target"].(codegraph.Node).Location.Path != "end/type.go" {
 				t.Fatalf("used the caller's import namespace: %+v", row)
@@ -134,14 +134,14 @@ func TestGoMemberPropagationBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	limited, err := codegraph.New("limited", codegraph.Options{MaxRelations: len(full.Relations()) - 1})
+	limited, err := codegraph.NewBuilder("limited", codegraph.Options{MaxRelations: len(full.Relations()) - 1})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = limited.AddDocuments(ctx, doc); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = limited.Wait(ctx); err == nil || len(limited.Nodes()) != 0 {
+	if _, err = limited.Wait(ctx); err == nil || len(limited.Result().Nodes()) != 0 {
 		t.Fatalf("propagation exceeded atomic relation budget: %v", err)
 	}
 }

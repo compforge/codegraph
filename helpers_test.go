@@ -13,7 +13,7 @@ func hasDiagnostic(r BuildReport, code string) bool {
 
 // addDocumentsSync keeps existing build-contract tests focused on the final
 // published batch while production callers use AddDocuments followed by Wait.
-func (g *Graph) addDocumentsSync(ctx context.Context, docs ...Document) (BuildReport, error) {
+func (g *Builder) addDocumentsSync(ctx context.Context, docs ...Document) (BuildReport, error) {
 	if err := g.AddDocuments(ctx, docs...); err != nil {
 		return g.Report(), err
 	}
@@ -95,4 +95,26 @@ func buildTestSession(ctx context.Context, snapshot string, docs []Document, opt
 	}
 	r, err := s.Wait(ctx)
 	return s, r, err
+}
+
+func buildTestBuilder(ctx context.Context, snapshot string, docs []Document, opts Options) (*Builder, BuildReport, error) {
+	b, err := NewBuilder(snapshot, opts)
+	if err != nil {
+		return nil, BuildReport{}, err
+	}
+	if err := b.AddDocuments(ctx, docs...); err != nil {
+		return b, b.Report(), err
+	}
+	report, err := b.Wait(ctx)
+	return b, report, err
+}
+
+func builtBuilder(t *testing.T, opts Options) *Builder {
+	t.Helper()
+	opts.ModulePath = "example.org/demo"
+	b, _, err := buildTestBuilder(context.Background(), "rev-A", documents(fixture(), "main.go", "helper.go", "lib/work.go", "entry_test.go"), opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
 }

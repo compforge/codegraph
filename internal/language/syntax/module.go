@@ -29,6 +29,7 @@ func (x ModuleExtractor) Extract(ctx context.Context, f Facts, tree *gts.Tree, e
 		f.Imports = append(f.Imports, recorded)
 	}
 	x.enrichModuleSyntax(&f, tree)
+	CaptureSignatures(&f, tree)
 	x.lexical = x.Dialect.Lexical(&f, tree)
 	f.Lexical = x.lexical
 	// Retain ancestry from downward traversal. Some grammars materialize hidden

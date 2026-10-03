@@ -21,7 +21,7 @@ func TestGoChainedCallIdentity(t *testing.T) {
   (Box{}).Next()
  }
  `
-	g, _, err := codegraph.Build(context.Background(), "chained", []codegraph.Document{{Path: "app.go", Content: []byte(source)}}, codegraph.Options{})
+	g, _, err := buildTestBuilder(context.Background(), "chained", []codegraph.Document{{Path: "app.go", Content: []byte(source)}}, codegraph.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestGoChainedCallIdentity(t *testing.T) {
 	if len(want) != 0 {
 		t.Fatalf("missing calls: %v", want)
 	}
-	rows := query(t, g, `MATCH (:Function {name:'Entry'})-[r:calls]->(target) RETURN r,target`, nil)
+	rows := query(t, g.Result(), `MATCH (:Function {name:'Entry'})-[r:calls]->(target) RETURN r,target`, nil)
 	found := map[string]bool{}
 	for _, row := range rows {
 		edge, target := row["r"].(codegraph.Relation), row["target"].(codegraph.Node)
@@ -170,7 +170,7 @@ func TestGoCompositeKeyImportedTypeAndReload(t *testing.T) {
  const Key = 1
  func Entry(){ _ = alias.S{Key: Key} }
  `
-	g, _, err := codegraph.Build(context.Background(), "imported-keys", []codegraph.Document{{Path: "app.go", Content: []byte(source)}}, codegraph.Options{ModulePath: "example.org"})
+	g, _, err := buildTestBuilder(context.Background(), "imported-keys", []codegraph.Document{{Path: "app.go", Content: []byte(source)}}, codegraph.Options{ModulePath: "example.org"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +178,7 @@ func TestGoCompositeKeyImportedTypeAndReload(t *testing.T) {
 	check := func(want int) {
 		t.Helper()
 		count := 0
-		for _, row := range query(t, g, `MATCH ()-[r:references]->(target) RETURN r,target`, nil) {
+		for _, row := range query(t, g.Result(), `MATCH ()-[r:references]->(target) RETURN r,target`, nil) {
 			e, n := row["r"].(codegraph.Relation), row["target"].(codegraph.Node)
 			if e.Location.Path == "app.go" && e.Location.StartByte == keyStart {
 				count++
@@ -209,14 +209,14 @@ func TestGoCompositeKeyRelationBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	limited, err := codegraph.New("limited-keys", codegraph.Options{MaxRelations: len(complete.Relations()) - 1})
+	limited, err := codegraph.NewBuilder("limited-keys", codegraph.Options{MaxRelations: len(complete.Relations()) - 1})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = limited.AddDocuments(ctx, doc); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = limited.Wait(ctx); err == nil || len(limited.Nodes()) != 0 {
+	if _, err = limited.Wait(ctx); err == nil || len(limited.Result().Nodes()) != 0 {
 		t.Fatalf("field-key relation budget must reject the batch atomically: %v", err)
 	}
 }
@@ -232,7 +232,7 @@ func TestGoCompositePredeclaredKeyContexts(t *testing.T) {
   _ = S{nil: 1, len: 2}
  }
  `)
-	g, err := codegraph.New("predeclared-keys", codegraph.Options{})
+	g, err := codegraph.NewBuilder("predeclared-keys", codegraph.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -72,7 +72,7 @@ func TestModuleImportExpansion(t *testing.T) {
 	} {
 		t.Run(tc.entry, func(t *testing.T) {
 			fs := fstest.MapFS{tc.entry: {Data: []byte(tc.source)}, tc.target: {Data: []byte(tc.dependency)}}
-			g, r, err := Build(context.Background(), "rev", documents(fs, tc.entry), Options{})
+			g, r, err := buildTestBuilder(context.Background(), "rev", documents(fs, tc.entry), Options{})
 			if err != nil || !hasDiagnostic(r, "unresolved_import") {
 				t.Fatal(r, err)
 			}
@@ -81,12 +81,12 @@ func TestModuleImportExpansion(t *testing.T) {
 				t.Fatal(r, err)
 			}
 			q := `MATCH (a:Document)-[r:imports]->(b:Module)<-[:declares]-(:Document {path:$path}) RETURN a,r,b`
-			rows := query(t, g, q, map[string]any{"path": tc.target})
+			rows := query(t, g.Result(), q, map[string]any{"path": tc.target})
 			if len(rows) != 1 || rows[0]["r"].(Relation).Confidence != Exact {
 				t.Fatal(rows)
 			}
 			g2, r, err := Build(context.Background(), "rev", documents(fs, tc.entry, tc.target), Options{})
-			if err != nil || len(r.Diagnostics) != 0 || !reflect.DeepEqual(g.Nodes(), g2.Nodes()) || !reflect.DeepEqual(g.Relations(), g2.Relations()) {
+			if err != nil || len(r.Diagnostics) != 0 || !reflect.DeepEqual(g.Result().Nodes(), g2.Nodes()) || !reflect.DeepEqual(g.Result().Relations(), g2.Relations()) {
 				t.Fatal(r, err)
 			}
 		})
@@ -115,25 +115,25 @@ func TestModuleUncertainty(t *testing.T) {
 
 func TestMixedLanguageIsolationAndRollback(t *testing.T) {
 	fs := fstest.MapFS{"a.go": {Data: []byte("package p; func Work(){}; func Entry(){Work()}")}, "a.py": {Data: []byte("def Work():\n    pass\ndef Entry():\n    Work()\n")}}
-	g, r, err := Build(context.Background(), "rev", documents(fs, "a.go", "a.py"), Options{})
+	g, r, err := buildTestBuilder(context.Background(), "rev", documents(fs, "a.go", "a.py"), Options{})
 	if err != nil || len(r.Diagnostics) != 0 {
 		t.Fatal(r, err)
 	}
-	for _, row := range query(t, g, `MATCH (a)-[:calls]->(b) RETURN a,b`, nil) {
+	for _, row := range query(t, g.Result(), `MATCH (a)-[:calls]->(b) RETURN a,b`, nil) {
 		if row["a"].(Node).Language != row["b"].(Node).Language {
 			t.Fatal("cross-language name binding", row)
 		}
 	}
-	before := g.Nodes()
+	before := g.Result().Nodes()
 	fs["a.py"].Data = []byte("def Changed():\n    pass\n")
-	if _, err = g.addDocumentsSync(context.Background(), documents(fs, "a.py")...); !errors.Is(err, ErrSnapshotChanged) || !reflect.DeepEqual(before, g.Nodes()) {
+	if _, err = g.addDocumentsSync(context.Background(), documents(fs, "a.py")...); !errors.Is(err, ErrSnapshotChanged) || !reflect.DeepEqual(before, g.Result().Nodes()) {
 		t.Fatal(err)
 	}
-	g, err = New("rev", Options{MaxNodes: 2})
+	g, err = NewBuilder("rev", Options{MaxNodes: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = g.addDocumentsSync(context.Background(), documents(fs, "a.go", "a.py")...); !errors.Is(err, ErrBuildBudget) || len(g.Nodes()) != 0 {
+	if _, err = g.addDocumentsSync(context.Background(), documents(fs, "a.go", "a.py")...); !errors.Is(err, ErrBuildBudget) || len(g.Result().Nodes()) != 0 {
 		t.Fatal("non-Go bypassed atomic budget", err)
 	}
 }
@@ -239,11 +239,11 @@ func TestLanguageDiscoveryAndCapabilities(t *testing.T) {
 func TestMultilanguageExpansionBudget(t *testing.T) {
 	fs := fstest.MapFS{"a.js": {Data: []byte("import './b.js';")}, "b.js": {Data: []byte("import './c.js';")}, "c.js": {Data: []byte("function work(){}")}}
 	for _, opts := range []Options{{MaxDocuments: 2}, {MaxRelations: 1}} {
-		g, err := New("rev", opts)
+		g, err := NewBuilder("rev", opts)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err = g.addDocumentsSync(context.Background(), documents(fs, "a.js", "b.js", "c.js")...); !errors.Is(err, ErrBuildBudget) || len(g.Nodes()) != 0 {
+		if _, err = g.addDocumentsSync(context.Background(), documents(fs, "a.js", "b.js", "c.js")...); !errors.Is(err, ErrBuildBudget) || len(g.Result().Nodes()) != 0 {
 			t.Fatal("import budget did not roll back", err)
 		}
 	}

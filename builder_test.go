@@ -97,17 +97,14 @@ func TestBuilderPublicationBudgetsAndLazyQueries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if builder.Result() != second || builder.session != nil || first.legacy != nil || second.legacy != nil {
-		t.Fatal("facts-only build created compatibility state or an extra publication")
+	if builder.Result() != second || builder.session != nil {
+		t.Fatal("facts-only build created document scheduling state or an extra publication")
 	}
 	if first.store != nil || second.store != nil {
 		t.Fatal("build eagerly created a query index")
 	}
 	if len(first.Report().Documents) != 1 || len(second.Report().Documents) != 2 {
 		t.Fatal("published result mutated")
-	}
-	if err := first.AddDocuments(context.Background(), Document{Path: "b.go"}); !errors.Is(err, ErrReadOnly) {
-		t.Fatalf("result admitted mutation: %v", err)
 	}
 	canceled, cancel := context.WithCancel(context.Background())
 	cancel()

@@ -45,7 +45,7 @@ func Outline(ctx context.Context, f Facts, tree *gts.Tree, entry grammars.LangEn
 				span := Span{Start: int(item.Range.StartByte), End: int(item.Range.EndByte)}
 				if analysis.ConcreteKind(kind) == "" {
 					f.Issues = append(f.Issues, Issue{Code: "unsupported_declaration", Message: kind, Subject: "declarations", Span: span})
-					flatten(item.Children, parent)
+					// A missing owner cannot establish top-level membership for its children.
 					continue
 				}
 				qualified := item.Name

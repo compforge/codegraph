@@ -19,7 +19,7 @@ model.go                               # 公共图值类型、诊断、报告与
 document.go、facts.go                   # 输入材料、身份与完整 Facts 检查视图
 extractor.go                           # 生产侧有界提取、任务与缓存
 builder.go、graph.go                    # 接纳、构图发布及只读查询结果
-session.go、compat.go                   # 私有异步会话与兼容入口
+session.go、builder_documents.go        # Builder 的异步材料提交与构建调度
 internal/
   confidence/                           # 公共 API 与分析过程共用的证据精度及排序
   analysis/                             # 实体、Namespace、Scope/Binding、Relation/Evidence 登记及阶段契约

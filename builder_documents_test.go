@@ -3,13 +3,14 @@ package codegraph
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 )
 
 var _ Identifiable = Document{}
 
 func TestGetDocumentRequiresSubmission(t *testing.T) {
-	g, err := New("rev", Options{})
+	g, err := NewBuilder("rev", Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +46,17 @@ func TestGetDocumentRequiresSubmission(t *testing.T) {
 	if _, err := g.Wait(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if node, ok := g.Node(symbols[0].ID); !ok || node.Name != "Main" {
+	if node, ok := g.Result().Node(symbols[0].ID); !ok || node.Name != "Main" {
 		t.Fatal("early symbol differs from publication", node)
+	}
+}
+
+// +spec=Graph's consumer API cannot admit documents or expose parser artifacts.
+func TestGraphConsumerBoundary(t *testing.T) {
+	typ := reflect.TypeOf((*Graph)(nil))
+	for _, name := range []string{"Add", "AddDocument", "AddDocuments", "Extract", "GetDocument", "FindAsync", "Wait"} {
+		if _, ok := typ.MethodByName(name); ok {
+			t.Errorf("Graph exposes production method %s", name)
+		}
 	}
 }

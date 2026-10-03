@@ -14,6 +14,7 @@ type Entity struct {
 	Kind, Name, QualifiedName, Language string
 	Location                            *SourceLocation
 	NameLocation                        *SourceLocation
+	SignatureLocation                   *SourceLocation
 	Comments                            []Comment
 	Documentation                       []Documentation
 }
@@ -118,6 +119,9 @@ func (x *Index) AddSources(ctx context.Context, names []string) error {
 			if d.NameSpan.End > d.NameSpan.Start {
 				e.NameLocation = &SourceLocation{Path: p, Span: d.NameSpan}
 			}
+			if d.SignatureSpan.End > d.SignatureSpan.Start {
+				e.SignatureLocation = &SourceLocation{Path: p, Span: d.SignatureSpan}
+			}
 			x.Entities[ref] = e
 			x.Add(Edge{Source: DocumentRef(p), Target: ref, Kind: "declares", Confidence: "exact", Basis: "source_declaration", Path: p, Span: d.Span})
 		}
@@ -133,7 +137,17 @@ func (x *Index) AttachDeclarations(ctx context.Context, names []string) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		for i, d := range x.Files[p].Declarations {
+		decls := x.Files[p].Declarations
+		for i, d := range decls {
+			if d.Parent < -1 || d.Parent >= len(decls) {
+				return fmt.Errorf("%s: invalid lexical parent for %s", p, d.Name)
+			}
+			if d.Parent >= 0 {
+				parent := decls[d.Parent]
+				if parent.Start > d.Start || parent.End < d.End || parent.End-parent.Start <= d.End-d.Start {
+					return fmt.Errorf("%s: lexical parent must strictly enclose %s", p, d.Name)
+				}
+			}
 			lexical := DocumentRef(p)
 			if d.Parent >= 0 {
 				lexical = DeclarationRef(p, d.Parent)

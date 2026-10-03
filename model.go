@@ -71,9 +71,13 @@ type Node struct {
 	// NameLocation identifies the name token/capture, independently of the full
 	// declaration Location. It is absent for documents, synthetic organizations,
 	// or declarations whose extractor cannot provide it.
-	NameLocation  *Location       `json:"nameLocation,omitempty"`
-	Markers       []Marker        `json:"markers,omitempty"`
-	Documentation []Documentation `json:"documentation,omitempty"`
+	// Signature preserves exact header text, excluding the implementation body.
+	// Absence means this declaration has no supported header extraction.
+	Signature         string          `json:"signature,omitempty"`
+	SignatureLocation *Location       `json:"signatureLocation,omitempty"`
+	NameLocation      *Location       `json:"nameLocation,omitempty"`
+	Markers           []Marker        `json:"markers,omitempty"`
+	Documentation     []Documentation `json:"documentation,omitempty"`
 }
 
 func cloneNode(n Node) Node {
@@ -84,6 +88,10 @@ func cloneNode(n Node) Node {
 	if n.NameLocation != nil {
 		loc := *n.NameLocation
 		n.NameLocation = &loc
+	}
+	if n.SignatureLocation != nil {
+		loc := *n.SignatureLocation
+		n.SignatureLocation = &loc
 	}
 	n.Markers = append([]Marker(nil), n.Markers...)
 	n.Documentation = append([]Documentation(nil), n.Documentation...)

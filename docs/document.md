@@ -31,7 +31,7 @@ Facts 保留完整只读构图材料，可跨快照复用；公开字段用于�
 消费侧通过 Document 节点及其 declares、encloses 关系读取文件结构，见 [使用指南](usage.md#从-graph-读取文件结构)。
 
 调用方可用 `ExtractionOptions.Cache` 在共享 Extractor 内复用单文件事实，
-兼容入口也支持 `Options.ExtractionCache`。缓存身份包含逻辑路径、
+Builder 的材料提交接口也支持 `Options.ExtractionCache`。缓存身份包含逻辑路径、
 材料类型及内容摘要，保留独立于 parser 的原始事实；每个快照仍重新组织和绑定关系。
 缓存由调用方限定生命周期、文档版本数和源码字节容量，达到容量后正常提取而不新增缓存。
 缓存命中不绕过 Graph 的范围、接纳及构建预算；共享期间 grammar 注册应保持不变。

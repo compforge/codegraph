@@ -6,6 +6,8 @@ type Declaration struct {
 	// NameSpan preserves the identifier capture separately from the declaration.
 	// A zero span means the extractor did not supply a name location.
 	NameSpan Span
+	// SignatureSpan is the declaration header without its implementation body.
+	SignatureSpan Span
 	// Parent is the enclosing declaration index, or -1 for a file-level declaration.
 	Parent int
 	// Receiver is an explicit nonlexical member owner, bound by the language adapter.

@@ -25,7 +25,7 @@ func TestECMAScriptControlBindingDeclarations(t *testing.T) {
 }`
 	for _, path := range []string{"app.js", "app.ts", "app.tsx"} {
 		t.Run(path, func(t *testing.T) {
-			g, report, err := codegraph.Build(context.Background(), "bindings", []codegraph.Document{{Path: path, Content: []byte(source)}}, codegraph.Options{})
+			g, report, err := buildTestBuilder(context.Background(), "bindings", []codegraph.Document{{Path: path, Content: []byte(source)}}, codegraph.Options{})
 			if err != nil || hasDiagnostic(report, "outline_incomplete") {
 				t.Fatal(report, err)
 			}
@@ -34,7 +34,7 @@ func TestECMAScriptControlBindingDeclarations(t *testing.T) {
 				t.Fatal(err)
 			}
 			counts := map[string]int{}
-			for _, node := range g.Nodes() {
+			for _, node := range g.Result().Nodes() {
 				if node.Kind != codegraph.Variable {
 					continue
 				}
@@ -46,11 +46,11 @@ func TestECMAScriptControlBindingDeclarations(t *testing.T) {
 				if node.Location == nil || source[node.Location.StartByte:node.Location.EndByte] != want {
 					t.Fatalf("wrong declaration span: %+v", node)
 				}
-				parents := g.RelationsTo(node.ID, codegraph.Contains)
+				parents := g.Result().RelationsTo(node.ID, codegraph.Contains)
 				if len(parents) != 1 {
 					t.Fatalf("missing owner: %+v", node)
 				}
-				owner, ok := g.Node(parents[0].Source)
+				owner, ok := g.Result().Node(parents[0].Source)
 				if !ok || owner.Name != "run" {
 					t.Fatalf("wrong owner: %+v", owner)
 				}

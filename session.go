@@ -11,7 +11,7 @@ import (
 	"github.com/compforge/codegraph/internal/pipeline"
 )
 
-// session coordinates the legacy document submission API. Plain builders never
+// session coordinates Builder document submission. Facts-only builders never
 // allocate its parser, task pool, pending batches or exploration cache.
 type session struct {
 	*Builder
@@ -115,7 +115,7 @@ func (g *session) FindAsync(path string, kind NodeKind, qualifiedName string) (p
 				ID:   declarationID(path, d.Kind, d.QualifiedName, d.Location.StartByte),
 				Kind: d.Kind, Name: d.Name, QualifiedName: d.QualifiedName,
 				Language: facts.Language, Location: &d.Location, NameLocation: d.NameLocation,
-				Markers: d.Markers, Documentation: d.Documentation,
+				Markers: d.Markers, Documentation: d.Documentation, Signature: d.Signature, SignatureLocation: d.SignatureLocation,
 			}))
 		}
 		return nodes, nil
@@ -486,7 +486,7 @@ func (g *session) stageDocuments(ctx context.Context, documents []Document, stag
 			if !ok {
 				facts, ok = g.cachedFacts(document)
 			} else {
-				g.cachedFacts(document) // Release legacy exploration retention after admission.
+				g.cachedFacts(document) // Release exploration retention after admission.
 			}
 			if ok {
 				staged[name] = facts

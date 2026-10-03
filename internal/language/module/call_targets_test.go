@@ -10,8 +10,8 @@ import (
 
 func TestReceiverEvidenceSurvivesEarlierNameMatch(t *testing.T) {
 	f := analysis.Facts{Path: "a.ts", Declarations: []analysis.Declaration{
-		{Name: "Box", Kind: "class", Parent: -1},
-		{Name: "run", Kind: "method", Parent: 0},
+		{Name: "Box", Kind: "class", Parent: -1, Span: analysis.Span{End: 30}},
+		{Name: "run", Kind: "method", Parent: 0, Span: analysis.Span{Start: 2, End: 8}},
 	}}
 	files := map[string]analysis.Facts{f.Path: f}
 	build := func(hints []analysis.CallTarget) analysis.Edge {

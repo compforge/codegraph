@@ -92,14 +92,14 @@ func TestGoMemberReferencesImportedReload(t *testing.T) {
  import alias "example.org/types"
  func Entry(box *alias.Box){ _ = box.Value; _ = box.Work; _ = alias.Box.Work }
  `
-	g, _, err := codegraph.Build(ctx, "member-reload", []codegraph.Document{{Path: "app.go", Content: []byte(source)}}, codegraph.Options{ModulePath: "example.org"})
+	g, _, err := buildTestBuilder(ctx, "member-reload", []codegraph.Document{{Path: "app.go", Content: []byte(source)}}, codegraph.Options{ModulePath: "example.org"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	check := func(want int) {
 		t.Helper()
 		count := 0
-		for _, row := range query(t, g, `MATCH ()-[r:references]->(target) RETURN r,target`, nil) {
+		for _, row := range query(t, g.Result(), `MATCH ()-[r:references]->(target) RETURN r,target`, nil) {
 			e, n := row["r"].(codegraph.Relation), row["target"].(codegraph.Node)
 			if e.Location.Path == "app.go" && (n.Kind == codegraph.Field || n.Kind == codegraph.Method) {
 				count++
@@ -145,14 +145,14 @@ func TestGoMemberReferencesScopeAndAmbiguity(t *testing.T) {
 			t.Fatal(row)
 		}
 	}
-	limited, err := codegraph.New("member-budget", codegraph.Options{MaxRelations: len(g.Relations()) - 1})
+	limited, err := codegraph.NewBuilder("member-budget", codegraph.Options{MaxRelations: len(g.Relations()) - 1})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = limited.AddDocuments(context.Background(), docs...); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = limited.Wait(context.Background()); err == nil || len(limited.Nodes()) != 0 {
+	if _, err = limited.Wait(context.Background()); err == nil || len(limited.Result().Nodes()) != 0 {
 		t.Fatalf("member relations must respect atomic budget: %v", err)
 	}
 }

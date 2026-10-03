@@ -239,7 +239,15 @@ func writeJSON(t *testing.T, name string, v any) {
 
 func observe(ctx context.Context, module, snapshot string, docs []cg.Document) (observed, error) {
 	opts := cg.Options{ModulePath: module, MaxDocuments: 2000, MaxNodes: 100000, MaxRelations: 500000, MaxSourceBytes: 64 << 20, MaxResultRows: 500000, MaxResultBytes: 128 << 20}
-	g, report, err := cg.Build(ctx, snapshot, docs, opts)
+	builder, err := cg.NewBuilder(snapshot, opts)
+	if err != nil {
+		return observed{}, err
+	}
+	if err := builder.AddDocuments(ctx, docs...); err != nil {
+		return observed{}, err
+	}
+	report, err := builder.Wait(ctx)
+	g := builder.Result()
 	if err != nil {
 		return observed{}, err
 	}
@@ -256,7 +264,7 @@ func observe(ctx context.Context, module, snapshot string, docs []cg.Document) (
 		if failedDocuments[doc.Path] {
 			continue
 		}
-		facts, err := g.Extract(ctx, doc)
+		facts, err := builder.Extract(ctx, doc)
 		if err != nil {
 			return observed{}, err
 		}

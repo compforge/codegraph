@@ -33,7 +33,7 @@ func (Dialect) Lexical(f *Facts, tree *gts.Tree) *analysis.Lexicon {
 	visit = func(n *gts.Node, scope, fn int) {
 		typ := n.Type(lang)
 		switch typ {
-		case "function_declaration", "generator_function_declaration", "class_declaration", "interface_declaration", "enum_declaration", "type_alias_declaration":
+		case "function_declaration", "generator_function_declaration", "class_declaration", "interface_declaration", "enum_declaration", "type_alias_declaration", "internal_module":
 			pattern(n.ChildByFieldName("name", lang), n, scope, "declaration")
 		}
 		switch typ {
@@ -44,6 +44,9 @@ func (Dialect) Lexical(f *Facts, tree *gts.Tree) *analysis.Lexicon {
 				pattern(n.ChildByFieldName("name", lang), n, scope, "declaration")
 			}
 			pattern(n.ChildByFieldName("parameter", lang), n, scope, "parameter")
+		case "internal_module":
+			scope = l.AddScope(syntax.NodeSpan(n), scope, "namespace")
+			fn = scope
 		case "class_declaration", "class":
 			scope = l.AddScope(syntax.NodeSpan(n), scope, "class")
 		case "statement_block", "for_in_statement", "for_statement", "catch_clause", "switch_body":
