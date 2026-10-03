@@ -50,7 +50,7 @@ func TestPythonSignatureReferences(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				rows := query(t, g, `MATCH ()-[r:references]->(:Class {name:'Model'}) RETURN r`, nil)
+				rows := query(t, g, `MATCH (source)-[r:references]->(:Class {name:'Model'}) WHERE source.kind <> 'Reference' RETURN r`, nil)
 				if len(rows) != tc.want {
 					t.Fatalf("references=%d want=%d rows=%v diagnostics=%v", len(rows), tc.want, rows, g.Report().Diagnostics)
 				}

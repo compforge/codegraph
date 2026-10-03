@@ -34,10 +34,13 @@ type Comment struct {
 type ImportBinding struct {
 	Name, Local         string
 	Namespace, ReExport bool
+	TypeOnly            bool
+	ItemSpan, NameSpan  Span
 	Span                // complete statement, for lexical scope and shadow checks
 }
 
 type Import struct {
+	Dynamic     bool
 	Alias, Path string
 	From        string
 	Relative    int
@@ -69,6 +72,9 @@ type Call struct {
 
 // Reference is a lexical identifier use, independently of whether a target exists.
 type Reference struct {
+	// Kind is empty for ordinary references; Decorated identifies a modifier target.
+	Kind           string
+	Decorated      int
 	Name, Receiver string
 	// Extension carries language-owned evidence for this use.
 	Extension Extension
@@ -83,6 +89,7 @@ type Reference struct {
 // TypeRelation records an explicit base/interface name before scope binding.
 type TypeRelation struct {
 	Owner                     int
+	Blocked                   bool
 	Name, Module, Kind, Basis string
 	Span
 }
@@ -102,7 +109,8 @@ type Facts struct {
 	Issues                  []Issue
 	// Exports maps a public alias to its local name for explicit export
 	// aliases; extraction records them for producer-side module resolution.
-	Exports map[string]string
+	Exports     map[string]string
+	ExportItems []ExportItem
 	// Statements preserve statement order and scope; their
 	// bounded expression vocabulary supports producer-side dependency exploration.
 	Statements []Statement

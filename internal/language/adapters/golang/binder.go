@@ -64,7 +64,7 @@ func bind(ctx context.Context, scope analysis.BuildScope, index *analysis.Index,
 				}
 			}
 		}
-		for _, imp := range f.Imports {
+		for importIndex, imp := range f.Imports {
 			targets := namespaces.GoImportFiles(module, imp.Path)
 			var gitlinks []string
 			if dir, ok := namespaces.Resolution.GoImportDir(module, imp.Path); ok {
@@ -82,6 +82,14 @@ func bind(ctx context.Context, scope analysis.BuildScope, index *analysis.Index,
 			if namespaces.PackageCount(targets) > 1 {
 				confidence = "scoped"
 			}
+			if imp.Alias == "" && len(targets) > 0 && namespaces.PackageCount(targets) == 1 {
+				ref := analysis.ImportItemRef(name, importIndex, -1)
+				entity := index.Entities[ref]
+				binding := *entity.Binding
+				binding.LocalName = files[targets[0]].Package
+				entity.Name, entity.Binding = binding.LocalName, &binding
+				index.Entities[ref] = entity
+			}
 			seenPackages := map[analysis.Ref]bool{}
 			for _, target := range targets {
 				key := namespaces.Roots[target]
@@ -95,6 +103,27 @@ func bind(ctx context.Context, scope analysis.BuildScope, index *analysis.Index,
 			}
 		}
 
+	}
+	// Source imports share the resolver's package evidence, including gitlink boundaries.
+	originals := append([]Edge(nil), edges...)
+	for _, name := range names {
+		for _, item := range analysis.ModuleItems(files[name]) {
+			for _, edge := range originals {
+				if edge.Kind != "imports" || edge.Path != name || edge.Span != item.Span {
+					continue
+				}
+				edge.Source = item.Ref
+				if err := add(edge); err != nil {
+					return nil, nil, err
+				}
+				if item.Binding.Form == "namespace" && !edge.Target.IsDocument() {
+					edge.Kind = "aliases"
+					if err := add(edge); err != nil {
+						return nil, nil, err
+					}
+				}
+			}
+		}
 	}
 	return edges, issues, nil
 }

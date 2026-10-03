@@ -26,7 +26,8 @@ type Facts struct {
 	Issues        []Diagnostic
 	// Exports maps explicit public names to local declarations or imported bindings.
 	// Cross-module re-exports are recorded on Imports.Bindings.
-	Exports map[string]string
+	Exports     map[string]string
+	ExportItems []FactExport
 	// Statements preserve execution order and scope with a bounded expression
 	// vocabulary, for producer-side dependency resolution; the graph model never
 	// depends on statement-level facts. Captured for Python sources today,
@@ -62,6 +63,8 @@ type FactDeclaration struct {
 }
 
 type FactImport struct {
+	// Dynamic means Path is unevaluated source text, not a module specifier.
+	Dynamic           bool
 	Alias, Path, From string
 	Relative          int
 	// Binding is the name the import introduces in this lexical scope.
@@ -75,14 +78,19 @@ type FactImport struct {
 
 // FactImportBinding preserves a source name, its local alias and its statement scope.
 type FactImportBinding struct {
-	Name, Local         string
-	Namespace, ReExport bool
-	Location            Location
+	Name, Local                string
+	Namespace, ReExport        bool
+	TypeOnly                   bool
+	ItemLocation, NameLocation *Location
+	Location                   Location
 }
 
 // FactReference records one identifier use. Owner indexes Declarations, or is
 // -1 for file scope. A missing target does not discard the lexical fact.
 type FactReference struct {
+	Kind ReferenceKind
+	// Decorated is set for DecoratorReference and indexes Declarations.
+	Decorated      int
 	Name, Receiver string
 	Location       Location
 	Owner          int
@@ -100,11 +108,20 @@ type FactCallTarget struct {
 // FactTypeRelation records explicit inheritance/interface syntax. Owner indexes
 // Declarations; Name and Module retain the unbound source spelling.
 type FactTypeRelation struct {
+	Blocked      bool
 	Owner        int
 	Name, Module string
 	Kind         RelationKind
 	Basis        string
 	Location     Location
+}
+
+// FactExport preserves an explicit local export independently of its target.
+type FactExport struct {
+	Name, Local  string
+	Location     Location
+	NameLocation *Location
+	TypeOnly     bool
 }
 
 type FactCall struct {
@@ -142,9 +159,16 @@ func projectFacts(f analysis.Facts) (Facts, error) {
 		byStart[i.Span.Start] = append(byStart[i.Span.Start], j)
 		bindings := make([]FactImportBinding, 0, len(i.Bindings))
 		for _, b := range i.Bindings {
-			bindings = append(bindings, FactImportBinding{Name: b.Name, Local: b.Local, Namespace: b.Namespace, ReExport: b.ReExport, Location: location(f, b.Span)})
+			binding := FactImportBinding{Name: b.Name, Local: b.Local, Namespace: b.Namespace, ReExport: b.ReExport, TypeOnly: b.TypeOnly, Location: location(f, b.Span)}
+			if b.ItemSpan.End > b.ItemSpan.Start {
+				binding.ItemLocation = locationPtr(f, b.ItemSpan)
+			}
+			if b.NameSpan.End > b.NameSpan.Start {
+				binding.NameLocation = locationPtr(f, b.NameSpan)
+			}
+			bindings = append(bindings, binding)
 		}
-		imports = append(imports, FactImport{Bindings: bindings, Alias: i.Alias, Path: i.Path, From: i.From, Relative: i.Relative, Binding: i.Binding, Names: append([]string(nil), i.Names...), Location: location(f, i.Span)})
+		imports = append(imports, FactImport{Dynamic: i.Dynamic, Bindings: bindings, Alias: i.Alias, Path: i.Path, From: i.From, Relative: i.Relative, Binding: i.Binding, Names: append([]string(nil), i.Names...), Location: location(f, i.Span)})
 	}
 	out.Imports = imports
 	for _, s := range f.Statements {
@@ -155,6 +179,13 @@ func projectFacts(f analysis.Facts) (Facts, error) {
 			out.Exports = map[string]string{}
 		}
 		out.Exports[public] = local
+	}
+	for _, e := range f.ExportItems {
+		item := FactExport{Name: e.Name, Local: e.Local, Location: location(f, e.Span), TypeOnly: e.TypeOnly}
+		if e.NameSpan.End > e.NameSpan.Start {
+			item.NameLocation = locationPtr(f, e.NameSpan)
+		}
+		out.ExportItems = append(out.ExportItems, item)
 	}
 	for _, c := range f.Calls {
 		targets := make([]FactCallTarget, 0, len(c.Targets))
@@ -171,10 +202,17 @@ func projectFacts(f analysis.Facts) (Facts, error) {
 		out.Calls = append(out.Calls, FactCall{Targets: targets, Name: c.Name, Receiver: c.Receiver, Location: location(f, c.Span), Blocked: c.Blocked, Builtin: c.Builtin})
 	}
 	for _, r := range f.References {
-		out.References = append(out.References, FactReference{Name: r.Name, Receiver: r.Receiver, Location: location(f, r.Span), Owner: r.Owner})
+		kind, decorated := SymbolReference, -1
+		if r.Kind != "" {
+			kind = ReferenceKind(r.Kind)
+		}
+		if kind == DecoratorReference {
+			decorated = r.Decorated
+		}
+		out.References = append(out.References, FactReference{Kind: kind, Decorated: decorated, Name: r.Name, Receiver: r.Receiver, Location: location(f, r.Span), Owner: r.Owner})
 	}
 	for _, r := range f.TypeRelations {
-		out.TypeRelations = append(out.TypeRelations, FactTypeRelation{Owner: r.Owner, Name: r.Name, Module: r.Module, Kind: RelationKind(r.Kind), Basis: r.Basis, Location: location(f, r.Span)})
+		out.TypeRelations = append(out.TypeRelations, FactTypeRelation{Blocked: r.Blocked, Owner: r.Owner, Name: r.Name, Module: r.Module, Kind: RelationKind(r.Kind), Basis: r.Basis, Location: location(f, r.Span)})
 	}
 	for _, issue := range f.Issues {
 		out.Issues = append(out.Issues, extractionDiagnostic(f, issue))

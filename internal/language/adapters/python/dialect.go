@@ -29,6 +29,7 @@ func (Dialect) Enrich(f *Facts, tree *gts.Tree) {
 		}
 		imp.Bindings = []ImportBinding{b}
 	}
+	locateImportItems(f, tree)
 }
 func (Dialect) Parameters(n *gts.Node, lang *gts.Language) (names []*gts.Node, expressions []syntax.ParameterExpression, handled bool) {
 	if n.Type(lang) != "parameters" && n.Type(lang) != "lambda_parameters" {

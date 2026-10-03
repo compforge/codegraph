@@ -73,28 +73,54 @@ ORDER BY n.startByte, n.id
 
 ## 读取调用与引用位置
 
-CallSite 和 ReferenceSite 保留已识别的源码使用，即使目标不在本次提供的 Documents 中。
+Reference 节点保留已识别的源码使用，referenceKind 区分 calls、references、extends、implements 和 decorates，
+即使目标不在本次提供的 Documents 中也能查询。
 例如只加入调用方文件时，仍可读取调用位置和所属声明：
 
 ```cypher
-MATCH (use:CallSite)-[:occurs_in]->(owner)
-OPTIONAL MATCH (use)-[binding:resolves_to]->(target)
+MATCH (use:Reference {referenceKind:'calls'})-[:occurs_in]->(owner)
+OPTIONAL MATCH (use)-[binding:references]->(target)
 RETURN use, owner, binding, target
 ```
 
-没有目标的使用仍会返回，binding 和 target 为 null。ReferenceSite 使用相同关系；
+没有目标的使用仍会返回，binding 和 target 为 null。查询标识符引用时改用 referenceKind:'references'；
 节点的 name 和 receiver 是提取到的词法线索，Location 指向源码发生范围。
 Go 访问器可通过 `g.RelationsTo(ownerID, codegraph.OccursIn)` 找使用节点，
-再通过 `g.RelationsFrom(useID, codegraph.ResolvesTo)` 读取各候选及其证据。
+再通过 `g.RelationsFrom(useID, codegraph.References)` 读取各候选及其证据。
 `g.Find` 保持声明查询语义；这些使用节点通过 Nodes、Node、关系访问器或 Cypher 查询。
 
-符号之间的 calls / references 与使用节点的 resolves_to 共享绑定依据。
+符号之间的 calls / references 与使用节点的 references 共用语言绑定规则。裸导入名首先连接 Import，
+再沿 aliases 读取转导出链及最终声明；声明间的派生边直接连接最终目标。
+统计声明依赖时排除 `source.kind = 'Reference'`，不要将两个查询粒度混计。
 补入依赖并等待构建后，`builder.Result()` 中的原使用节点可获得目标；已有目标与证据也会重新计算，
 并非只追加新关系。此前取得的 Graph 保持不变。同一路径源码发生变化时使用新的快照与 Builder。
 
-没有 resolves_to 不保证存在 unresolved 诊断，例如语言内建对象或未发布的局部绑定也可能没有目标。
+没有 references 不保证存在 unresolved 诊断，例如语言内建对象或未发布的局部绑定也可能没有目标。
 关系查询为空时，结合材料范围、Capabilities 和局部诊断判断原因。使用节点覆盖已提取的源码结构，
 不保证静态分析识别了所有调用或引用；语法回退适配器目前仍主要提供声明结构。
+
+## 读取导入、导出与修饰关系
+
+Import / Export 以每个源码项为单位，目标缺失时仍有位置与名称信息。`Node.Binding` 保存源码
+说明符、导入名、本地名、公开名、形式和 typeOnly；这些属性也可直接用于 Cypher 过滤。
+
+```cypher
+MATCH (i:Import {localName:'localFoo'})
+OPTIONAL MATCH (i)-[:aliases]->(public:Export)
+RETURN i, public
+```
+
+继续沿 aliases 可追溯具名转导出；namespace 别名连接组织，通配项只保留来源规则，侧效应导入
+不建立 aliases。`Module / Namespace -[:exports]-> Export` 读取显式公开绑定，`occurs_in` 读取
+源码归属。使用 Nodes / Node 或 Cypher 获取这些项；Find 只查询声明。
+
+```cypher
+MATCH (modifier:Reference {referenceKind:'decorates'})-[:decorates]->(declaration)
+OPTIONAL MATCH (modifier)-[:references]->(definition)
+RETURN modifier, declaration, definition
+```
+
+修饰器定义缺失不影响“修饰了哪个声明”这一源码关系。业务角色由消费方解释。
 
 ## 读取声明签名
 
@@ -246,13 +272,14 @@ Path 的节点顺序表示遍历方向，关系保留存储方向。返回值与
 |---|---|
 | Node | id、kind、name、qualifiedName、language、snapshot；有源码位置时提供 path、line、column、endLine、endColumn、startByte、endByte |
 | 声明名称位置 | nameStartByte、nameEndByte、nameLine、nameColumn、nameEndLine、nameEndColumn；RETURN n 返回 Node.NameLocation |
-| CallSite / ReferenceSite | receiver 为词法接收者线索；name 与位置标识本次使用，QualifiedName 不伪装成已绑定目标 |
+| Reference | referenceKind 为 calls / references / extends / implements / decorates；receiver 为词法接收者线索；name 与位置标识本次使用，QualifiedName 不伪装成已绑定目标 |
+| Import / Export | specifier、importedName、localName、exportedName、form、typeOnly；RETURN n 返回 Node.Binding |
 | Gitlink Document | gitlink，表示父仓固定的子仓 commit |
 | Documentation | documentation 为原文列表，documentationData 为含源码位置的完整结构 JSON；RETURN n 返回 Node.Documentation |
 | Marker | markers 为种类列表，spec/case/rule/link/doc 为内容列表，markerData 为完整结构 JSON |
 | Relation | id、kind、source、target、confidence、bases、evidenceData 及发生位置 |
 
-Node.Kind 对应具体标签。完整类别见 [NodeKind](../node.go)，某语言实际支持的类别见 Capabilities。
+Node.Kind 对应具体标签。完整类别见 [NodeKind](../model.go)，某语言实际支持的类别见 Capabilities。
 复杂结构提供便于筛选的属性与完整 JSON，返回实体时还原为结构化值。
 
 Relation.Evidence 保存各条 Basis、Confidence 和可选支撑位置；r.bases 用于过滤推导规则，

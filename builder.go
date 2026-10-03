@@ -353,6 +353,10 @@ func (g *Builder) assemble(ctx context.Context, files map[string]analysis.Facts,
 			id = "node:" + identity(ref.SyntheticKey())
 		}
 		n := Node{ID: id, Kind: NodeKind(e.Kind), Name: e.Name, QualifiedName: e.QualifiedName, Language: e.Language}
+		if e.Binding != nil {
+			b := ModuleBinding(*e.Binding)
+			n.Binding = &b
+		}
 		if ref.IsDocument() {
 			n.Gitlink = files[ref.Path].Gitlink
 		}
@@ -398,7 +402,7 @@ func (g *Builder) assemble(ctx context.Context, files map[string]analysis.Facts,
 		}
 		relations[id] = r
 	}
-	if err := publishOccurrences(ctx, files, ids, nodes, relations, g.opts); err != nil {
+	if err := publishReferences(ctx, files, ids, nodes, relations, g.opts); err != nil {
 		return nil, nil, report, err
 	}
 	for _, i := range issues {

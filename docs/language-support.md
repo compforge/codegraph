@@ -42,11 +42,23 @@ Python 和通用适配器使用注册的声明 query，JS/TS 使用适配器维�
 ## 共同证据规则
 
 Go、Python、JS/TS 保留标识符使用位置及其最内层声明归属；声明名、注释和字符串不作为引用。
-Graph 的 CallSite / ReferenceSite 保存已提取调用和引用发生位置，occurs_in 连接其最内层已保留
-声明或 Document。使用节点独立于目标存在；resolves_to 保留与 calls / references 相同的绑定证据，
-references 仍从所属声明（无声明时为 Document）指向目标。重复使用保留不同发生位置。
-未知目标留下适用的局部诊断，已知遮蔽阻止同名回退。语言内建对象或未保留的局部绑定不制造目标节点。
-Capabilities.Occurrences 声明使用节点提取能力；其他 grammar 的声明支持不自动获得这种能力。
+Graph 的 Reference 节点以 referenceKind 保留使用角色，occurs_in 连接最内层已保留声明或 Document。
+references 连接直接目标或本地 Import；Import / Export 的 aliases 保留名称链。声明间的 calls /
+references 继续连接最终目标，共用语言解析规则；它们与源码位置边是不同的查询粒度。
+未知目标保留源码节点，已知遮蔽阻止同名回退，不为内建对象或未保留局部声明制造目标。
+Capabilities.References 声明可提取角色，SourceItems 声明 Import / Export 支持。
+
+| 语言 | Reference 角色 | 模块项与修饰覆盖 |
+|---|---|---|
+| Go | calls、references、extends | Import 保存显式别名及未解析路径；隐式本地名依赖已加载包名；无独立 Export 语法节点 |
+| Python | calls、references、extends、decorates | Import 保留每项名称和 alias；decorator 应用连接已保留声明；不以 Export 伪造隐式公开名称或动态 `__all__` |
+| JS / TS / TSX | calls、references、extends、decorates；TS / TSX 另有 implements | Import / Export 保留具名、default、namespace、通配、侧效应项及 typeOnly；支持嵌套具名 namespace 的显式导出 |
+| 其他 grammar | 未提供 | 声明支持不自动获得源码使用、导入项或修饰应用能力 |
+
+动态基类表达式保留角色与原文，不求值；未解析基类/接口的角色不依赖目标是否入图。
+非字面量动态导入保存 dynamic 项和原文；默认导出表达式没有已保留声明时保存 Export 和诊断。
+不将语法错误恢复结果当作可靠提取：例如当前 grammar 不接受的 TypeScript `export type *`
+仍按解析缺口处理。Annotation 支持受语言适配器限制，Java 等只有声明能力的语言尚未提供修饰关系。
 
 imports 连接语言组织单元，具名导入及显式转导出还可连接最终声明。
 模块绑定供引用、调用及显式类型关系共用；候选模块或目标的不确定性沿转导出链保留。

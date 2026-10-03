@@ -52,11 +52,17 @@ func TestOrganizationAndOccurrenceOracleRejectsLoss(t *testing.T) {
 	if m := evaluate(o, changed).Measurements["organizations/Package"]; m.Found != 1 || m.Unexpected != 1 {
 		t.Fatal(m)
 	}
-	// Duplicate IDs must not hide a duplicate occurrence in the observed graph.
+	// Duplicate IDs must not hide a duplicate declaration-level call occurrence.
 	changed = a
-	changed.Relations = append(append([]cg.Relation(nil), a.Relations...), a.Relations[0])
+	changed.Relations = append([]cg.Relation(nil), a.Relations...)
+	for _, r := range a.Relations {
+		if r.Kind == cg.Calls {
+			changed.Relations = append(changed.Relations, r)
+			break
+		}
+	}
 	bad = evaluate(o, changed)
-	if bad.Measurements["relation_occurrences/"+string(a.Relations[0].Kind)].Unexpected != 1 {
+	if bad.Measurements["relation_occurrences/calls"].Unexpected != 1 {
 		t.Fatal(bad.Measurements)
 	}
 }

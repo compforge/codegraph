@@ -128,8 +128,11 @@ func Capabilities(languages ...string) []Capability {
 		for _, v := range c.Declarations {
 			cap.Declarations = append(cap.Declarations, NodeKind(v))
 		}
-		for _, v := range c.Occurrences {
-			cap.Occurrences = append(cap.Occurrences, NodeKind(v))
+		for _, v := range c.SourceItems {
+			cap.SourceItems = append(cap.SourceItems, NodeKind(v))
+		}
+		for _, v := range c.References {
+			cap.References = append(cap.References, ReferenceKind(v))
 		}
 		for _, v := range c.Relations {
 			cap.Relations = append(cap.Relations, RelationKind(v))
@@ -171,8 +174,10 @@ type Capability struct {
 	Organizations []NodeKind
 	Language      string
 	Declarations  []NodeKind
-	// Occurrences lists source-use kinds retained independently of target binding.
-	Occurrences []NodeKind
+	// SourceItems lists retained import/export item kinds, independent of binding.
+	SourceItems []NodeKind
+	// References lists emitted Node.ReferenceKind values, independently of target binding.
+	References  []ReferenceKind
 	Relations   []RelationKind
 	Markers     []MarkerKind
 	Limitations []string

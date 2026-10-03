@@ -17,6 +17,9 @@ Graph 消费侧以 Node + Relation 为唯一代码事实来源，文件 outline�
 
 不同消费者可以选择不同范围与遍历方向，共用可追溯的原始事实。
 
+本文围绕两个核心问题展开：CodeGraph 的责任边界，以及 NodeKind / RelationKind 是否足以准确表达
+输入代码的对象与联系。生产流程负责兑现这份模型，消费者据此形成自己的分析结果。
+
 ## 核心模型
 
 ### 静态代码与图的对应
@@ -29,7 +32,8 @@ Graph 是输入代码在给定快照和分析范围内的静态表示。可以�
 | Folder 与语言组织结构 | Namespace（逻辑角色）；按语言规则表现为 Package、Module 等节点，目录提供组织线索 |
 | File 或 Git 材料条目 | Document；普通源码、go.mod 等文件以及 gitlink 都有材料身份，按材料种类与分析能力处理 |
 | Class、Interface、Field、Function 等声明 | Symbol（逻辑角色）；节点保留具体语言类别 |
-| 源码中的调用表达式与标识符使用 | CallSite、ReferenceSite；即使目标不在当前图中也有源码身份 |
+| 源码中的调用表达式与标识符使用 | Reference；referenceKind 区分调用、引用、基类、接口及修饰使用，目标不在当前图中也有源码身份 |
+| 导入、导出及转导出项 | Import / Export；保留每项名称、别名、模块说明符与位置 |
 | 源码中的包含、归属、调用、引用等联系 | Relation；不同关系保留各自的语义和来源依据 |
 | 声明、名称或关系发生的文本位置 | Node / Relation 上的源码位置属性 |
 
@@ -37,14 +41,63 @@ Graph 是输入代码在给定快照和分析范围内的静态表示。可以�
 逻辑组织。Document 提供材料边界，Symbol 提供声明身份，Relation 把源码组织与语义联系接起来；
 章节式的大纲是这些事实的一种读取方式。
 
-NodeKind 与 RelationKind 定义这份表示的分类词汇：前者回答“代码中有哪些对象”，后者回答
-“对象之间有哪些联系”。这些类别的覆盖反映代码到图的映射范围。扩展模型时，应从尚不能表达的
-代码对象或联系出发，判断需要新增类别，还是已有类别及属性足以表达。
+### NodeKind 与 RelationKind 的覆盖与合理性
 
-映射的全面性同时取决于表达与识别：模型支持某个 Kind，不等于每种语言的分析器都能正确提取或
-绑定它。类别语义、节点身份、来源位置和关系证据共同决定表示是否准确；语言能力声明、契约测试
-与覆盖诊断说明本次构建实际识别了哪些信息、还缺少什么。
+NodeKind 与 RelationKind 是代码到图的映射词汇，定义模型能保留哪些事实。评估内核时，既要检查
+职责是否清楚，也要检查这些分类是否全面、语义是否合理：只靠现有节点与关系，消费者能否还原
+所需的代码结构，能否区分含义不同的联系。消费需求暴露的信息缺口应回到这一层审视。
 
+当前节点按所表达的代码对象分组如下；分组用于解释语义，不增加图标签或新的节点身份。
+完整枚举的代码定义见 [model.go](../model.go)，各语言实际提取范围见 [语言能力](language-support.md)。
+
+| 对象 | 当前 NodeKind | 分类依据 |
+|---|---|---|
+| 输入材料 | `Document` | 已接纳材料的身份，独立于能否解析 |
+| 名称与成员组织 | `Package`、`Module`、`Namespace` | 语言中的组织实体，不将物理目录直接等同于命名空间 |
+| 类型声明 | `Struct`、`Interface`、`Type`、`TypeAlias`、`Class`、`Enum`、`Record`、`Trait`、`Union` | 保留具体声明类别；Symbol 是这些实体的逻辑角色 |
+| 可调用声明 | `Function`、`Method`、`Constructor` | 保留声明身份及其语言类别 |
+| 数据成员与其他声明 | `Field`、`Property`、`Variable`、`Constant`、`Macro` | 按源码声明类别区分，归属另由关系表达 |
+| 模块绑定项 | `Import`、`Export` | 一项源码绑定或导入/导出规则；多名称语句按项保留，不等同于目标实体 |
+| 源码使用 | `Reference` | 一次使用的源码身份；referenceKind 为 calls、references、extends、implements 或 decorates |
+
+关系分类同时定义方向和含义，不能仅凭端点相同就合并：
+
+| 联系 | 当前 RelationKind 与方向 | 保留的区别 |
+|---|---|---|
+| 源码贡献 | `Document ─declares→ 声明或组织` | 哪份材料贡献了该实体 |
+| 词法嵌套 | `Document / 声明 ─encloses→ 声明` | 同一文件内最近的已保留声明层级 |
+| 语义归属 | `组织 / 类型等所有者 ─contains→ 成员` | 成员可以来自其他文件，与词法嵌套独立 |
+| 导入依赖 | `Document / 声明 / Import / Export ─imports→ 导入目标` | 源码项连接目标模块；Document / 声明还保留模块或声明依赖的派生边 |
+| 调用与引用 | `声明 / Document ─calls / references→ 目标` | 对象之间的使用关系，保留每次发生的位置 |
+| 类型契约 | `类型 ─extends / implements→ 类型` | 继承与实现的不同角色 |
+| 使用归属 | `Reference / Import / Export ─occurs_in→ 声明 / Document` | 使用存在于源码中的位置与归属 |
+| 使用目标 | `Reference ─references→ 直接目标或 Import` | 当前材料与证据支持的绑定，允许没有目标或多个候选 |
+| 名称别名 | `Import / Export ─aliases→ Export / Import / 声明 / 组织` | 保留直接绑定与转导出链；不只保存最终声明 |
+| 公开绑定 | `Module / Namespace ─exports→ Export` | 哪个组织公开了该源码项 |
+| 修饰应用 | `Reference ─decorates→ 被修饰声明` | 此处应用了修饰；修饰器定义通过 references 单独连接 |
+
+分类是否合理，用以下标准判断：
+
+- **对象身份**：需独立定位、连接或保留生命周期的源码对象才成为节点；名称、范围、签名等描述留作属性。
+- **关系语义**：每种关系有明确方向和端点角色；源码贡献、词法嵌套、语义归属与目标绑定分别表达。
+- **信息保留**：同位置的不同角色、别名和中间绑定不能因合并或只保留最终目标而消失；目标未知时，已识别的源码事实仍应可查询。
+- **查询充分性**：outline、使用位置、依赖链等视图应由图派生；需要回读 Facts 或 AST 才能回答，说明图表达或发布过程存在缺口。
+- **能力分层**：分别检查模型能否表达、分析器能否提取、本轮材料能否建立绑定；某个 Kind 存在不代表所有语言都支持，也不代表当前局部图完整。
+
+类别演进需要对照已有代码图的语义及用法：
+[colbymchenry/codegraph](https://github.com/colbymchenry/codegraph/blob/6560052a6f856855d3f71eee838fd66ccfa4285d/src/types.ts)
+提供具体节点与关系词汇；[lzehrung/codegraph](https://github.com/lzehrung/codegraph/blob/291825b8e054e6d1ffbee03aff999069197fd91b/src/indexer/types.ts)
+区分符号、模块索引和导出变体；[Kythe](https://kythe.io/docs/schema/) 区分源码 anchor 与语义实体，
+其[模块规则](https://kythe.io/docs/schema/modules.html)说明导入、别名和转导出的联系；
+[Joern / CPG](https://cpg.joern.io/) 区分声明、表达式、类型及绑定层。
+逐项比较身份粒度、端点方向、属性与关系分工、未解析事实的保留方式，以及实际提取和消费路径，
+再说明采用、映射或保留差异的理由。同名不代表同义，例如 CPG 的 BINDS_TO 表达类型实参与形参绑定，
+不能直接作为导入绑定链的命名依据；各项目 Kind 的并集也不自动成为本库的模型。
+
+全面性是持续检查代码结构覆盖的方向，不承诺保存完整 AST 或精确模拟运行时。
+本轮保留导入项、导出及转导出、修饰应用、未解析基类与接口位置。参数、类型参数、枚举成员的
+独立身份，以及 type_of、returns、instantiates、overrides 等关系仍属覆盖检查项；签名文本不能
+替代这些关系，也不能将尚未实现的类别列为当前能力。具体语法支持由语言注册项和测试约束。
 
 ### Document、Facts、Extractor、Builder 与 Graph
 
@@ -114,7 +167,7 @@ BuildScope 表达本轮构建材料集合。
 
 ### Relation 与 Evidence
 
-Relation 表达一次有向代码关系，种类包括 declares、encloses、contains、imports、references、calls、extends、implements。
+Relation 表达一次有向代码关系，分类与方向见上文的关系表。
 身份由 Source、Target、Kind 与发生位置组成，位置使用路径及字节范围。
 相同端点之间的不同关系或不同调用位置保留为独立边，也允许自递归。
 
@@ -151,24 +204,38 @@ confidence 不是概率，exact 也不承诺运行时行为或完整编译器类
 ### 源码使用与目标绑定
 
 `payment.charge(order)` 这次调用存在于源码中，与能否找出 charge 的声明是两件事。
-CallSite 保存已提取调用的名称、接收者线索和表达式位置，ReferenceSite 保存已提取标识符使用的
-名称、接收者线索和位置；receiver 是词法线索，不是已解析类型或限定名。
-二者通过 occurs_in 指向最内层已保留声明，没有声明包围时指向 Document。
-调用表达式和其中的名称引用可以各有节点，因为它们表示不同的源码事实。
+Reference 统一表达源码使用，referenceKind 表示其语法角色：calls 保存调用表达式，references 保存
+标识符引用，extends / implements 保存类型使用角色，decorates 保存修饰应用。名称、接收者线索和位置随节点提供；receiver 是词法线索，不是已解析类型或限定名。
+Reference 通过 occurs_in 指向最内层已保留声明，没有声明包围时指向 Document。
+调用表达式和其中的名称引用可以各有节点，因为它们表示不同的源码事实；referenceKind 参与身份，
+同位置的不同使用角色也不会合并。Reference 在找到目标后仍保留，不以 Unresolved 命名永久身份。
+统一 Reference / referenceKind 的术语参考 [colbymchenry/codegraph 的引用模型](https://github.com/colbymchenry/codegraph/blob/6560052a6f856855d3f71eee838fd66ccfa4285d/src/types.ts#L338)；
+这里的归属与绑定由图关系表达。
 
-resolves_to 从使用节点连接当前材料支持的候选目标。已有 calls / references 从所属声明或
-Document 连接相同目标；两种关系视图由同一份绑定结果产生，保留相同位置、Confidence 和 Evidence。
-使用节点不是声明，不进入 declares / encloses / contains 构成的声明结构。
+`references` 从使用节点连接直接绑定：裸导入名先连接 Import，其他已解析使用连接目标实体。
+`aliases` 保留 Import → Export → Export / Import → 声明的名称链；沿链查询才能获得最终目标。
+声明间的 calls / references、extends / implements 保留已有语义关系，复用同一语言绑定规则与证据。
+引用位置与声明依赖是不同查询粒度：统计声明依赖时排除 source.kind = 'Reference'，避免重复计数。
+
+Import / Export 保存每项的名称、位置和 ModuleBinding：specifier、importedName、localName、
+exportedName、form、typeOnly。属性描述该源码项；aliases 表达它连接谁。specifier 不是已解析路径，
+侧效应导入和通配转导出不虚构本地名。通配项保留导入来源规则，查询具体公开名称时沿模块规则
+选取来源的具名 Export 或声明；不会把 `*` 伪装成模块别名。显式导出优先，default 不经通配传播。
+Go 未显式命名的 import 只有获得唯一包身份后才补出 localName，不能从路径末段猜包名。
+
+修饰应用使用 referenceKind = 'decorates' 的 Reference，decorates 指向被修饰声明，references
+指向修饰器定义或导入绑定；即使修饰器不在图内，应用关系仍为源码事实。它不自动推导路由或
+handler 等业务角色。extends / implements 使用也保留独立 Reference，动态基类表达式保留
+源码及角色，但不将表达式中被调用的函数误连成基类。
+
+使用和模块项不是声明，不进入 declares / encloses / contains 构成的声明结构，因而不污染 outline。
+源码存在和目标可绑定相互独立；同一个绑定链中的局部 references 可以是 exact，而跨模块 aliases
+仍是 scoped。每条边保留本环节的证据，消费者不能把局部确定性当作整条链的确定性。
 
 图只组织显式接纳的 Document 及其代码事实，不获取外部源码，也不为缺失目标制造占位符号。
-使用位置没有 resolves_to，表示本次分析没有建立目标关系；原因可能是局部材料缺失、动态行为、
-未保留的局部声明或分析能力限制，结合诊断和语言能力判断，不能解释为没有这次使用。
-诊断说明分析缺口；使用节点本身提供可查询的代码事实。
-
-使用身份取决于源码位置与提取内容，不取决于绑定目标。补入依赖后，同一使用可获得新的目标；
-补入另一个合理候选也可能修订原关系的证据强度。调用方持有的旧 Graph 仍反映旧材料范围。
-静态图尽可能保留提取器已识别的结构，但不承诺完整 AST 或运行时精确性；提取器与语言工具演进
-可以扩大映射范围，未提取到某种结构不等于源码中不存在该结构。
+没有 references / aliases 可能来自材料缺失、动态行为或分析能力限制，结合诊断与语言能力判断。
+身份取决于源码项而非目标。补入依赖后，同一使用或绑定项可获得新目标，旧边及其精度也可能修订；
+已返回的 Graph 保持不变。提取器演进可以扩大覆盖，未提取到某种结构不等于源码中不存在它。
 
 ### 声明文档、Marker 与覆盖信息
 

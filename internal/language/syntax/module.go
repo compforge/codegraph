@@ -76,6 +76,7 @@ func (x ModuleExtractor) Extract(ctx context.Context, f Facts, tree *gts.Tree, e
 		f.Calls = append(f.Calls, call)
 	}
 	x.extractModuleReferences(&f, tree)
+	x.extractDecorators(&f, tree)
 	x.bindModuleUses(&f, tree)
 	x.enrichModuleCallTargets(&f, tree)
 	x.extractModuleTypeRelations(&f, tree)

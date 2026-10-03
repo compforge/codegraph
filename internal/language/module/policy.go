@@ -28,6 +28,9 @@ func (x *NamespaceIndex) ModulePaths(f analysis.Facts, imp analysis.Import) []st
 func (x *NamespaceIndex) ScopeFiles(f analysis.Facts) []string { return []string{f.Path} }
 
 func (x *NamespaceIndex) ImportPaths(f analysis.Facts, imp analysis.Import) []string {
+	if imp.Dynamic {
+		return nil
+	}
 	if resolved, ok := x.Resolution.Import(f, imp); ok {
 		return resolved.Targets
 	}
