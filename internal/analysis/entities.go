@@ -10,6 +10,7 @@ import (
 // Entity describes one graph endpoint. Identity provenance is independent of
 // its concrete kind and of its role as a symbol or namespace.
 type Entity struct {
+	Binding                             *ModuleBinding
 	Ref                                 Ref
 	Kind, Name, QualifiedName, Language string
 	Location                            *SourceLocation
@@ -104,6 +105,7 @@ func (x *Index) AddSources(ctx context.Context, names []string) error {
 			return err
 		}
 		f := x.Files[p]
+		x.addModuleItems(f)
 		ref := DocumentRef(p)
 		if f.Gitlink != "" {
 			x.Gitlinks[p] = ref
@@ -137,6 +139,7 @@ func (x *Index) AttachDeclarations(ctx context.Context, names []string) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+		x.attachExports(x.Files[p])
 		decls := x.Files[p].Declarations
 		for i, d := range decls {
 			if d.Parent < -1 || d.Parent >= len(decls) {

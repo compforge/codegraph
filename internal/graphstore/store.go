@@ -84,6 +84,8 @@ func property(v any) (lpg.PropertyValue, error) {
 	switch v := v.(type) {
 	case string:
 		return lpg.StringValue(v), nil
+	case bool:
+		return lpg.BoolValue(v), nil
 	case int:
 		return lpg.Int64Value(int64(v)), nil
 	case []string:

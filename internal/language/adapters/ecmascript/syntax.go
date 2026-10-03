@@ -12,6 +12,7 @@ func AddModuleImport(f *analysis.Facts, n *gts.Node, lang *gts.Language) {
 	raw := n.Text(f.Source)
 	span := analysis.Span{Start: int(n.StartByte()), End: int(n.EndByte())}
 	if n.Type(lang) != "string" || len(raw) < 2 || strings.Contains(raw, "\\") {
+		f.Imports = append(f.Imports, analysis.Import{Path: raw, Dynamic: true, Span: span})
 		f.Issues = append(f.Issues, analysis.Issue{Code: "dynamic_import", Message: "import target is not a plain string literal", Subject: "relations", Relation: "imports", Span: span})
 		return
 	}
@@ -49,6 +50,7 @@ func ImportBindings(n *gts.Node, lang *gts.Language, source []byte) []analysis.I
 	var out []analysis.ImportBinding
 	span := analysis.Span{Start: int(n.StartByte()), End: int(n.EndByte())}
 	reExport := n.Type(lang) == "export_statement"
+	typeOnly := strings.HasPrefix(strings.TrimSpace(n.Text(source)), "import type ") || strings.HasPrefix(strings.TrimSpace(n.Text(source)), "export type ")
 	syntax.Walk(n, func(child *gts.Node) {
 		switch child.Type(lang) {
 		case "import_specifier", "export_specifier":
@@ -59,31 +61,38 @@ func ImportBindings(n *gts.Node, lang *gts.Language, source []byte) []analysis.I
 				if alias != nil {
 					local = alias.Text(source)
 				}
-				out = append(out, analysis.ImportBinding{Name: name.Text(source), Local: local, ReExport: reExport, Span: span})
+				out = append(out, analysis.ImportBinding{Name: name.Text(source), Local: local, ReExport: reExport, Span: span, ItemSpan: syntax.NodeSpan(child), NameSpan: bindingNameSpan(name, alias), TypeOnly: typeOnly || strings.HasPrefix(child.Text(source), "type ")})
 			}
 		case "namespace_export":
 			for i := 0; i < child.NamedChildCount(); i++ {
 				id := child.NamedChild(i)
 				if id.Type(lang) == "identifier" {
-					out = append(out, analysis.ImportBinding{Name: "*", Local: id.Text(source), Namespace: true, ReExport: true, Span: span})
+					out = append(out, analysis.ImportBinding{Name: "*", Local: id.Text(source), Namespace: true, ReExport: true, Span: span, ItemSpan: syntax.NodeSpan(child), NameSpan: syntax.NodeSpan(id), TypeOnly: typeOnly})
 				}
 			}
 		case "namespace_import":
 			for i := 0; i < child.NamedChildCount(); i++ {
 				if id := child.NamedChild(i); id.Type(lang) == "identifier" {
-					out = append(out, analysis.ImportBinding{Local: id.Text(source), Namespace: true, Span: span})
+					out = append(out, analysis.ImportBinding{Local: id.Text(source), Namespace: true, Span: span, ItemSpan: syntax.NodeSpan(child), NameSpan: syntax.NodeSpan(id), TypeOnly: typeOnly})
 				}
 			}
 		case "import_clause":
 			for i := 0; i < child.NamedChildCount(); i++ {
 				if id := child.NamedChild(i); id.Type(lang) == "identifier" {
-					out = append(out, analysis.ImportBinding{Name: "default", Local: id.Text(source), Span: span})
+					out = append(out, analysis.ImportBinding{Name: "default", Local: id.Text(source), Span: span, ItemSpan: syntax.NodeSpan(id), NameSpan: syntax.NodeSpan(id), TypeOnly: typeOnly})
 				}
 			}
 		}
 	})
 	if reExport && len(out) == 0 && strings.Contains(n.Text(source), "*") {
-		out = append(out, analysis.ImportBinding{Name: "*", Local: "*", ReExport: true, Span: span})
+		out = append(out, analysis.ImportBinding{Name: "*", Local: "*", ReExport: true, Span: span, TypeOnly: typeOnly})
 	}
 	return out
+}
+
+func bindingNameSpan(name, alias *gts.Node) analysis.Span {
+	if alias != nil {
+		return syntax.NodeSpan(alias)
+	}
+	return syntax.NodeSpan(name)
 }

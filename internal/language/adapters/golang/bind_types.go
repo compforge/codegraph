@@ -65,6 +65,9 @@ func resolveTypeRelations(ctx context.Context, files map[string]analysis.Facts, 
 		}
 		f := files[p]
 		for _, hint := range f.TypeRelations {
+			if hint.Blocked {
+				continue
+			}
 			if err := ctx.Err(); err != nil {
 				return nil, nil, err
 			}

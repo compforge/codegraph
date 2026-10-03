@@ -357,7 +357,7 @@ func TestGitlinkImports(t *testing.T) {
 			}
 			count := 0
 			for _, edge := range g.Relations() {
-				if edge.Target == gitlink.ID() {
+				if edge.Target == gitlink.ID() && edge.Source == source.ID() {
 					if edge.Kind != Imports || edge.Source != source.ID() || edge.Confidence != tc.confidence || edge.Evidence[0].Basis != "gitlink_boundary" || edge.Location.Path != tc.path || edge.Location.EndByte <= edge.Location.StartByte {
 						t.Fatal(edge)
 					}
@@ -392,7 +392,7 @@ func TestGitlinkImportPathBoundaries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	edges := g.RelationsTo(DocumentID("sdk"), Imports)
+	edges := g.RelationsFrom(DocumentID("app.ts"), Imports)
 	if len(edges) != 2 {
 		t.Fatal(edges)
 	}

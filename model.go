@@ -19,15 +19,16 @@ type NodeKind string
 const (
 	// DocumentKind represents the input material itself, including opaque gitlinks.
 	DocumentKind NodeKind = "Document"
-	// CallSite and ReferenceSite identify extracted source uses independently of
-	// whether static analysis can bind a target in the supplied documents.
-	CallSite      NodeKind = "CallSite"
-	ReferenceSite NodeKind = "ReferenceSite"
-	Struct        NodeKind = "Struct"
-	Interface     NodeKind = "Interface"
-	Field         NodeKind = "Field"
-	Method        NodeKind = "Method"
-	Function      NodeKind = "Function"
+	// Reference identifies a source use independently of whether static analysis
+	// can bind a target. Node.ReferenceKind distinguishes calls from other uses.
+	Reference NodeKind = "Reference"
+	Import    NodeKind = "Import"
+	Export    NodeKind = "Export"
+	Struct    NodeKind = "Struct"
+	Interface NodeKind = "Interface"
+	Field     NodeKind = "Field"
+	Method    NodeKind = "Method"
+	Function  NodeKind = "Function"
 	// Type represents a named type whose declaration is not a struct or interface
 	// literal (for example, type ID int); it does not infer an underlying type.
 	Type        NodeKind = "Type"
@@ -70,6 +71,12 @@ type Node struct {
 	Kind          NodeKind `json:"kind"`
 	Name          string   `json:"name"`
 	QualifiedName string   `json:"qualifiedName,omitempty"`
+	// ReferenceKind describes a Reference node's syntactic use.
+	// It remains set after a target is resolved;
+	// non-reference nodes leave it empty.
+	ReferenceKind ReferenceKind `json:"referenceKind,omitempty"`
+	// Binding is present on source import/export items, independently of resolution.
+	Binding *ModuleBinding `json:"binding,omitempty"`
 	// Receiver is the extractor's lexical receiver spelling on a source-use
 	// node, not a resolved type or qualified target name.
 	Receiver string    `json:"receiver,omitempty"`
@@ -88,6 +95,10 @@ type Node struct {
 }
 
 func cloneNode(n Node) Node {
+	if n.Binding != nil {
+		b := *n.Binding
+		n.Binding = &b
+	}
 	if n.Location != nil {
 		loc := *n.Location
 		n.Location = &loc
@@ -112,6 +123,31 @@ func declarationKind(kind string) (NodeKind, error) {
 	return "", fmt.Errorf("unsupported declaration kind %q", kind)
 }
 
+// ReferenceKind is the source syntax role, independent of whether a target exists.
+// Its vocabulary is separate from the relations established by static analysis.
+type ReferenceKind string
+
+const (
+	CallReference      ReferenceKind = "calls"
+	SymbolReference    ReferenceKind = "references"
+	BaseReference      ReferenceKind = "extends"
+	InterfaceReference ReferenceKind = "implements"
+	DecoratorReference ReferenceKind = "decorates"
+)
+
+// ModuleBinding preserves a source import/export item. Empty local/exported names
+// are meaningful for side-effect imports and wildcard exports. Specifier is source
+// spelling, not a resolved path. Form is named, default, namespace, wildcard,
+// side_effect or dynamic. Dynamic specifiers retain unevaluated source text.
+type ModuleBinding struct {
+	Specifier    string `json:"specifier,omitempty"`
+	ImportedName string `json:"importedName,omitempty"`
+	LocalName    string `json:"localName,omitempty"`
+	ExportedName string `json:"exportedName,omitempty"`
+	Form         string `json:"form"`
+	TypeOnly     bool   `json:"typeOnly,omitempty"`
+}
+
 type RelationKind string
 
 const (
@@ -129,10 +165,11 @@ const (
 	// OccursIn connects a source-use node to its nearest retained declaration,
 	// or its Document when no declaration encloses the use.
 	OccursIn RelationKind = "occurs_in"
-	// ResolvesTo connects a source-use node to each statically supported target.
-	// Its evidence is identical to the corresponding calls/references relation.
-	// No edge means no target was established in this publication, not no use.
-	ResolvesTo RelationKind = "resolves_to"
+	// Aliases connects a source name binding to the entity it denotes.
+	Aliases RelationKind = "aliases"
+	Exports RelationKind = "exports"
+	// Decorates connects a modifier occurrence to the declaration it modifies.
+	Decorates RelationKind = "decorates"
 )
 
 // Confidence describes evidence strength, not a calibrated probability.

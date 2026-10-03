@@ -136,7 +136,11 @@ func compareSemanticRelations(e *evaluation, o *oracle, a observed, nodeKeys map
 		return
 	}
 	organizationNodes := map[string]bool{}
+	sourceItems := map[string]bool{}
 	for _, n := range a.Nodes {
+		if n.Kind == cg.Reference || n.Kind == cg.Import || n.Kind == cg.Export {
+			sourceItems[n.ID] = true
+		}
 		if n.Location == nil {
 			organizationNodes[n.ID] = true
 		}
@@ -147,6 +151,11 @@ func compareSemanticRelations(e *evaluation, o *oracle, a observed, nodeKeys map
 	}
 	found := map[string]bool{}
 	for _, r := range a.Relations {
+		// This oracle compares declaration-level relations, not source-item projections.
+		if sourceItems[r.Source] {
+			e.Unassessed["source_relation/"+string(r.Kind)]++
+			continue
+		}
 		if r.Kind == cg.Imports && !organizationNodes[r.Target] {
 			e.Unassessed["relation/imports_symbol_or_boundary"]++
 			continue

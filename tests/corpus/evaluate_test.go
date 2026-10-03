@@ -30,8 +30,12 @@ func evaluate(o *oracle, a observed) evaluation {
 			}
 			continue
 		}
-		if n.Kind == cg.CallSite || n.Kind == cg.ReferenceSite {
-			e.Unassessed["occurrence/"+string(n.Kind)]++
+		if n.Kind == cg.Import || n.Kind == cg.Export {
+			e.Unassessed["module_item/"+string(n.Kind)]++
+			continue
+		}
+		if n.Kind == cg.Reference {
+			e.Unassessed["occurrence/"+string(n.ReferenceKind)]++
 			continue
 		}
 		if n.Kind == cg.DocumentKind {
@@ -75,6 +79,10 @@ func evaluate(o *oracle, a observed) evaluation {
 	references, calls, imports := map[string]bool{}, map[string]bool{}, map[string]bool{}
 	for _, f := range a.Facts {
 		for _, r := range f.References {
+			if r.Kind != "" && r.Kind != cg.SymbolReference {
+				e.Unassessed["reference_fact/"+string(r.Kind)]++
+				continue
+			}
 			references[location(r.Location).key()] = true
 		}
 		for _, c := range f.Calls {
@@ -158,7 +166,16 @@ func compareBindings(e *evaluation, kind cg.RelationKind, truth map[string]occur
 	}
 	e.Bindings[kind] = b
 	hits, candidates := map[string]bool{}, map[string]map[string]bool{}
+	sourceUses := map[string]bool{}
+	for _, n := range a.Nodes {
+		if n.Kind == cg.Reference {
+			sourceUses[n.ID] = true
+		}
+	}
 	for _, edge := range a.Relations {
+		if sourceUses[edge.Source] {
+			continue
+		}
 		if edge.Kind != kind {
 			continue
 		}

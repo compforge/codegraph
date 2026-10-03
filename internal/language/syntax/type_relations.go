@@ -32,16 +32,16 @@ func (x ModuleExtractor) extractModuleTypeRelations(f *Facts, tree *gts.Tree) {
 			if base.Type(lang) == "call" || base.Type(lang) == "call_expression" {
 				name = ""
 			}
-			if name == "" {
+			blocked := name == ""
+			if blocked {
 				f.Issues = append(f.Issues, Issue{Code: "unsupported_type_relation", Message: "base type expression is not a named binding", Subject: "relations", Relation: kind, Span: span})
-				return
+				name = base.Text(f.Source)
 			}
-			allowed := x.moduleTypeRelationAllowed(f, tree, base, owner, name, module)
-			if !allowed {
+			allowed := !blocked && x.moduleTypeRelationAllowed(f, tree, base, owner, name, module)
+			if !allowed && !blocked {
 				f.Issues = append(f.Issues, Issue{Code: "shadowed_type_relation", Message: "base type name has a conflicting lexical binding", Subject: "relations", Relation: kind, Span: span})
-				return
 			}
-			f.TypeRelations = append(f.TypeRelations, TypeRelation{Owner: owner, Name: name, Module: module, Kind: kind, Basis: "explicit_" + kind, Span: span})
+			f.TypeRelations = append(f.TypeRelations, TypeRelation{Blocked: !allowed, Owner: owner, Name: name, Module: module, Kind: kind, Basis: "explicit_" + kind, Span: span})
 		}
 		x.Dialect.Bases(n, lang, add)
 	})

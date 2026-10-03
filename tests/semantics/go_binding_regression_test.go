@@ -117,7 +117,7 @@ func TestGoCompositeKeyBinding(t *testing.T) {
 			keyStart := strings.Index(source, "Key: Key")
 			valueStart := keyStart + 5
 			keyEdges, valueEdges := 0, 0
-			rows := query(t, g, `MATCH ()-[r:references]->(target) RETURN r,target`, nil)
+			rows := query(t, g, `MATCH (source)-[r:references]->(target) WHERE source.kind <> 'Reference' RETURN r,target`, nil)
 			for _, row := range rows {
 				e, n := row["r"].(codegraph.Relation), row["target"].(codegraph.Node)
 				if e.Location.Path != "app.go" {
@@ -178,7 +178,7 @@ func TestGoCompositeKeyImportedTypeAndReload(t *testing.T) {
 	check := func(want int) {
 		t.Helper()
 		count := 0
-		for _, row := range query(t, g.Result(), `MATCH ()-[r:references]->(target) RETURN r,target`, nil) {
+		for _, row := range query(t, g.Result(), `MATCH (source)-[r:references]->(target) WHERE source.kind <> 'Reference' RETURN r,target`, nil) {
 			e, n := row["r"].(codegraph.Relation), row["target"].(codegraph.Node)
 			if e.Location.Path == "app.go" && e.Location.StartByte == keyStart {
 				count++

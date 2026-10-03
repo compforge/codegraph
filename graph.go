@@ -58,7 +58,7 @@ func (g *Graph) Report() BuildReport {
 func (g *Graph) Find(path string, kind NodeKind, qualifiedName string) []Node {
 	out := make([]Node, 0)
 	for _, node := range g.nodes {
-		if node.Kind == DocumentKind || node.Kind == CallSite || node.Kind == ReferenceSite || node.Location == nil || node.Location.Path != path {
+		if node.Kind == DocumentKind || node.Kind == Reference || node.Kind == Import || node.Kind == Export || node.Location == nil || node.Location.Path != path {
 			continue
 		}
 		if kind != "" && node.Kind != kind {
@@ -225,8 +225,17 @@ func (g *Graph) materialize(ctx context.Context, nodes map[string]Node, relation
 			return nil, err
 		}
 		props := map[string]any{"id": n.ID, "kind": string(n.Kind), "name": n.Name, "qualifiedName": n.QualifiedName, "language": n.Language, "snapshot": g.snapshot}
-		if n.Kind == CallSite || n.Kind == ReferenceSite {
+		if n.Kind == Reference {
 			props["receiver"] = n.Receiver
+			props["referenceKind"] = string(n.ReferenceKind)
+		}
+		if n.Binding != nil {
+			props["specifier"] = n.Binding.Specifier
+			props["importedName"] = n.Binding.ImportedName
+			props["localName"] = n.Binding.LocalName
+			props["exportedName"] = n.Binding.ExportedName
+			props["form"] = n.Binding.Form
+			props["typeOnly"] = n.Binding.TypeOnly
 		}
 		if n.Gitlink != "" {
 			props["gitlink"] = n.Gitlink

@@ -24,6 +24,11 @@ func (b Binder) Bind(ctx context.Context, scope analysis.BuildScope, index *anal
 			return analysis.BindResult{}, err
 		}
 		edges = append(edges, found...)
+		items, err := sourceItemEdges(ctx, scope.Files[p], methods.namespaces, limit-len(edges))
+		if err != nil {
+			return analysis.BindResult{}, err
+		}
+		edges = append(edges, items...)
 		issues = append(issues, gaps...)
 	}
 	return analysis.BindResult{Edges: edges, Issues: issues, Resolver: session{scope, b.Policy}}, nil

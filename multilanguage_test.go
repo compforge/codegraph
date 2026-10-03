@@ -155,7 +155,7 @@ func TestModuleDeclarationsAndMarkers(t *testing.T) {
 			}
 			got := map[string]NodeKind{}
 			for _, n := range g.Nodes() {
-				if n.Kind != DocumentKind && n.Location != nil {
+				if n.Kind != DocumentKind && n.Kind != Reference && n.Kind != Import && n.Kind != Export && n.Location != nil {
 					got[n.QualifiedName] = n.Kind
 				}
 				if n.QualifiedName == tc.marked && (len(n.Markers) != 1 || n.Markers[0].Kind != Rule) {
@@ -182,7 +182,7 @@ func TestImportCandidatesAndScope(t *testing.T) {
 	if err != nil || len(r.Diagnostics) != 0 {
 		t.Fatal(r, err)
 	}
-	rows := query(t, g, `MATCH ()-[r:imports]->() RETURN r`, nil)
+	rows := query(t, g, `MATCH (:Document)-[r:imports]->() RETURN r`, nil)
 	if len(rows) != 2 {
 		t.Fatal(rows)
 	}
@@ -192,7 +192,7 @@ func TestImportCandidatesAndScope(t *testing.T) {
 		}
 	}
 	g, r, err = Build(context.Background(), "rev", documents(fs, "src/app.ts", "src/lib.ts", "src/lib.js"), Options{Scope: []string{"src/app.ts"}})
-	if err != nil || (len(r.Diagnostics) == 0) || len(g.Nodes()) != 2 || !hasDiagnostic(r, "out_of_scope") {
+	if err != nil || (len(r.Diagnostics) == 0) || len(g.Nodes()) != 3 || !hasDiagnostic(r, "out_of_scope") {
 		t.Fatal(r, err)
 	}
 }
@@ -222,7 +222,12 @@ func TestLanguageDiscoveryAndCapabilities(t *testing.T) {
 		t.Fatal("unknown language capability invented")
 	}
 	for _, cap := range Capabilities() {
-		relations := []RelationKind{OccursIn, ResolvesTo, Declares, Contains, Encloses, Imports, Calls, References, Extends}
+		relations := []RelationKind{OccursIn, Aliases, Declares, Contains, Encloses, Imports, Calls, References, Extends}
+		if cap.Language == "python" {
+			relations = append([]RelationKind{OccursIn, Aliases, Decorates}, relations[2:]...)
+		} else if cap.Language != "go" {
+			relations = append([]RelationKind{OccursIn, Aliases, Exports, Decorates}, relations[2:]...)
+		}
 		if cap.Language == "go" || cap.Language == "typescript" || cap.Language == "tsx" {
 			relations = append(relations, Implements)
 		}

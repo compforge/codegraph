@@ -135,7 +135,7 @@ func TestInheritedMethodCyclesAndNoImplementsInheritance(t *testing.T) {
 
 func TestInheritedMethodBudgetRollback(t *testing.T) {
 	ctx := context.Background()
-	g, _, err := buildTestBuilder(ctx, "budget", []codegraph.Document{{Path: "base.js", Content: []byte("export class Base {run(){}}")}}, codegraph.Options{MaxRelations: 7})
+	g, _, err := buildTestBuilder(ctx, "budget", []codegraph.Document{{Path: "base.js", Content: []byte("export class Base {run(){}}")}}, codegraph.Options{MaxRelations: 10})
 	if err != nil {
 		t.Fatal(err)
 	}

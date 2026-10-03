@@ -28,9 +28,9 @@ type BindResult struct {
 	Resolver RelationResolver
 }
 type Capability struct {
-	Documentation                                                             bool
-	Language                                                                  string
-	Organizations, Declarations, Occurrences, Relations, Markers, Limitations []string
+	Documentation                                                                         bool
+	Language                                                                              string
+	Organizations, Declarations, SourceItems, References, Relations, Markers, Limitations []string
 }
 type Adapter struct {
 	Extractor Extractor

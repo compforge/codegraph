@@ -52,7 +52,7 @@ func TestGoMemberReferenceReceivers(t *testing.T) {
 				t.Fatal(err)
 			}
 			selectorStart := strings.LastIndex(source, tc.expr) + strings.LastIndex(tc.expr, ".") + 1
-			rows := query(t, g, `MATCH ()-[r:references]->(target) RETURN r,target`, nil)
+			rows := query(t, g, `MATCH (source)-[r:references]->(target) WHERE source.kind <> 'Reference' RETURN r,target`, nil)
 			count := 0
 			for _, row := range rows {
 				edge, target := row["r"].(codegraph.Relation), row["target"].(codegraph.Node)
@@ -99,7 +99,7 @@ func TestGoMemberReferencesImportedReload(t *testing.T) {
 	check := func(want int) {
 		t.Helper()
 		count := 0
-		for _, row := range query(t, g.Result(), `MATCH ()-[r:references]->(target) RETURN r,target`, nil) {
+		for _, row := range query(t, g.Result(), `MATCH (source)-[r:references]->(target) WHERE source.kind <> 'Reference' RETURN r,target`, nil) {
 			e, n := row["r"].(codegraph.Relation), row["target"].(codegraph.Node)
 			if e.Location.Path == "app.go" && (n.Kind == codegraph.Field || n.Kind == codegraph.Method) {
 				count++

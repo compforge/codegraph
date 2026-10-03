@@ -16,6 +16,10 @@ func resolveReferences(ctx context.Context, files map[string]analysis.Facts, nam
 			if err := ctx.Err(); err != nil {
 				return nil, nil, err
 			}
+			kind := r.Kind
+			if kind == "" {
+				kind = "references"
+			}
 			targets, confidence := lexicalReferenceTargets(f, r)
 			basis := "lexical_binding"
 			if r.BindingState() == analysis.NotApplicable {
@@ -28,10 +32,10 @@ func resolveReferences(ctx context.Context, files map[string]analysis.Facts, nam
 						if len(edges) >= limit {
 							return nil, nil, ErrEdgeLimit
 						}
-						edges = append(edges, Edge{Source: analysis.SourceRef(name, r.Owner), Target: target.Ref, Kind: "references", Confidence: target.Confidence, Basis: "imported_binding", Path: name, Span: r.Span})
+						edges = append(edges, Edge{Source: analysis.SourceRef(name, r.Owner), Target: target.Ref, Kind: kind, Confidence: target.Confidence, Basis: "imported_binding", Path: name, Span: r.Span})
 					}
 					if len(imported) == 0 {
-						issues = append(issues, Issue{Path: name, Code: "unresolved_reference", Reference: r.Name, Relation: "references", Span: r.Span})
+						issues = append(issues, Issue{Path: name, Code: "unresolved_reference", Reference: r.Name, Relation: kind, Span: r.Span})
 					}
 					continue
 				}
@@ -40,10 +44,10 @@ func resolveReferences(ctx context.Context, files map[string]analysis.Facts, nam
 				if len(edges) >= limit {
 					return nil, nil, ErrEdgeLimit
 				}
-				edges = append(edges, Edge{Source: analysis.SourceRef(name, r.Owner), Target: target, Kind: "references", Confidence: confidence, Basis: basis, Path: name, Span: r.Span})
+				edges = append(edges, Edge{Source: analysis.SourceRef(name, r.Owner), Target: target, Kind: kind, Confidence: confidence, Basis: basis, Path: name, Span: r.Span})
 			}
 			if len(targets) == 0 {
-				issues = append(issues, Issue{Path: name, Code: "unresolved_reference", Reference: r.Name, Relation: "references", Span: r.Span})
+				issues = append(issues, Issue{Path: name, Code: "unresolved_reference", Reference: r.Name, Relation: kind, Span: r.Span})
 			}
 		}
 	}
