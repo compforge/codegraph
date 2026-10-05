@@ -19,7 +19,7 @@ func completeOrganizations(o *oracle, docs []cg.Document) {
 	for id, u := range o.Organizations {
 		for path, at := range u.Contributions {
 			roots[path] = id
-			o.Relations = append(o.Relations, semanticRelation{"file:" + path, id, cg.Declares, at})
+			o.Relations = append(o.Relations, semanticRelation{"file:" + path, id, cg.Declares, at}, semanticRelation{"file:" + path, id, cg.InNamespace, at})
 			if u.Parent != "" {
 				o.Relations = append(o.Relations, semanticRelation{u.Parent, id, cg.Contains, at})
 			}

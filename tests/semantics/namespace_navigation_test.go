@@ -88,6 +88,9 @@ func TestGoModuleOrganizationAndNavigation(t *testing.T) {
 			}
 		}
 	}
+	if len(query(t, g, `MATCH (:Function {name:'Run'})-[:calls]->(:Function {name:'Work'}) RETURN 1`, nil)) != 1 {
+		t.Fatal("nested module context disabled root-module imports")
+	}
 	method := g.Find("lib/method.go", cg.Method, "")[0]
 	got, err := g.NamespaceAncestors(ctx, method.ID, cg.NamespaceOptions{})
 	if err != nil || len(got) != 3 || got[0].Node.Kind != cg.Struct || got[1].Node.Kind != cg.Package || got[2].Node.Kind != cg.Module {
@@ -205,5 +208,39 @@ func TestGoModuleContextReorganizesStablePackages(t *testing.T) {
 	restored, _, err := b.Build(ctx)
 	if err != nil || !reflect.DeepEqual(restored.Nodes(), before.Nodes()) || !reflect.DeepEqual(restored.Relations(), before.Relations()) {
 		t.Fatal("obsolete context retained", err)
+	}
+}
+
+// The identical physical path is interpreted by each language organizer.
+func TestDocumentPathUsesLanguageOrganization(t *testing.T) {
+	for _, tc := range []struct {
+		extension, source string
+		kind              cg.NodeKind
+		name              string
+	}{
+		{"go", "package example\n", cg.Package, "a/b/c:example"},
+		{"py", "value = 1\n", cg.Module, "d"},
+		{"ts", "export const value = 1;", cg.Module, "a/b/c/d"},
+		{"js", "export const value = 1;", cg.Module, "a/b/c/d"},
+	} {
+		t.Run(tc.extension, func(t *testing.T) {
+			path := "a/b/c/d." + tc.extension
+			g, _, err := cg.Build(context.Background(), tc.extension, []cg.Document{{Path: path, Content: []byte(tc.source)}}, cg.Options{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			edges := g.RelationsFrom(cg.DocumentID(path), cg.InNamespace)
+			if len(edges) != 1 {
+				t.Fatal(edges)
+			}
+			root, _ := g.Node(edges[0].Target)
+			if root.Kind != tc.kind || root.QualifiedName != tc.name {
+				t.Fatal(root)
+			}
+			matches, err := g.NamespaceAncestors(context.Background(), cg.DocumentID(path), cg.NamespaceOptions{})
+			if err != nil || len(matches) != 1 || matches[0].Paths[0].Relations[0].Kind != cg.InNamespace {
+				t.Fatal(matches, err)
+			}
+		})
 	}
 }

@@ -92,7 +92,8 @@ RETURN source.path, gitlink.path, gitlink.gitlink, r.confidence
 ## 图中表达
 
 每份材料对应一个 Document 节点，Go 常量为 DocumentKind，Cypher 标签为 Document。
-源码通过 declares 连接声明或组织贡献；Package、Module 等实体通过 contains 组织直接成员。
+源码通过 declares 连接声明或组织贡献，通过 in_namespace 连接语言确定的组织根；
+Package、Module 等实体通过 contains 组织直接成员。路径的组织含义由语言适配器解释。
 Document 的来源身份与 Namespace 的成员身份各有职责，允许多个文件贡献同一个组织。
 
 gitlink 只保留材料边界及指向它的导入证据，不产生内部声明。

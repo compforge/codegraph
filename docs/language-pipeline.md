@@ -37,7 +37,8 @@ Python/ECMAScript 的 dialect 在单文件提取中登记脱离 AST 的 Lexicon�
 接收者类型线索共享其查找结果；语言实现负责声明位置、父级跳转、参数和块等规则。
 
 所有阶段贡献进入 `Index.Add`：按 Source/Target/Kind/源码位置登记 occurrence，合并、去重、排序
-Evidence，并派生 confidence。Namespace 的成员与源码贡献由同一登记结果投影。
+Evidence，并派生 confidence。Organizer 的 document 根发布为 in_namespace，根可为源码声明
+或合成实体；路径的组织语义留在语言适配器。Namespace 的成员与源码贡献由同一登记结果投影。
 不同 Kind 或源码位置不能去重；来源不同的证据不能最后写入覆盖。语言阶段提供单条贡献时可用
 内部 Edge 的 Basis/Confidence 简写，聚合后以 Evidence 为准。
 

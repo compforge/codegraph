@@ -167,7 +167,7 @@ func TestDeclaredNamespaceRootAndLaterOrganization(t *testing.T) {
 			}}, nil
 		})}
 	}
-	index, _, err := Build(context.Background(), analysis.NewBuildScope(files, ""), 5, 7, 100, lookup)
+	index, _, err := Build(context.Background(), analysis.NewBuildScope(files, ""), 5, 9, 100, lookup)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,10 +187,17 @@ func TestDeclaredNamespaceRootAndLaterOrganization(t *testing.T) {
 	if len(index.Namespace(child).Contributions()) != 1 || len(index.Namespace(child).Members("C")) != 0 {
 		t.Fatal("empty module inherited ancestor members")
 	}
+	roots := map[analysis.Ref]analysis.Ref{}
 	for _, e := range index.Edges {
+		if e.Kind == "in_namespace" {
+			roots[e.Source] = e.Target
+		}
 		if e.Kind == "contains" && e.Source.IsDocument() {
 			t.Fatal("source material became a member owner")
 		}
+	}
+	if roots[analysis.DocumentRef("a.probe")] != root || roots[analysis.DocumentRef("b.probe")] != child {
+		t.Fatal("document roots not published", roots)
 	}
 }
 

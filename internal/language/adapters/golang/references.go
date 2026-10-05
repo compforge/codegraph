@@ -59,11 +59,11 @@ func resolveReferences(ctx context.Context, files map[string]analysis.Facts, nam
 				}
 			} else if r.Receiver != "" && f.Language == "go" {
 				for _, imp := range f.Imports {
-					dir, local := methods.namespaces.Resolution.GoImportDir(module, imp.Path)
+					dir, local := methods.namespaces.Resolution.GoImportDir(imp.Path)
 					if !local {
 						continue
 					}
-					for _, targetPath := range methods.namespaces.GoImportFiles(module, imp.Path) {
+					for _, targetPath := range methods.namespaces.GoImportFiles(imp.Path) {
 						target := files[targetPath]
 						alias := imp.Alias
 						if alias == "" {

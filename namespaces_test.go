@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -63,7 +64,7 @@ func TestNamespaceQueriesConfidenceIdentityAndDetachment(t *testing.T) {
 			t.Fatal(got, err)
 		}
 	}
-	for _, opts := range []NamespaceOptions{{MinConfidence: "bogus"}, {Kinds: []NodeKind{Function}}} {
+	for _, opts := range []NamespaceOptions{{MinConfidence: "bogus"}} {
 		if _, err := g.NamespaceAncestors(ctx, "f", opts); err == nil {
 			t.Fatal("invalid options accepted")
 		}
@@ -101,9 +102,90 @@ func TestNamespaceQueriesBudgetsCancellationAndCycles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	g = namespaceQueryGraph()
+	g.limits.Hops = 3
 	g.relations["cycle"] = Relation{ID: "cycle", Source: "class", Target: "root", Kind: Contains, Confidence: Exact}
 	after, err := g.NamespaceAncestors(context.Background(), "f", NamespaceOptions{})
 	if err != nil || !reflect.DeepEqual(before, after) {
 		t.Fatal(after, err)
+	}
+}
+
+func TestDocumentNamespaceIsExplicit(t *testing.T) {
+	g := namespaceQueryGraph()
+	g.nodes["doc"] = Node{ID: "doc", Kind: DocumentKind}
+	// The declared class has a source location, yet the language can select it
+	// as its document root. An unrelated synthetic contribution is not a root.
+	g.relations["org"] = Relation{ID: "org", Source: "doc", Target: "class", Kind: InNamespace, Confidence: Exact, Evidence: []Evidence{{Basis: "document_namespace", Confidence: Exact, Location: &Location{Path: "a.ts"}}}}
+	g.relations["unrelated"] = Relation{ID: "unrelated", Source: "doc", Target: "b", Kind: Declares, Confidence: Exact}
+	got, err := g.NamespaceAncestors(context.Background(), "doc", NamespaceOptions{})
+	if err != nil || len(got) != 3 || got[0].Node.ID != "class" || got[0].Depth != 1 {
+		t.Fatal(got, err)
+	}
+	for _, match := range got {
+		if len(match.Paths) != 1 || len(match.Paths[0].Relations) != match.Depth || match.Paths[0].Nodes[0].ID != "doc" || match.Paths[0].Nodes[match.Depth].ID != match.Node.ID {
+			t.Fatal(match)
+		}
+	}
+	got[0].Paths[0].Relations[0].Evidence[0].Location.Path = "mutated"
+	if g.relations["org"].Evidence[0].Location.Path != "a.ts" {
+		t.Fatal("proof aliases graph")
+	}
+}
+
+func TestNamespaceProofConfidenceAndCache(t *testing.T) {
+	g := namespaceQueryGraph()
+	// A weaker direct route is shorter than the exact route via a. The result
+	// must explain the selected route, not borrow confidence from a longer one.
+	g.relations["shortcut"] = Relation{ID: "shortcut", Source: "root", Target: "class", Kind: Contains, Confidence: Scoped}
+	ctx := context.Background()
+	for _, tc := range []struct {
+		minimum    Confidence
+		depth      int
+		confidence Confidence
+	}{{Exact, 3, Exact}, {Scoped, 2, Scoped}} {
+		matches, err := g.CommonNamespaces(ctx, []string{"f", "g"}, NamespaceOptions{MinConfidence: tc.minimum, Kinds: []NodeKind{Module}})
+		if err != nil || len(matches) != 1 || matches[0].Depth != tc.depth || matches[0].Confidence != tc.confidence || len(matches[0].Paths) != 2 {
+			t.Fatal(matches, err)
+		}
+		for i, path := range matches[0].Paths {
+			if path.Nodes[0].ID != []string{"f", "g"}[i] {
+				t.Fatal("lost input provenance", path)
+			}
+		}
+	}
+	index := g.namespaceIndex
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if _, err := g.NamespaceAncestors(ctx, "f", NamespaceOptions{}); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	wg.Wait()
+	if g.namespaceIndex != index {
+		t.Fatal("index rebuilt")
+	}
+}
+
+func TestNamespaceEqualDistanceUsesStrongerProof(t *testing.T) {
+	g := namespaceQueryGraph()
+	// Both paths from class to root have two hops. Only the path through a is exact.
+	matches, err := g.NamespaceAncestors(context.Background(), "class", NamespaceOptions{MinConfidence: Scoped, Kinds: []NodeKind{Module}})
+	if err != nil || len(matches) != 1 || matches[0].Confidence != Exact || matches[0].Paths[0].Nodes[1].ID != "a" {
+		t.Fatal(matches, err)
+	}
+}
+
+func TestNamespaceRoleComesFromMembership(t *testing.T) {
+	g := namespaceQueryGraph()
+	g.nodes["outer"] = Node{ID: "outer", Kind: Function}
+	g.relations["local"] = Relation{ID: "local", Source: "outer", Target: "f", Kind: Contains, Confidence: Exact}
+	matches, err := g.NamespaceAncestors(context.Background(), "f", NamespaceOptions{Kinds: []NodeKind{Function}})
+	if err != nil || len(matches) != 1 || matches[0].Node.ID != "outer" {
+		t.Fatal(matches, err)
 	}
 }

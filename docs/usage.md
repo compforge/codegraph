@@ -42,7 +42,8 @@ Facts 内部持有完整只读材料，公开字段用于检查；修改字段�
 失败构建保留 `Builder.Result`。单文件解析错误可用 `AddFailure` 保留材料身份与诊断，
 取消和预算失败应直接返回。
 
-`ResolutionContext.GoModules` 提供模块根映射；`Imports` 提供具体导入位置的模块候选、
+`ResolutionContext.GoModules` 提供模块根映射；ModulePath 填充缺省根，显式 `.` 映射优先，
+包组织与导入解析使用同一份模块上下文。`Imports` 提供具体导入位置的模块候选、
 精度上限和依据。省略的导入沿用语言规则，显式空候选表示已知未解析。
 上下文在接纳时复制，可用 `SetResolutionContext` 在下一次 Build 前替换。
 
@@ -63,12 +64,18 @@ matches, err := g.CommonNamespaces(ctx, []string{
 })
 if err != nil { return err }
 for _, match := range matches {
-    fmt.Println(match.Node.Kind, match.Node.QualifiedName, match.Depth)
+    fmt.Println(match.Node.Kind, match.Node.QualifiedName, match.Depth, match.Confidence)
+    for _, path := range match.Paths {
+        for _, relation := range path.Relations {
+            fmt.Println(relation.Kind, relation.Confidence, relation.Evidence)
+        }
+    }
 }
 ```
 
 `NamespaceAncestors(ctx, nodeID, options)` 查询单节点的祖先，namespace 本身也在结果中。
 默认要求 exact 归属；若接受候选关系，可显式设置 MinConfidence。结果按距离由近及远，
+每个结果包含从各输入出发的路径与证据；Document 的第一条关系是 in_namespace。
 空结果表示当前图无法证明共同归属。语义与语言边界见 [命名空间组织](namespaces.md#祖先与共同归属)。
 
 ## 从 Graph 读取文件结构

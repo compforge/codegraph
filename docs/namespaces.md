@@ -10,6 +10,8 @@ Document、Package、Module、Class、Function 等 Kind，不增加 Symbol 标�
 `declares` 从 Document 指向它声明或构成的节点，保留源码贡献位置。`encloses` 从 Document
 或声明指向同文件内直接嵌套的已保留声明，表达文件的源码结构。`contains` 从语义所有者
 指向直接成员，支持 Namespace 任意层级嵌套；祖先关系通过有界路径查询获得。
+`in_namespace` 从 Document 指向语言确定的组织根，与 declares 的源码贡献分开。
+根既可以是合成组织，也可以是有源码位置的声明；位置是否存在不决定归属。
 
 ```text
 Document: src/app/__init__.py ─declares→ Package: app
@@ -29,7 +31,8 @@ Document 可以与类型不同。方法通过 contains 归属接收者类型，�
 
 ## 构建与名称解析
 
-语言 Organizer 给出实体及 Document 的语义根，全部实体登记后形成成员视图，
+语言 Organizer 解释源码和 document path，给出实体、Document 的语义根以及组织关系。
+公共构图层把语义根发布为 in_namespace，全部实体登记后形成成员视图，
 Binder 补充跨文件接收者归属。组织与 Class 共用成员查询入口，源码贡献从 declares 读取。
 成员索引和已绑定的 extends 供后续引用与调用解析使用，阶段接口见 [语言构建流程](language-pipeline.md)。
 
@@ -44,8 +47,8 @@ Package，具名导入另保留最终声明目标；模块名称引用也指向�
 `Wait` 后通过 Cypher 或 `Node`、`RelationsFrom`、`RelationsTo` 查询组织与贡献：
 
 ```cypher
-MATCH (:Document {path:$path})-[:declares]->(p:Package)
-RETURN p
+MATCH (:Document {path:$path})-[:in_namespace]->(owner)
+RETURN owner
 ```
 
 ```cypher
@@ -77,9 +80,18 @@ Document 使用材料路径身份；声明及合成实体统一使用 `node:` �
 
 ## 语言证据边界
 
+同一条路径 `a/b/c/d.xx` 的组织意义由语言决定，公共层不把每段路径展开成统一节点树：
+
+| 语言 | 文件及路径的解释 | 已有组织层级 |
+|---|---|---|
+| Go | `a/b/c` 与源码 package 名确定 Package | 提供模块上下文时 Module 包含 Package；中间目录不自动成为父包 |
+| Python | `d.py` 是文件 Module；已加载初始化文件建立普通 Package | Package 可以包含子 Package 和 Module |
+| JS/TS | 文件形成 Module，路径用于身份及相对导入 | 文件内显式 Namespace、Class 等按语言规则组织；目录不成为父 Module |
+
 Go 同目录同 package 名的已加载文件共同贡献 Package；测试文件不成为生产 import 的目标。
 调用方通过 `ModulePath` 或 `ResolutionContext.GoModules` 提供模块边界时，构造
-`Module ─contains→ Package`，多个 Package 可由此找到共同模块。最具体的 module 根决定归属，
+`Module ─contains→ Package`，多个 Package 可由此找到共同模块。ModulePath 作为根映射的简写，与 GoModules 统一后用于组织和导入解析；显式 `.` 映射优先。
+最具体的 module 根决定归属，
 嵌套 module 相互独立；Go 目录层次不产生父子 Package。没有 module 上下文时保留 Package 根。
 Module 表达模块内的包组织，文件词法作用域与同包绑定仍由 Package 及 Scope/Binding 决定。
 CodeGraph 不读取 go.mod，也不根据路径前缀虚构 module 或仓库根。
@@ -100,14 +112,23 @@ JS/TS 文件 Module 表达所提供源码单元的静态组织，不证明 ESM/C
 ## 祖先与共同归属
 
 `NamespaceAncestors` 从节点沿语义归属查询祖先，`CommonNamespaces` 求多个节点的共同祖先。
-Document 通过 declares 找到它贡献的合成 Package / Module 根，再沿入向 contains 向上；
+Document 通过 in_namespace 找到语言确定的组织根，再沿入向 contains 向上；
 普通声明沿 contains 向上，Reference、Import、Export 经 occurs_in 找到源码所在上下文。
-Class 等同时组织成员的声明也属于 namespace 查询结果；namespace 自身位于深度零。
+Class 等 namespace 类别及图中实际拥有成员的节点都可返回，例如包含局部声明的函数；
+namespace 自身位于深度零。查询不规定 Module、Package、Namespace 的排列顺序。
 这些查询只读 Node + Relation，不按文件路径猜父级，也不沿 aliases 转移到目标的 namespace。
 
 默认只使用 exact 关系，可用 MinConfidence 纳入 scoped 等候选。Kinds 只筛选返回类别，
 不阻断中间的 Class 等成员所有者。结果按最短关系距离排序；共同祖先按各输入距离的最大值排序，
 同距离按节点 ID 排序。所有共同祖先都会返回，由消费方选择分组边界。
+
+每个结果的 Paths 按去重后的输入顺序保留一条最短有效路径，节点按遍历顺序排列，关系保留
+存储方向、confidence 与 evidence。同长度路径优先选择证据更强的路径，再按稳定身份裁决。
+结果 Confidence 是这些已返回路径中最弱的关系精度，零跳身份路径为 exact；它不代表所有
+更长路径的最强精度。需要只接受强证据时提高 MinConfidence。
+
+邻接索引由不可变 Graph 缓存，查询条件在遍历时应用；补料发布的新 Graph 拥有独立索引。
+路径及证据全部返回独立副本，并计入查询结果预算。
 
 局部图可有多个根，没有共同归属时返回空；未知输入也返回空，不忽略某个输入后求交集。
 执行取消、超时与预算超限返回 error，不将截断结果当成完整祖先集合。查询遵守 Graph 的

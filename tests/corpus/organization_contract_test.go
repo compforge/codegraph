@@ -21,7 +21,7 @@ func TestOrganizationAndOccurrenceOracleRejectsLoss(t *testing.T) {
 		t.Fatal(err)
 	}
 	e := evaluate(o, a)
-	for _, key := range []string{"organizations/Module", "organizations/Package", "relation_occurrences/declares", "relation_occurrences/contains", "relation_occurrences/imports", "relation_occurrences/calls", "relation_occurrences/references"} {
+	for _, key := range []string{"organizations/Module", "organizations/Package", "relation_occurrences/declares", "relation_occurrences/in_namespace", "relation_occurrences/contains", "relation_occurrences/imports", "relation_occurrences/calls", "relation_occurrences/references"} {
 		m := e.Measurements[key]
 		if m == nil || m.Expected == 0 || m.Found != m.Expected || m.Unexpected != 0 {
 			t.Fatalf("%s: %+v findings=%v", key, m, e.Findings)
