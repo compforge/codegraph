@@ -231,6 +231,7 @@ func TestLanguageDiscoveryAndCapabilities(t *testing.T) {
 		if cap.Language == "go" || cap.Language == "typescript" || cap.Language == "tsx" {
 			relations = append(relations, Implements)
 		}
+		relations = append([]RelationKind{InNamespace}, relations...)
 		if len(cap.Declarations) == 0 || !reflect.DeepEqual(cap.Relations, relations) || len(cap.Markers) != 5 {
 			t.Fatal(cap)
 		}

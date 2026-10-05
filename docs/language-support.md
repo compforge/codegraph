@@ -75,6 +75,10 @@ Facts.Calls.Targets 保存语法提出的名称、接收者类型、模块限定
 
 ## Go
 
+同目录同 package 名的源码贡献 Package；调用方提供 ModulePath / GoModules 时，Module
+通过 contains 组织所辖 Package。最具体模块根决定归属，目录嵌套不推导父子包或父子模块。
+
+
 ### 声明与组织
 
 提取函数、方法、命名 struct/interface、字段、接口显式方法、其他命名类型、类型别名、

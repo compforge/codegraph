@@ -62,7 +62,7 @@ Extract 返回带 Gitlink 的事实；入图后仍是 Document，可通过 Node.
 
 - JS/TS/TSX 相对路径支持直接指向边界或其内部路径。
 - Python 使用模块路径规则：显式相对导入可为 exact，绝对导入仍为 scoped。
-- Go 使用调用方提供的 ModulePath 将模块内导入换算为路径。
+- Go 使用调用方提供的 ModulePath / GoModules 组织 Module 与 Package，并将模块内导入换算为路径。
 
 路径前缀按目录段匹配，sdk-extra 不属于 sdk。@example/sdk 等包名不能从 commit 推断，
 缺少路径证据时仍保留未解析导入。内部 Module、Package、声明与调用需要子仓源码；
@@ -92,7 +92,8 @@ RETURN source.path, gitlink.path, gitlink.gitlink, r.confidence
 ## 图中表达
 
 每份材料对应一个 Document 节点，Go 常量为 DocumentKind，Cypher 标签为 Document。
-源码通过 declares 连接声明或组织贡献；Package、Module 等实体通过 contains 组织直接成员。
+源码通过 declares 连接声明或组织贡献，通过 in_namespace 连接语言确定的组织根；
+Package、Module 等实体通过 contains 组织直接成员。路径的组织含义由语言适配器解释。
 Document 的来源身份与 Namespace 的成员身份各有职责，允许多个文件贡献同一个组织。
 
 gitlink 只保留材料边界及指向它的导入证据，不产生内部声明。

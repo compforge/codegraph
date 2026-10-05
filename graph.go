@@ -15,14 +15,16 @@ import (
 // Every constructor returns a fixed snapshot of nodes and relations.
 // +spec=Node and Relation values are the sole code-fact source for graph consumers; derived views never read extraction artifacts.
 type Graph struct {
-	snapshot  string
-	nodes     map[string]Node
-	relations map[string]Relation
-	report    BuildReport
-	limits    graphstore.Limits
-	timeout   time.Duration
-	storeMu   sync.Mutex
-	store     *graphstore.Store
+	snapshot       string
+	nodes          map[string]Node
+	relations      map[string]Relation
+	report         BuildReport
+	limits         graphstore.Limits
+	timeout        time.Duration
+	storeMu        sync.Mutex
+	store          *graphstore.Store
+	namespaceMu    sync.Mutex
+	namespaceIndex *namespaceIndex
 }
 
 func (g *Graph) Snapshot() string { return g.snapshot }

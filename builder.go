@@ -189,7 +189,9 @@ type Options struct {
 	ExtractionCache *ExtractionCache
 	// BuildConcurrency bounds parallel document extraction within a batch.
 	// Zero selects min(GOMAXPROCS, 4); one extracts serially.
-	BuildConcurrency                     int
+	BuildConcurrency int
+	// ModulePath supplies the root Go module identity for package organization
+	// and import resolution. More specific ResolutionContext.GoModules win.
 	ModulePath                           string
 	Scope                                []string
 	MaxDocuments, MaxNodes, MaxRelations int

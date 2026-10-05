@@ -13,7 +13,7 @@ func goTypeTargets(f analysis.Facts, name, qualifier string, files map[string]an
 	if qualifier != "" {
 		paths = nil
 		for _, imp := range f.Imports {
-			for _, p := range namespaces.GoImportFiles(module, imp.Path) {
+			for _, p := range namespaces.GoImportFiles(imp.Path) {
 				alias := imp.Alias
 				if alias == "" {
 					alias = files[p].Package

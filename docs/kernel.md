@@ -66,6 +66,7 @@ NodeKind 与 RelationKind 是代码到图的映射词汇，定义模型能保留
 |---|---|---|
 | 源码贡献 | `Document ─declares→ 声明或组织` | 哪份材料贡献了该实体 |
 | 词法嵌套 | `Document / 声明 ─encloses→ 声明` | 同一文件内最近的已保留声明层级 |
+| 文件组织上下文 | `Document ─in_namespace→ 组织根` | 语言确定的 document 组织归属，根可以是源码声明或合成节点 |
 | 语义归属 | `组织 / 类型等所有者 ─contains→ 成员` | 成员可以来自其他文件，与词法嵌套独立 |
 | 导入依赖 | `Document / 声明 / Import / Export ─imports→ 导入目标` | 源码项连接目标模块；Document / 声明还保留模块或声明依赖的派生边 |
 | 调用与引用 | `声明 / Document ─calls / references→ 目标` | 对象之间的使用关系，保留每次发生的位置 |
@@ -145,7 +146,10 @@ Symbol 表达代码声明，Namespace 表达名称与成员组织；二者是可
 顶层声明由 Document 直接 encloses；嵌套声明由其最近的已保留声明 encloses。Go 方法在文件中
 处于顶层，同时通过 contains 归属接收者类型，类型是否在另一个文件不改变源码嵌套。
 这三种关系共用声明身份，使文件结构、跨文件组织和符号关系能够一起查询。
-Namespace 是实体的成员组织视图，不分配第二份身份。身份和嵌套规则见 [命名空间组织](namespaces.md)。
+Namespace 是实体的成员组织视图，不分配第二份身份。语言规则与显式解析上下文建立组织层级，
+例如已知 Go Module 包含 Package、Python Package 包含子包和 Module；局部图允许多个根。
+Document 的组织上下文通过 in_namespace 保存，语言适配器决定路径如何参与组织。
+祖先与共同归属查询由图关系派生并返回路径证据，消费方据此选择影响或评审边界。身份和嵌套规则见 [命名空间组织](namespaces.md)。
 
 声明的 Location 保存完整声明范围，NameLocation 保存名称 token 或捕获范围；源码顺序由位置确定。
 二者独立保留，避免导航时重新搜索名称或把语义归属当作源码层级。

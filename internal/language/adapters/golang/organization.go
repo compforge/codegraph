@@ -63,12 +63,21 @@ func (Adapter) Organize(ctx context.Context, scope analysis.BuildScope) (analysi
 			continue
 		}
 		anchor := path.Dir(p)
-		qualified := scope.Resolution.GoPackage(scope.Module, anchor, f.Package)
+		qualified := scope.Resolution.GoPackage(anchor, f.Package)
 		data, _ := json.Marshal([]string{f.Language, "Package", anchor, f.Package})
 		key := string(data)
 		u := units[key]
 		if u.Kind == "" {
 			u = analysis.Entity{Ref: analysis.SyntheticRef(key), Kind: "Package", Name: f.Package, QualifiedName: qualified, Language: f.Language}
+		}
+		if root, module, ok := scope.Resolution.GoModule(anchor); ok {
+			data, _ := json.Marshal([]string{f.Language, "Module", root, module})
+			moduleKey := string(data)
+			owner := analysis.Entity{Ref: analysis.SyntheticRef(moduleKey), Kind: "Module", Name: module, QualifiedName: module, Language: f.Language}
+			units[moduleKey] = owner
+			// The package clause supplies the package contribution; module ownership
+			// comes from caller-supplied context, not a module declaration in this file.
+			edges = append(edges, Edge{Source: owner.Ref, Target: u.Ref, Kind: "contains", Confidence: "exact", Basis: "module_context", Path: p, Span: f.PackageSpan})
 		}
 		roots[p] = u.Ref
 		units[key] = u
@@ -100,8 +109,8 @@ func (x *NamespaceIndex) ScopeFiles(f analysis.Facts) []string {
 	return out
 }
 
-func (x *NamespaceIndex) GoImportFiles(module, imported string) []string {
-	dir, ok := x.Resolution.GoImportDir(module, imported)
+func (x *NamespaceIndex) GoImportFiles(imported string) []string {
+	dir, ok := x.Resolution.GoImportDir(imported)
 	if !ok {
 		return nil
 	}
@@ -117,7 +126,7 @@ func (x *NamespaceIndex) GoImportFiles(module, imported string) []string {
 func importedFiles(f analysis.Facts, namespaces *NamespaceIndex, module string) map[string][]string {
 	imports := map[string][]string{}
 	for _, imp := range f.Imports {
-		for _, p := range namespaces.GoImportFiles(module, imp.Path) {
+		for _, p := range namespaces.GoImportFiles(imp.Path) {
 			alias := imp.Alias
 			if alias == "" {
 				alias = namespaces.Files[p].Package

@@ -151,10 +151,13 @@ type ModuleBinding struct {
 type RelationKind string
 
 const (
+	// InNamespace connects a Document to its language-defined organization root.
+	// It is independent of source contributions and does not make documents members.
+	InNamespace RelationKind = "in_namespace"
 	// Encloses is direct lexical nesting among retained declarations in one
 	// document. Top-level declarations are enclosed by the Document itself.
-	// Contains independently records semantic membership, including cross-file owners.
-	Encloses   RelationKind = "encloses"
+	Encloses RelationKind = "encloses"
+	// Contains records semantic membership, including cross-file owners.
 	Contains   RelationKind = "contains"
 	Declares   RelationKind = "declares"
 	Imports    RelationKind = "imports"
