@@ -70,6 +70,15 @@ func (Adapter) Organize(ctx context.Context, scope analysis.BuildScope) (analysi
 		if u.Kind == "" {
 			u = analysis.Entity{Ref: analysis.SyntheticRef(key), Kind: "Package", Name: f.Package, QualifiedName: qualified, Language: f.Language}
 		}
+		if root, module, ok := scope.Resolution.GoModule(scope.Module, anchor); ok {
+			data, _ := json.Marshal([]string{f.Language, "Module", root, module})
+			moduleKey := string(data)
+			owner := analysis.Entity{Ref: analysis.SyntheticRef(moduleKey), Kind: "Module", Name: module, QualifiedName: module, Language: f.Language}
+			units[moduleKey] = owner
+			// The package clause supplies the package contribution; module ownership
+			// comes from caller-supplied context, not a module declaration in this file.
+			edges = append(edges, Edge{Source: owner.Ref, Target: u.Ref, Kind: "contains", Confidence: "exact", Basis: "module_context", Path: p, Span: f.PackageSpan})
+		}
 		roots[p] = u.Ref
 		units[key] = u
 		edges = append(edges, Edge{Source: analysis.DocumentRef(p), Target: analysis.SyntheticRef(key), Kind: "declares", Confidence: "exact", Basis: "source_namespace", Path: p, Span: f.PackageSpan})

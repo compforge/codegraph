@@ -62,7 +62,7 @@ Extract 返回带 Gitlink 的事实；入图后仍是 Document，可通过 Node.
 
 - JS/TS/TSX 相对路径支持直接指向边界或其内部路径。
 - Python 使用模块路径规则：显式相对导入可为 exact，绝对导入仍为 scoped。
-- Go 使用调用方提供的 ModulePath 将模块内导入换算为路径。
+- Go 使用调用方提供的 ModulePath / GoModules 组织 Module 与 Package，并将模块内导入换算为路径。
 
 路径前缀按目录段匹配，sdk-extra 不属于 sdk。@example/sdk 等包名不能从 commit 推断，
 缺少路径证据时仍保留未解析导入。内部 Module、Package、声明与调用需要子仓源码；

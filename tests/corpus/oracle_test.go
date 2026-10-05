@@ -66,6 +66,7 @@ func loadOracle(ctx context.Context, root string) (*oracle, []cg.Document, []inp
 		if o.Module != p.Module.Path {
 			return nil, nil, nil, fmt.Errorf("multiple modules require separate profiles")
 		}
+		o.Organizations["module:"+p.Module.Path] = organization{Kind: cg.Module, Name: p.Module.Path, QualifiedName: p.Module.Path}
 		for _, file := range p.Syntax {
 			abs := p.Fset.PositionFor(file.Pos(), false).Filename
 			rel, err := filepath.Rel(root, abs)
@@ -81,7 +82,7 @@ func loadOracle(ctx context.Context, root string) (*oracle, []cg.Document, []inp
 			collectDeclarations(o, p, file, root)
 			unit := o.Organizations[p.PkgPath]
 			if unit.Contributions == nil {
-				unit = organization{Kind: cg.Package, Name: p.Name, QualifiedName: p.PkgPath, Contributions: map[string]site{}}
+				unit = organization{Kind: cg.Package, Name: p.Name, QualifiedName: p.PkgPath, Contributions: map[string]site{}, Parent: "module:" + p.Module.Path}
 			}
 			unit.Contributions[rel] = sourceSite(p.Fset, root, file.Package, file.Name.End())
 			o.Organizations[p.PkgPath] = unit

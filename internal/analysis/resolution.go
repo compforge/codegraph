@@ -53,24 +53,33 @@ func (r ResolutionContext) GoImportDir(fallback, imported string) (string, bool)
 	}
 	return dir, true
 }
-func (r ResolutionContext) GoPackage(module, dir, pkg string) string {
-	root, best := "", ""
+
+// GoModule returns the supplied module owning dir. A nested module is an
+// independent owner, not a child namespace of its enclosing filesystem module.
+func (r ResolutionContext) GoModule(fallback, dir string) (root, module string, ok bool) {
 	for candidate, value := range r.GoModules {
 		if candidate == "." || dir == candidate || strings.HasPrefix(dir, candidate+"/") {
-			if root == "" || len(candidate) > len(root) {
-				root, best = candidate, value
+			if root == "" || candidate != "." && (root == "." || len(candidate) > len(root)) {
+				root, module = candidate, value
 			}
 		}
 	}
 	if root != "" {
+		return root, module, true
+	}
+	if fallback != "" {
+		return ".", fallback, true
+	}
+	return "", "", false
+}
+
+func (r ResolutionContext) GoPackage(module, dir, pkg string) string {
+	if root, name, ok := r.GoModule(module, dir); ok {
 		suffix := dir
 		if root != "." {
 			suffix = strings.TrimPrefix(strings.TrimPrefix(dir, root), "/")
 		}
-		return path.Join(best, suffix)
-	}
-	if module != "" {
-		return path.Join(module, dir)
+		return path.Join(name, suffix)
 	}
 	return dir + ":" + pkg
 }

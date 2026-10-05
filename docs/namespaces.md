@@ -58,6 +58,7 @@ RETURN member
 组织 ID 使用语言、具体类别和源码锚点，不使用首个成员、成员列表或加载顺序：
 
 - Go Package 由逻辑目录和 package 名锚定；不同目录以及 `p` / `p_test` 不合并。
+- Go Module 由调用方提供的 module 根与 import path 锚定；只为已接纳 Go 源码涉及的 module 建点。
 - Python Module 由文件路径锚定，普通 Package 由初始化文件所在目录及源码/类型桩形式锚定。
 - JS/TS 文件 Module 由语言与源码路径锚定，限定名使用去扩展名的逻辑路径。
 - `.py` / `.pyi` 是不同来源候选，不通过同名自动合并；导入存在多个来源时保留 scoped。
@@ -65,7 +66,9 @@ RETURN member
   快照根目录的初始化文件没有已知包名时，以 `.` 表达源码锚点，不猜测运行时导入名。
 
 没有单一源码发生位置的合成组织节点，其 `Node.Location` 为 nil；JSON 省略 location，
-Cypher 不提供虚构的 path/line 等源码属性。通过入向 declares 读取所有贡献及位置。普通声明和 Document 继续保留位置；
+Cypher 不提供虚构的 path/line 等源码属性。源码组织通过入向 declares 读取贡献及位置；
+上下文提供的 Go Module 没有源码 declares，其 contains 边以 module_context 记录模块归属依据，
+位置指向所归属 Package 的源码贡献。普通声明和 Document 继续保留位置；
 `Find` 只按具体源码位置查声明。返回值包含独立的位置副本，修改查询结果不会污染图。
 
 Document 使用材料路径身份；声明及合成实体统一使用 `node:` 身份前缀，其稳定键分别来自声明位置
@@ -75,7 +78,11 @@ Document 使用材料路径身份；声明及合成实体统一使用 `node:` �
 ## 语言证据边界
 
 Go 同目录同 package 名的已加载文件共同贡献 Package；测试文件不成为生产 import 的目标。
-Go 目录层次不产生父子 Package，go.mod 对应的依赖管理 module 不作为这层 Namespace。
+调用方通过 `ModulePath` 或 `ResolutionContext.GoModules` 提供模块边界时，构造
+`Module ─contains→ Package`，多个 Package 可由此找到共同模块。最具体的 module 根决定归属，
+嵌套 module 相互独立；Go 目录层次不产生父子 Package。没有 module 上下文时保留 Package 根。
+Module 表达模块内的包组织，文件词法作用域与同包绑定仍由 Package 及 Scope/Binding 决定。
+CodeGraph 不读取 go.mod，也不根据路径前缀虚构 module 或仓库根。
 
 Python 根据已加载的 `__init__.py` / `__init__.pyi` 建立普通包与直接子包、子模块的 contains。
 目录向上收敛，组织层级无环。没有初始化材料时保留文件 Module，不把普通目录猜成 Package；
@@ -89,3 +96,19 @@ JS/TS 文件 Module 表达所提供源码单元的静态组织，不证明 ESM/C
 组织关系用于查询代码事实，是否沿它扩大影响范围由消费者决定。
 
 契约测试与固定仓库测量见[统一实体模型验证](../tests/corpus/namespace-model.md)。
+
+## 祖先与共同归属
+
+`NamespaceAncestors` 从节点沿语义归属查询祖先，`CommonNamespaces` 求多个节点的共同祖先。
+Document 通过 declares 找到它贡献的合成 Package / Module 根，再沿入向 contains 向上；
+普通声明沿 contains 向上，Reference、Import、Export 经 occurs_in 找到源码所在上下文。
+Class 等同时组织成员的声明也属于 namespace 查询结果；namespace 自身位于深度零。
+这些查询只读 Node + Relation，不按文件路径猜父级，也不沿 aliases 转移到目标的 namespace。
+
+默认只使用 exact 关系，可用 MinConfidence 纳入 scoped 等候选。Kinds 只筛选返回类别，
+不阻断中间的 Class 等成员所有者。结果按最短关系距离排序；共同祖先按各输入距离的最大值排序，
+同距离按节点 ID 排序。所有共同祖先都会返回，由消费方选择分组边界。
+
+局部图可有多个根，没有共同归属时返回空；未知输入也返回空，不忽略某个输入后求交集。
+执行取消、超时与预算超限返回 error，不将截断结果当成完整祖先集合。查询遵守 Graph 的
+MaxQueryHops、MaxResultRows、MaxResultBytes 与 QueryTimeout。

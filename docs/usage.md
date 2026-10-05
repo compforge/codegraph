@@ -9,7 +9,7 @@
 路径不必对应本地文件，但需要为语言识别和相对导入提供上下文。
 源码、无 grammar 材料和 gitlink 的处理见 [Document 契约](document.md)。
 
-同一批次可包含多种语言；ModulePath 只影响 Go 模块导入。
+同一批次可包含多种语言；ModulePath 提供 Go 根模块身份，用于包组织与模块导入。
 CodeGraph 不跨语言按同名绑定，不自动获取依赖。缺少材料时可以先消费局部事实，再决定是否补料。
 
 `Extract` 提取单 Document 事实而不发布图状态，适合构图前探索 import 或其他线索。
@@ -48,6 +48,28 @@ Facts 内部持有完整只读材料，公开字段用于检查；修改字段�
 
 跨快照共享 Extractor，并通过其 `ExtractionOptions.Cache` 配置有界缓存；
 也可直接复用已持有的 Facts。两种方式都不复用绑定关系，不绕过构图预算。
+
+## 查询 namespace 归属
+
+对输入文件或声明，可查询其所在的 Package、Module、Namespace 等组织，以及多个节点的共同祖先。
+例如寻找两份文件的共同 Go module 或 Python package：
+
+```go
+matches, err := g.CommonNamespaces(ctx, []string{
+    codegraph.DocumentID("app/a.go"),
+    codegraph.DocumentID("lib/b.go"),
+}, codegraph.NamespaceOptions{
+    Kinds: []codegraph.NodeKind{codegraph.Package, codegraph.Module, codegraph.Namespace},
+})
+if err != nil { return err }
+for _, match := range matches {
+    fmt.Println(match.Node.Kind, match.Node.QualifiedName, match.Depth)
+}
+```
+
+`NamespaceAncestors(ctx, nodeID, options)` 查询单节点的祖先，namespace 本身也在结果中。
+默认要求 exact 归属；若接受候选关系，可显式设置 MinConfidence。结果按距离由近及远，
+空结果表示当前图无法证明共同归属。语义与语言边界见 [命名空间组织](namespaces.md#祖先与共同归属)。
 
 ## 从 Graph 读取文件结构
 
