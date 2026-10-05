@@ -76,6 +76,7 @@ func evaluate(o *oracle, a observed) evaluation {
 	}
 	compareOrganizations(&e, o, a, nodeKeys)
 	compareSemanticRelations(&e, o, a, nodeKeys)
+	compareOrganizationStructure(&e, o, a, nodeKeys)
 	references, calls, imports := map[string]bool{}, map[string]bool{}, map[string]bool{}
 	for _, f := range a.Facts {
 		for _, r := range f.References {

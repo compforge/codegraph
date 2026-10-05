@@ -99,6 +99,13 @@ func main() {
 Output: `Entry`. Successful construction may still report local analysis gaps; callers decide
 which gaps matter to their task. More executable examples are in [example_test.go](example_test.go).
 
+## Evaluate coverage
+
+Run `make setup-typescript-corpus` once, then `make eval` to compare pinned Go, Python and TypeScript
+repositories with independent language references. The scorecard separates symbols, call/reference
+targets and namespace organization, retaining missing and unassessed facts. See
+[corpus evaluation](docs/corpus.md) for prerequisites, metrics and evidence.
+
 ## Further reading
 
 The following guides are in Chinese:

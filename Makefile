@@ -1,4 +1,4 @@
-.PHONY: fmt fix lint test build test-corpus test-python-corpus setup-typescript-corpus test-typescript-corpus
+.PHONY: fmt fix lint test build eval test-corpus test-python-corpus setup-typescript-corpus test-typescript-corpus
 
 PYTHON ?= python3
 NODE ?= node
@@ -33,6 +33,9 @@ test:
 build:
 	go build ./...
 	cd tests/corpus && go test -run '^$$' ./...
+
+# Evaluate all selected languages and print their shared scorecard.
+eval: test-corpus
 
 # Explicit network corpus; ordinary test runs only the evaluator's local contracts.
 test-corpus:
