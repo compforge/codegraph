@@ -18,6 +18,8 @@ type Facts struct {
 	Path, Package, Language string
 	// Gitlink retains the pinned commit for an opaque gitlink document.
 	Gitlink       string
+	DocumentKind  DocumentKind
+	Manifest      *ManifestMetadata
 	Declarations  []FactDeclaration
 	Imports       []FactImport
 	Calls         []FactCall
@@ -133,7 +135,7 @@ type FactCall struct {
 }
 
 func projectFacts(f analysis.Facts) (Facts, error) {
-	out := Facts{raw: &f, Path: f.Path, Package: f.Package, Language: f.Language, Gitlink: f.Gitlink}
+	out := Facts{raw: &f, Path: f.Path, Package: f.Package, Language: f.Language, Gitlink: f.Gitlink, DocumentKind: materialKind(f.Path, f.Gitlink), Manifest: projectManifest(f)}
 	for _, d := range f.Declarations {
 		kind, err := declarationKind(d.Kind)
 		if err != nil {

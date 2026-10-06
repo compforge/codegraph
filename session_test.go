@@ -62,7 +62,7 @@ func TestAsyncDocumentAndSymbolWithoutWait(t *testing.T) {
 	if err != nil || len(report.Diagnostics) != 0 {
 		t.Fatalf("report = %+v, %v", report, err)
 	}
-	if file, ok := g.Result().Node(doc.ID()); !ok || file.Kind != DocumentKind {
+	if file, ok := g.Result().Node(doc.ID()); !ok || file.Kind != DocumentNodeKind {
 		t.Fatalf("file node = %+v, %v", file, ok)
 	}
 	if got, ok := g.Result().Node(symbols[0].ID); !ok || !reflect.DeepEqual(got, symbols[0]) {
@@ -256,7 +256,7 @@ func TestAsyncParseFailureIsNotRetriedByWait(t *testing.T) {
 	if err != nil || !hasDiagnostic(report, "parse_error") || count != 1 {
 		t.Fatalf("report = %+v, count=%d, err=%v", report, count, err)
 	}
-	if node, ok := g.Result().Node(doc.ID()); !ok || node.Kind != DocumentKind || node.Location.EndByte != len(doc.Content) {
+	if node, ok := g.Result().Node(doc.ID()); !ok || node.Kind != DocumentNodeKind || node.Location.EndByte != len(doc.Content) {
 		t.Fatal("failed parser erased the supplied file identity", node)
 	}
 	if len(g.Result().Find(doc.Path, "", "")) != 0 || len(g.Result().RelationsFrom(doc.ID())) != 0 {

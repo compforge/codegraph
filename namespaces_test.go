@@ -113,7 +113,7 @@ func TestNamespaceQueriesBudgetsCancellationAndCycles(t *testing.T) {
 
 func TestDocumentNamespaceIsExplicit(t *testing.T) {
 	g := namespaceQueryGraph()
-	g.nodes["doc"] = Node{ID: "doc", Kind: DocumentKind}
+	g.nodes["doc"] = Node{ID: "doc", Kind: DocumentNodeKind}
 	// The declared class has a source location, yet the language can select it
 	// as its document root. An unrelated synthetic contribution is not a root.
 	g.relations["org"] = Relation{ID: "org", Source: "doc", Target: "class", Kind: InNamespace, Confidence: Exact, Evidence: []Evidence{{Basis: "document_namespace", Confidence: Exact, Location: &Location{Path: "a.ts"}}}}

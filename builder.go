@@ -191,7 +191,8 @@ type Options struct {
 	// Zero selects min(GOMAXPROCS, 4); one extracts serially.
 	BuildConcurrency int
 	// ModulePath supplies the root Go module identity for package organization
-	// and import resolution. More specific ResolutionContext.GoModules win.
+	// and import resolution. More specific ResolutionContext.GoModules win;
+	// supplied go.mod declarations override same-root hints with diagnostics.
 	ModulePath                           string
 	Scope                                []string
 	MaxDocuments, MaxNodes, MaxRelations int
@@ -329,8 +330,8 @@ func (g *Builder) assemble(ctx context.Context, files map[string]analysis.Facts,
 		// Keep only the Document node; no declarations or relations are inferred.
 		if d.Code == "parse_error" {
 			id := DocumentID(d.Location.Path)
-			nodes[id] = Node{ID: id, Kind: DocumentKind, Name: path.Base(d.Location.Path),
-				Language: Language(d.Location.Path), Location: &d.Location}
+			nodes[id] = Node{ID: id, Kind: DocumentNodeKind, Name: path.Base(d.Location.Path),
+				Language: Language(d.Location.Path), DocumentKind: materialKind(d.Location.Path, ""), Location: &d.Location}
 		}
 	}
 	index, issues, err := pipeline.BuiltinsWithResolution(ctx, files, g.opts.ModulePath, g.resolution, g.opts.MaxNodes-len(nodes), g.opts.MaxRelations, g.opts.MaxEvidence)
@@ -361,6 +362,8 @@ func (g *Builder) assemble(ctx context.Context, files map[string]analysis.Facts,
 		}
 		if ref.IsDocument() {
 			n.Gitlink = files[ref.Path].Gitlink
+			n.DocumentKind = materialKind(ref.Path, n.Gitlink)
+			n.Manifest = projectManifest(files[ref.Path])
 		}
 		if e.Location != nil {
 			f := files[e.Location.Path]

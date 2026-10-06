@@ -9,6 +9,7 @@ import (
 	"github.com/compforge/codegraph/internal/language/adapters/ecmascript"
 	"github.com/compforge/codegraph/internal/language/adapters/generic"
 	"github.com/compforge/codegraph/internal/language/adapters/golang"
+	"github.com/compforge/codegraph/internal/language/adapters/manifest"
 	"github.com/compforge/codegraph/internal/language/adapters/python"
 	"github.com/odvcencio/gotreesitter/grammars"
 )
@@ -26,6 +27,14 @@ var registrations = []registration{
 	{"javascript", []string{".mjs", ".cjs", ".jsx"}, ecmascriptAdapter()},
 	{"typescript", []string{".mts", ".cts"}, ecmascriptAdapter()},
 	{"tsx", nil, ecmascriptAdapter()},
+	{"gomod", nil, analysis.Adapter{Extractor: manifest.Adapter{}, Organizer: manifest.Adapter{}, Describe: manifest.Describe}},
+	{"toml", nil, analysis.Adapter{Extractor: generic.Adapter{}, Describe: generic.Describe}},
+	{"json", nil, analysis.Adapter{Extractor: generic.Adapter{}, Describe: generic.Describe}},
+}
+
+// Resolution interprets supplied language metadata before cross-document phases.
+func Resolution(scope analysis.BuildScope) (analysis.ResolutionContext, []analysis.Gap) {
+	return golang.ManifestResolution(scope)
 }
 
 func ecmascriptAdapter() analysis.Adapter {
@@ -49,6 +58,14 @@ func Registered() []string {
 
 // Detect keeps grammar availability open to upstream registrations. Suffixes only select known dialect variants.
 func Detect(name string) *grammars.LangEntry {
+	switch manifest.Format(name) {
+	case "gomod":
+		return grammars.DetectLanguageByName("gomod")
+	case "pyproject":
+		return grammars.DetectLanguageByName("toml")
+	case "package_json":
+		return grammars.DetectLanguageByName("json")
+	}
 	ext := strings.ToLower(path.Ext(name))
 	for _, r := range registrations {
 		for _, suffix := range r.suffixes {

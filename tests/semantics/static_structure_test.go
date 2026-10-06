@@ -117,7 +117,7 @@ func TestDeclarationMapping(t *testing.T) {
 				for _, n := range g.Find(tc.path, "", "") {
 					edge := g.RelationsTo(n.ID, cg.Encloses)[0]
 					owner, _ := g.Node(edge.Source)
-					if owner.Kind != cg.DocumentKind {
+					if owner.Kind != cg.DocumentNodeKind {
 						t.Fatal("shared names became nested", n)
 					}
 				}

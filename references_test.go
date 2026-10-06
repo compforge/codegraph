@@ -124,7 +124,7 @@ func TestSourceUseOwnershipAndBindingEvidence(t *testing.T) {
 		}
 		parent, _ := g.Node(owner[0].Target)
 		nested = nested || parent.Name == "inner"
-		topLevel = topLevel || parent.Kind == DocumentKind
+		topLevel = topLevel || parent.Kind == DocumentNodeKind
 	}
 	if !nested || !topLevel {
 		t.Fatal("lost nested or top-level use ownership", g.Nodes())
@@ -285,6 +285,12 @@ func TestSourceUseBudgetsPreservePublication(t *testing.T) {
 
 func TestSourceUseCapabilities(t *testing.T) {
 	for _, c := range Capabilities() {
+		if c.Language == "gomod" || c.Language == "json" || c.Language == "toml" {
+			if len(c.References) != 0 || len(c.SourceItems) != 0 {
+				t.Fatal("manifest advertised source-use support", c)
+			}
+			continue
+		}
 		if !slices.Contains(c.References, CallReference) || !slices.Contains(c.References, SymbolReference) || !slices.Contains(c.Relations, OccursIn) || !slices.Contains(c.Relations, References) {
 			t.Fatal(c)
 		}

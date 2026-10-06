@@ -2,13 +2,54 @@
 
 ## 定位与身份
 
-Document 是调用方提供的一份快照材料，由逻辑路径及源码内容或 gitlink 固定 commit 组成。
+Document 是调用方提供的一份快照材料，由逻辑路径及文件内容或 gitlink 固定 commit 组成。
 它可以来自文件系统、Git revision 或内存；材料获取、仓库发现与依赖枚举由调用方负责。
 CodeGraph 只分析显式提供的材料，使相同输入的结果不受本机 checkout 状态影响。
 
 路径使用快照相对、斜杠分隔的逻辑名称，满足 fs.ValidPath，不是绝对路径或 URL。
 路径不必在磁盘存在，用于材料身份、语言识别、相对导入上下文及源码位置。
 快照身份由 Graph 持有；Document.ID 与对应 Document 节点 ID 一致。
+
+## 材料类别与语法格式
+
+图中的 Document 节点通过 DocumentKind 区分 source、manifest、gitlink 和 unknown。
+类别描述材料角色，Language 描述 grammar；JSON/TOML parser 可同时用于项目清单和普通数据文件。
+未识别用途的 JSON/TOML 等数据材料保留 unknown，不能因 grammar 存在就推断工程角色。
+Manifest 按已支持的清单格式识别，pyproject.toml 即使只有工具配置也保留 manifest 类别。
+Gitlink 由调用方提供的 Git 元数据识别，分类不依赖路径后缀。
+
+输入 Document 与图中的 DocumentNode 职责不同：前者提供材料，后者组合 Node，作为同一图节点的
+类型化查询结果。`g.Document(path)`、`g.Node(DocumentID(path))` 和 Cypher 读取相同事实，
+返回值均可独立修改；DocumentNode 不另存成员或 outline。
+
+## Manifest 材料
+
+`go.mod`、`pyproject.toml` 和 `package.json` 分别复用 gotreesitter 的 gomod、toml、json grammar。
+格式适配器从语法树提取脱离 parser 的元数据，发布到 Document 的 Manifest 属性，保留名称与版本的
+源码位置。直接声明的项目名、版本及 project、build-system、workspace 结构存在性可查询；
+依赖约束、版本求解、构建执行及动态版本计算不在该能力范围内。
+
+- go.mod 声明的 Module 通过 declares 与材料连接；只提供清单也能保留模块身份。
+  源码所属 Package 通过 contains 归属该 Module，组织与导入解析共用模块上下文。
+- pyproject.toml 的 project 名和 package.json 的 name 是打包项目元数据，不能直接替代 Python
+  import Package 或 JS/TS 文件 Module，也不能自动判定工程 Component。
+- pyproject 支持普通、引号、点号和内联表的单行字符串元数据。多行字符串及不支持的字段值
+  保留 unsupported_manifest 诊断；没有静态 version 不代表项目没有版本。
+
+显式提供的 go.mod 声明优先于同根的 ModulePath / GoModules 提示，冲突发布
+conflicting_module_context 诊断。不同根按最近模块边界组织，嵌套 module 是独立所有者。
+补充清单会在下一次 Build 重新组织和绑定；同一快照中替换清单内容仍属于材料冲突。
+分类由路径和 Git 元数据确定，解析失败不抹除材料类别；失败清单不发布猜测的元数据或声明。
+
+```cypher
+MATCH (d:Document {documentKind:'manifest'})
+RETURN d.path, d.manifestFormat, d.manifestName, d.manifestVersion
+```
+
+```cypher
+MATCH (d:Document {path:'go.mod'})-[:declares]->(m:Module)-[:contains]->(p:Package)
+RETURN d.path, m.name, p.qualifiedName
+```
 
 ## 源码材料
 
@@ -91,7 +132,7 @@ RETURN source.path, gitlink.path, gitlink.gitlink, r.confidence
 
 ## 图中表达
 
-每份材料对应一个 Document 节点，Go 常量为 DocumentKind，Cypher 标签为 Document。
+每份材料对应一个 Document 节点，Go 常量为 DocumentNodeKind，Cypher 标签为 Document。
 源码通过 declares 连接声明或组织贡献，通过 in_namespace 连接语言确定的组织根；
 Package、Module 等实体通过 contains 组织直接成员。路径的组织含义由语言适配器解释。
 Document 的来源身份与 Namespace 的成员身份各有职责，允许多个文件贡献同一个组织。

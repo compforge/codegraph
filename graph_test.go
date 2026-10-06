@@ -28,7 +28,7 @@ func TestSourceGraph(t *testing.T) {
 	if a.Confidence != Exact || a.Evidence[0].Basis != "imported_function" {
 		t.Fatal(a)
 	}
-	if rows[0]["f"].(Node).Kind != DocumentKind || rows[0]["b"].(Node).Name != "Work" {
+	if rows[0]["f"].(Node).Kind != DocumentNodeKind || rows[0]["b"].(Node).Name != "Work" {
 		t.Fatal(rows)
 	}
 	properties := query(t, g, `MATCH (:Document)-[:declares]->(a:Function {name:'Entry'})-[r:calls]->(b:Function {name:'Work'}) RETURN r.id AS id, r.confidence AS confidence, properties(r) AS props`, nil)

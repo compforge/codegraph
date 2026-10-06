@@ -52,7 +52,7 @@ NodeKind 与 RelationKind 是代码到图的映射词汇，定义模型能保留
 
 | 对象 | 当前 NodeKind | 分类依据 |
 |---|---|---|
-| 输入材料 | `Document` | 已接纳材料的身份，独立于能否解析 |
+| 输入材料 | `Document` | 已接纳材料的身份；DocumentKind 描述 source、manifest、gitlink 或 unknown，独立于 grammar 与解析是否成功 |
 | 名称与成员组织 | `Package`、`Module`、`Namespace` | 语言中的组织实体，不将物理目录直接等同于命名空间 |
 | 类型声明 | `Struct`、`Interface`、`Type`、`TypeAlias`、`Class`、`Enum`、`Record`、`Trait`、`Union` | 保留具体声明类别；Symbol 是这些实体的逻辑角色 |
 | 可调用声明 | `Function`、`Method`、`Constructor` | 保留声明身份及其语言类别 |
@@ -102,13 +102,15 @@ NodeKind 与 RelationKind 是代码到图的映射词汇，定义模型能保留
 
 ### Document、Facts、Extractor、Builder 与 Graph
 
-Document 表达一份输入材料：逻辑路径对应源码内容或 gitlink 固定 commit。
+Document 表达一份输入材料：逻辑路径对应文件内容或 gitlink 固定 commit。
+DocumentNode 是图中同一 Document 节点的类型化视图；材料类别与 manifest 元数据属于节点属性，
+声明的 Module 等实体通过关系连接。清单事实由 CodeGraph 解释，工程 Component 由 repocli 判定。
 Extractor 负责有界解析并产出 Facts，Facts 保存脱离 AST 的完整单文件材料，包括词法线索、
 语言专有证据、候选关系与局部诊断。Facts 的身份由路径和材料内容决定，可以跨快照复用。
 
 Builder 接纳 Facts 和快照专属 ResolutionContext，执行组织、绑定与解析，原子发布只读 Graph。
 ResolutionContext 承载调用方已获得的模块根和导入路径证据，候选只与本轮材料集合连接，
-其精度限制后续绑定。获取文件、理解仓库配置与选择探索范围属于调用方。
+其精度限制后续绑定。获取文件、判定工程边界与选择探索范围属于调用方；已支持的清单语义由语言适配器从显式材料提取。
 
 Graph 是一次成功构建的节点、关系和诊断读模型。Builder 补充材料后根据全部已接纳材料重新组织
 和绑定，发布新的 Graph：既可以新增节点与关系，也可以修订已有归属、目标集合及证据，替换失效绑定。

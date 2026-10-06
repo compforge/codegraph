@@ -7,9 +7,9 @@
 
 调用方负责获取同一快照的材料，将完整源码放入 Document.Content，并提供快照内的逻辑路径。
 路径不必对应本地文件，但需要为语言识别和相对导入提供上下文。
-源码、无 grammar 材料和 gitlink 的处理见 [Document 契约](document.md)。
+源码、项目清单、无 grammar 材料和 gitlink 的处理见 [Document 契约](document.md)。
 
-同一批次可包含多种语言；ModulePath 提供 Go 根模块身份，用于包组织与模块导入。
+同一批次可包含多种语言及清单；提供 go.mod 可建立 Go 模块身份，局部图也可用 ModulePath 提示。
 CodeGraph 不跨语言按同名绑定，不自动获取依赖。缺少材料时可以先消费局部事实，再决定是否补料。
 
 `Extract` 提取单 Document 事实而不发布图状态，适合构图前探索 import 或其他线索。
@@ -43,7 +43,7 @@ Facts 内部持有完整只读材料，公开字段用于检查；修改字段�
 取消和预算失败应直接返回。
 
 `ResolutionContext.GoModules` 提供模块根映射；ModulePath 填充缺省根，显式 `.` 映射优先，
-包组织与导入解析使用同一份模块上下文。`Imports` 提供具体导入位置的模块候选、
+已提供的 go.mod 声明优先于同根提示并报告冲突，包组织与导入解析使用同一份模块上下文。`Imports` 提供具体导入位置的模块候选、
 精度上限和依据。省略的导入沿用语言规则，显式空候选表示已知未解析。
 上下文在接纳时复制，可用 `SetResolutionContext` 在下一次 Build 前替换。
 

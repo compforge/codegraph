@@ -155,7 +155,7 @@ func TestModuleDeclarationsAndMarkers(t *testing.T) {
 			}
 			got := map[string]NodeKind{}
 			for _, n := range g.Nodes() {
-				if n.Kind != DocumentKind && n.Kind != Reference && n.Kind != Import && n.Kind != Export && n.Location != nil {
+				if n.Kind != DocumentNodeKind && n.Kind != Reference && n.Kind != Import && n.Kind != Export && n.Location != nil {
 					got[n.QualifiedName] = n.Kind
 				}
 				if n.QualifiedName == tc.marked && (len(n.Markers) != 1 || n.Markers[0].Kind != Rule) {
@@ -222,6 +222,12 @@ func TestLanguageDiscoveryAndCapabilities(t *testing.T) {
 		t.Fatal("unknown language capability invented")
 	}
 	for _, cap := range Capabilities() {
+		if cap.Language == "gomod" || cap.Language == "json" || cap.Language == "toml" {
+			if len(cap.Declarations) != 0 || len(cap.Limitations) == 0 {
+				t.Fatal(cap)
+			}
+			continue
+		}
 		relations := []RelationKind{OccursIn, Aliases, Declares, Contains, Encloses, Imports, Calls, References, Extends}
 		if cap.Language == "python" {
 			relations = append([]RelationKind{OccursIn, Aliases, Decorates}, relations[2:]...)
