@@ -25,6 +25,12 @@ type inputFile struct {
 }
 
 func loadOracle(ctx context.Context, root string) (*oracle, []cg.Document, []inputFile, error) {
+	return loadGoModulesOracle(ctx, root, ".")
+}
+
+// Module roots are explicit evaluation inputs; the compiler owns module paths
+// and bindings. The existing repository profile still loads only its root.
+func loadGoModulesOracle(ctx context.Context, root string, moduleRoots ...string) (*oracle, []cg.Document, []inputFile, error) {
 	// Tests are a separate package universe in Go. The first profile deliberately
 	// measures production packages, rather than mixing test variants into a graph.
 	env := []string{}
@@ -37,10 +43,23 @@ func loadOracle(ctx context.Context, root string) (*oracle, []cg.Document, []inp
 		env = append(env, e)
 	}
 	env = append(env, "GOWORK=off", "GOFLAGS=", "GOOS=linux", "GOARCH=amd64", "CGO_ENABLED=0")
-	pkgs, err := packages.Load(&packages.Config{Context: ctx, Dir: root, Env: env,
-		Mode: packages.LoadSyntax | packages.NeedModule, BuildFlags: []string{"-mod=readonly"}}, "./...")
-	if err != nil {
-		return nil, nil, nil, err
+	mode := packages.LoadSyntax | packages.NeedModule
+	if len(moduleRoots) > 1 {
+		// Imports of another evaluated module need source positions, not export
+		// data's line-only positions. These small fixtures have no external deps.
+		mode = packages.LoadAllSyntax | packages.NeedModule
+	}
+	var pkgs []*packages.Package
+	for _, moduleRoot := range moduleRoots {
+		loaded, err := packages.Load(&packages.Config{Context: ctx, Dir: filepath.Join(root, moduleRoot), Env: env,
+			Mode: mode, BuildFlags: []string{"-mod=readonly"}}, "./...")
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		if len(loaded) == 0 {
+			return nil, nil, nil, fmt.Errorf("oracle found no packages in %s", moduleRoot)
+		}
+		pkgs = append(pkgs, loaded...)
 	}
 	var problems []string
 	packages.Visit(pkgs, nil, func(p *packages.Package) {
@@ -60,10 +79,10 @@ func loadOracle(ctx context.Context, root string) (*oracle, []cg.Document, []inp
 		if p.Module == nil || p.TypesInfo == nil {
 			return nil, nil, nil, fmt.Errorf("missing compiler facts for %s", p.ID)
 		}
-		if o.Module == "" {
+		if len(moduleRoots) == 1 && o.Module == "" {
 			o.Module = p.Module.Path
 		}
-		if o.Module != p.Module.Path {
+		if len(moduleRoots) == 1 && o.Module != p.Module.Path {
 			return nil, nil, nil, fmt.Errorf("multiple modules require separate profiles")
 		}
 		o.Organizations["module:"+p.Module.Path] = organization{Kind: cg.Module, Name: p.Module.Path, QualifiedName: p.Module.Path}
@@ -116,7 +135,7 @@ func loadOracle(ctx context.Context, root string) (*oracle, []cg.Document, []inp
 	}
 	sort.Slice(docs, func(i, j int) bool { return docs[i].Path < docs[j].Path })
 	var inventory []inputFile
-	err = filepath.WalkDir(root, func(name string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(root, func(name string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -301,7 +320,7 @@ func collectOccurrences(o *oracle, p *packages.Package, file *ast.File, root str
 			name, _ := strconv.Unquote(x.Path.Value)
 			s := sourceSite(p.Fset, root, x.Pos(), x.End())
 			class := "external"
-			if name == o.Module || strings.HasPrefix(name, o.Module+"/") {
+			if _, included := o.Organizations[name]; included || o.Module != "" && (name == o.Module || strings.HasPrefix(name, o.Module+"/")) {
 				class = "internal"
 			}
 			o.Imports[s.key()] = occurrence{Site: s, Name: name, Target: name, Class: class}

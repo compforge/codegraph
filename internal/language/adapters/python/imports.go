@@ -46,7 +46,11 @@ func (Adapter) ImportPaths(f analysis.Facts, imp analysis.Import) []string {
 		// Keep both as candidates rather than assume package execution semantics.
 		if imp.From != "" && imp.Path != imp.From {
 			child := strings.TrimPrefix(imp.Path, imp.From+".")
-			if child != "*" && child != imp.Path {
+			bareRelative := imp.Relative > 0 && strings.Trim(imp.From, ".") == ""
+			if bareRelative {
+				child = imp.Path
+			}
+			if child != "*" && (bareRelative || child != imp.Path) {
 				paths = append(paths, path.Join(name, child)+".py", path.Join(name, child, "__init__.py"))
 			}
 		}

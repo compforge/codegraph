@@ -33,7 +33,7 @@ func evaluatorHash(t *testing.T) string {
 		fmt.Fprintf(h, "%s\x00%x\n", name, sha256.Sum256(data))
 	}
 
-	for _, directory := range []string{"python", "typescript"} {
+	for _, directory := range []string{"python", "typescript", "testdata/semantics"} {
 		err = filepath.WalkDir(directory, func(name string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
@@ -44,7 +44,7 @@ func evaluatorHash(t *testing.T) string {
 				}
 				return nil
 			}
-			if !strings.HasSuffix(name, ".py") && !strings.HasSuffix(name, ".json") && !strings.HasSuffix(name, ".mjs") {
+			if directory != "testdata/semantics" && !strings.HasSuffix(name, ".py") && !strings.HasSuffix(name, ".json") && !strings.HasSuffix(name, ".mjs") {
 				return nil
 			}
 			data, err := os.ReadFile(name)

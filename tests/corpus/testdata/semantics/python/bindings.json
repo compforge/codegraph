@@ -1,0 +1,5 @@
+[
+ {"relation":"calls","source":{"path":"pkg/sub/main.py","line":5,"text":"run()","name":"run"},"class":"internal","target":{"path":"pkg/impl.py","qualifiedName":"work"},"reason":"Relative package re-export; no writes."},
+ {"relation":"calls","source":{"path":"pkg/sub/main.py","line":6,"text":"alias()","name":"alias"},"class":"internal","target":{"path":"pkg/impl.py","qualifiedName":"work"},"reason":"Relative import alias; no writes."},
+ {"relation":"calls","source":{"path":"pkg/sub/main.py","line":10,"text":"alias()","name":"alias"},"class":"internal","target":{"path":"pkg/sub/main.py","qualifiedName":"shadow.alias"},"reason":"Local declaration shadows the imported name."}
+]

@@ -126,6 +126,7 @@ interface 嵌入形成 extends，struct 嵌入表达组合。
 提取 outline 声明、源码导入、显式模块绑定、局部函数调用和前置注释 marker。
 import 指向 Module / Package，from-import 与 alias 可连接已加载声明。
 函数内 import 不泄漏到其他函数；显式导入的类可以参与构造与方法绑定。
+`from . import name` / `from .. import name` 保留相对包锚点，可沿已提供的包 initializer 转导出绑定。
 
 绝对 import 缺少运行时搜索路径证据，即使只有一个本地目标也保持 scoped。
 路径候选来自快照根，以及与导入首段同名的当前文件祖先目录，支持源码子目录和嵌套 SDK 布局。

@@ -39,7 +39,7 @@ eval: test-corpus
 
 # Explicit network corpus; ordinary test runs only the evaluator's local contracts.
 test-corpus:
-	cd tests/corpus && go test -v -run '^TestRepositories$$' -count=1 -timeout=20m -python='$(PYTHON)' -node='$(NODE)' -corpus='$(CORPUS)' -report-dir='$(CORPUS_REPORT_DIR)' -baseline-dir='$(CORPUS_BASELINE_DIR)' -reevaluate-dir='$(CORPUS_REEVALUATE_DIR)'
+	cd tests/corpus && go test -v -run '^(TestRepositories|TestSemanticFixtures)$$' -count=1 -timeout=20m -python='$(PYTHON)' -node='$(NODE)' -corpus='$(CORPUS)' -report-dir='$(CORPUS_REPORT_DIR)' -baseline-dir='$(CORPUS_BASELINE_DIR)' -reevaluate-dir='$(CORPUS_REEVALUATE_DIR)'
 
 # Pure source analysis: no package imports, application execution or services.
 test-python-corpus:

@@ -1,0 +1,8 @@
+[
+  {
+    "path": "main.go",
+    "expression": "child.Work()",
+    "reason": "Promoted struct methods are outside the current Go method lookup contract.",
+    "context": "func Shadow() { child := local.Box{}; child.Work() }"
+  }
+]

@@ -1,0 +1,8 @@
+[
+  {
+    "path": "src/main.ts",
+    "expression": "run()",
+    "context": "fn: () => run()",
+    "reason": "Anonymous callable bodies have no declaration node; retain the call site and diagnostic without crediting its containing variable."
+  }
+]
