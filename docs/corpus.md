@@ -111,6 +111,29 @@ Go 生产适配器本身也使用 AST，因此这是 CodeGraph 表达与独立�
 错误 exact 目标使 verdict 为 `failed` 并使测试退出非零。没有错误 exact 也不能推出“完备”，
 必须同时阅读召回与未评估范围。失败报告及原始证据仍保留。
 
+## 固定语义场景
+
+`make eval` 同时执行 `TestSemanticFixtures`，把 Go 多 module、Python 包与转导出、TS 和独立 JS
+对象方法、导入别名及局部遮蔽放在可逐项审定的小语料中。它们使用已有独立参照与评分器，同时核对
+组织结构和绑定目标，并注入跨 namespace 同名错误目标，验证组织正确不会掩盖绑定错误。
+
+场景结果在 `.corpus-results/fixtures/summary.md` 与 `summary.json`，各语言目录保存独立参照、
+实际图和完整评分。它们不混入六仓准确率；`CORPUS` 仍只筛选真实仓库，固定场景始终全部运行。
+普通 `make test` 也执行这些场景，但不写评测产物。场景语料和审定缺口都参与 evaluator 摘要。
+
+Go 场景显式选择三个 module root，通过编译器加载它们的源码与类型信息。生产侧仅接收 Documents
+和调用方提供的 `GoModules`，不扫描仓库。TS 编译器参照的 `includeJavaScript` profile 显式纳入 JS，
+既有 TypeScript 仓库 profile 不因此扩大输入。
+
+每组材料在单 worker / 四 worker 下分别逆序整批、逐文件及调用方优先提交，比较完整 Node、Relation、
+Evidence 和诊断，并检查重复提交幂等与所有历史 Graph 不变。这是构建一致性检查，独立参照才负责
+语义正确性。失败重试、取消、预算及跨快照拒绝由根包的 Extractor、Session、Builder 契约测试覆盖。
+
+`contracts=passed` 表示组织、绑定和构建行为符合场景契约，不表示每个静态目标都已解析。
+`known-call-gaps.json` 按唯一源码表达式列出已有能力边界：Go struct 提升方法，以及 JS/TS 匿名函数体
+缺少独立 callable 节点时的调用归属。缺口仍保留在召回分母中，必须有对应局部诊断；新增遗漏、静默
+遗漏和错误目标都会失败。缺口被修复后须审定并删除对应记录。动态目标另列未评估，不加入这份缺口清单。
+
 ## 回归与语料维护
 
 经审定的历史报告目录可显式作为基线，测试不会自动更新或接受基线：

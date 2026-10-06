@@ -13,6 +13,12 @@ func (Dialect) Enrich(f *Facts, tree *gts.Tree) {
 	attachDocumentation(f, tree)
 	for i := range f.Imports {
 		imp := &f.Imports[i]
+		// A bare relative prefix is still a from-import. Upstream leaves From
+		// empty for `from .. import name`; retain the package anchor so this is
+		// not mistaken for a namespace import of `name` itself.
+		if imp.From == "" && imp.Relative > 0 {
+			imp.From = strings.Repeat(".", imp.Relative)
+		}
 		local := imp.Binding
 		if imp.Alias != "" {
 			local = imp.Alias

@@ -100,3 +100,19 @@ test("file module identities and imports come from compiler sources", (t) => {
  assert.equal(calls[0].target,calls[1].target);
 });
 const keyForTest = s => `${s.path}:${s.start}:${s.end}`;
+
+test("JavaScript sources require an explicit profile and retain compiler binding answers", (t) => {
+ const root=fixture(t,{
+  "tsconfig.json":JSON.stringify({compilerOptions:{allowJs:true,checkJs:true,module:"ESNext",moduleResolution:"bundler"},include:["src"]}),
+  "src/control.ts":"export function control(){}",
+  "src/main.js":'import {work as run} from "./lib.js"; run();',
+  "src/lib.js":"export function work(){}",
+ });
+ const tsOnly=analyze(root,profile);
+ assert.ok(tsOnly.inputs.every(i=>!i.path.endsWith(".js")));
+ const js=analyze(root,{...profile,includeJavaScript:true});
+ const call=occurrences(js.oracle,"calls","run")[0];
+ assert.equal(call.class,"internal");
+ assert.equal(js.oracle.declarations[call.target].span.path,"src/lib.js");
+ assert.equal(js.inputs.filter(i=>i.state==="included").length,3);
+});

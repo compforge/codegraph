@@ -84,7 +84,8 @@ export function analyze(root, profile) {
   if (!profile.projects?.length) throw new Error("profile requires projects");
   linkWorkspaces(root, profile.workspaces ?? []);
   const oracle = { organizations: {}, module: "", declarations: {}, references: {}, calls: {}, imports: {}, excludedReferences: {} };
-  const sourceFiles = walk(root).filter((p) => sourceExtension.test(p));
+  // JavaScript is an explicit profile choice; existing TS corpus denominators stay fixed.
+  const sourceFiles = walk(root).filter((p) => sourceExtension.test(p) || profile.includeJavaScript === true && /\.(?:js|jsx|mjs|cjs)$/.test(p));
   const inputs = new Map();
   const included = new Set();
   const hashInput = (absolute, state) => {
