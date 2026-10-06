@@ -77,7 +77,7 @@ func compareOrganizations(e *evaluation, o *oracle, a observed, nodeKeys map[str
 	}
 	docs := map[string]string{}
 	for _, n := range a.Nodes {
-		if n.Kind == cg.DocumentKind && n.Location != nil {
+		if n.Kind == cg.DocumentNodeKind && n.Location != nil {
 			docs[n.ID] = n.Location.Path
 			nodeKeys[n.ID] = "file:" + n.Location.Path
 		}

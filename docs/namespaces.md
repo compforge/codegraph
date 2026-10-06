@@ -2,7 +2,7 @@
 
 ## 概念与关系
 
-Document 是源码材料，Symbol 是代码声明，Namespace 是组织名称与成员的语言单元。
+Document 是输入材料，Symbol 是代码声明，Namespace 是组织名称与成员的语言单元。
 Symbol 与 Namespace 是允许重叠的逻辑概念，Class 自身也组织成员；图中只使用具体的
 Document、Package、Module、Class、Function 等 Kind，不增加 Symbol 标签或互斥三分类字段。
 具体 Namespace Kind 留给语言显式声明的 namespace。
@@ -61,7 +61,7 @@ RETURN member
 组织 ID 使用语言、具体类别和源码锚点，不使用首个成员、成员列表或加载顺序：
 
 - Go Package 由逻辑目录和 package 名锚定；不同目录以及 `p` / `p_test` 不合并。
-- Go Module 由调用方提供的 module 根与 import path 锚定；只为已接纳 Go 源码涉及的 module 建点。
+- Go Module 由模块根与 import path 锚定；显式 go.mod 声明或已接纳 Go 源码的模块上下文可以贡献节点，两者共用身份。
 - Python Module 由文件路径锚定，普通 Package 由初始化文件所在目录及源码/类型桩形式锚定。
 - JS/TS 文件 Module 由语言与源码路径锚定，限定名使用去扩展名的逻辑路径。
 - `.py` / `.pyi` 是不同来源候选，不通过同名自动合并；导入存在多个来源时保留 scoped。

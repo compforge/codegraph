@@ -21,7 +21,7 @@ import (
 // It supplies identity, language detection, relative-import context, and source
 // locations. Content is the complete source at that path, with offsets from zero;
 // a gitlink instead supplies its pinned commit and has no source locations.
-// Snapshot identity belongs to Graph. Each input is represented by a DocumentKind
+// Snapshot identity belongs to Graph. Each input is represented by a DocumentNodeKind
 // node whose ID matches this document.
 // +spec=`The same logical path identifies the same source unit across input batches`
 type Document struct {

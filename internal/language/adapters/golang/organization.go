@@ -71,13 +71,17 @@ func (Adapter) Organize(ctx context.Context, scope analysis.BuildScope) (analysi
 			u = analysis.Entity{Ref: analysis.SyntheticRef(key), Kind: "Package", Name: f.Package, QualifiedName: qualified, Language: f.Language}
 		}
 		if root, module, ok := scope.Resolution.GoModule(anchor); ok {
-			data, _ := json.Marshal([]string{f.Language, "Module", root, module})
-			moduleKey := string(data)
-			owner := analysis.Entity{Ref: analysis.SyntheticRef(moduleKey), Kind: "Module", Name: module, QualifiedName: module, Language: f.Language}
+			owner := ModuleEntity(root, module)
+			moduleKey := owner.Ref.SyntheticKey()
 			units[moduleKey] = owner
-			// The package clause supplies the package contribution; module ownership
-			// comes from caller-supplied context, not a module declaration in this file.
-			edges = append(edges, Edge{Source: owner.Ref, Target: u.Ref, Kind: "contains", Confidence: "exact", Basis: "module_context", Path: p, Span: f.PackageSpan})
+			// A manifest declaration supplies ownership evidence when present;
+			// caller context remains usable for deliberately partial source graphs.
+			edge := Edge{Source: owner.Ref, Target: u.Ref, Kind: "contains", Confidence: "exact", Basis: "module_context", Path: p, Span: f.PackageSpan}
+			if manifest := scope.Files[path.Join(root, "go.mod")]; manifest.Manifest != nil && manifest.Manifest.Name == module {
+				edge.Basis = "source_manifest"
+				edge.Evidence = []analysis.Evidence{{Basis: "source_manifest", Confidence: "exact", Location: &analysis.SourceLocation{Path: manifest.Path, Span: manifest.Manifest.NameSpan}}}
+			}
+			edges = append(edges, edge)
 		}
 		roots[p] = u.Ref
 		units[key] = u

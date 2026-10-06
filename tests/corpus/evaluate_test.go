@@ -38,7 +38,7 @@ func evaluate(o *oracle, a observed) evaluation {
 			e.Unassessed["occurrence/"+string(n.ReferenceKind)]++
 			continue
 		}
-		if n.Kind == cg.DocumentKind {
+		if n.Kind == cg.DocumentNodeKind {
 			continue
 		}
 		key := ""

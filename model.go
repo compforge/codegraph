@@ -17,8 +17,8 @@ import (
 type NodeKind string
 
 const (
-	// DocumentKind represents the input material itself, including opaque gitlinks.
-	DocumentKind NodeKind = "Document"
+	// DocumentNodeKind represents the input material itself, including opaque gitlinks.
+	DocumentNodeKind NodeKind = "Document"
 	// Reference identifies a source use independently of whether static analysis
 	// can bind a target. Node.ReferenceKind distinguishes calls from other uses.
 	Reference NodeKind = "Reference"
@@ -66,6 +66,9 @@ type Location struct {
 // declares relations retain its contributing source locations.
 type Node struct {
 	ID string `json:"id"`
+	// DocumentKind and Manifest are present only on Document nodes.
+	DocumentKind DocumentKind      `json:"documentKind,omitempty"`
+	Manifest     *ManifestMetadata `json:"manifest,omitempty"`
 	// Gitlink is set only on an opaque gitlink Document, never on symbols.
 	Gitlink       string   `json:"gitlink,omitempty"`
 	Kind          NodeKind `json:"kind"`
@@ -95,6 +98,7 @@ type Node struct {
 }
 
 func cloneNode(n Node) Node {
+	n.Manifest = cloneManifest(n.Manifest)
 	if n.Binding != nil {
 		b := *n.Binding
 		n.Binding = &b

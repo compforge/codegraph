@@ -41,6 +41,7 @@ CodeGraph 在提供的范围内分析，不自动扫描仓库或下载依赖。
 
 Go、Python、JavaScript、TypeScript、TSX 提供专有的名称绑定与关系解析；其他已注册语法的语言
 主要提供声明结构。不同语言和代码形态的覆盖不同，详见 [语言能力与限制](docs/language-support.md)。
+提供 go.mod、pyproject.toml、package.json 可查询清单元数据，go.mod 还参与 Go 模块组织。
 CodeGraph 不执行编译器类型检查，也不保证完整的运行时调用分派分析。
 
 ## 快速开始

@@ -14,7 +14,8 @@ type Lookup func(string) analysis.Adapter
 // Build owns phase barriers: every language binds before any language resolves.
 // +why=`A later document or language batch may supply a base type needed by inherited member lookup`
 func Build(ctx context.Context, scope analysis.BuildScope, nodeLimit, edgeLimit, evidenceLimit int, lookup Lookup) (*analysis.Index, []analysis.Gap, error) {
-	scope.Resolution = scope.Resolution.WithGoModule(scope.Module)
+	var issues []analysis.Gap
+	scope.Resolution, issues = language.Resolution(scope)
 	index := analysis.NewIndex(scope.Files)
 	index.Resolution = scope.Resolution
 	if err := index.AddSources(ctx, scope.Names); err != nil {
@@ -81,7 +82,6 @@ func Build(ctx context.Context, scope analysis.BuildScope, nodeLimit, edgeLimit,
 		return nil, nil, err
 	}
 	var bindings []analysis.BindResult
-	var issues []analysis.Gap
 	for _, name := range names {
 		if err := check(); err != nil {
 			return nil, nil, err

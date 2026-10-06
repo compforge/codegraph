@@ -49,6 +49,7 @@ leave local diagnostics. A candidate may warrant further inspection, and an abse
 not prove that no connection exists elsewhere in the repository.
 
 Go, Python, JavaScript, TypeScript, and TSX have language-specific name binding and relationship analysis.
+Supplied go.mod, pyproject.toml, and package.json files expose manifest metadata; go.mod also establishes Go module ownership.
 Other registered grammars primarily provide declaration structure. Coverage varies by language and code
 construct; see [language support and limitations](docs/language-support.md) (in Chinese).
 CodeGraph does not perform compiler type checking or guarantee complete runtime dispatch analysis.

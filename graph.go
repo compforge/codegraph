@@ -60,7 +60,7 @@ func (g *Graph) Report() BuildReport {
 func (g *Graph) Find(path string, kind NodeKind, qualifiedName string) []Node {
 	out := make([]Node, 0)
 	for _, node := range g.nodes {
-		if node.Kind == DocumentKind || node.Kind == Reference || node.Kind == Import || node.Kind == Export || node.Location == nil || node.Location.Path != path {
+		if node.Kind == DocumentNodeKind || node.Kind == Reference || node.Kind == Import || node.Kind == Export || node.Location == nil || node.Location.Path != path {
 			continue
 		}
 		if kind != "" && node.Kind != kind {
@@ -238,6 +238,20 @@ func (g *Graph) materialize(ctx context.Context, nodes map[string]Node, relation
 			props["exportedName"] = n.Binding.ExportedName
 			props["form"] = n.Binding.Form
 			props["typeOnly"] = n.Binding.TypeOnly
+		}
+		if n.Kind == DocumentNodeKind {
+			props["documentKind"] = string(n.DocumentKind)
+		}
+		if m := n.Manifest; m != nil {
+			props["manifestFormat"], props["manifestName"], props["manifestVersion"] = m.Format, m.Name, m.Version
+			props["manifestProject"], props["manifestBuildSystem"], props["manifestWorkspace"] = m.Project, m.BuildSystem, m.Workspace
+			for key, loc := range map[string]*Location{"manifestName": m.NameLocation, "manifestVersion": m.VersionLocation} {
+				if loc != nil {
+					props[key+"StartByte"], props[key+"EndByte"] = loc.StartByte, loc.EndByte
+					props[key+"Line"], props[key+"Column"] = loc.Line, loc.Column
+					props[key+"EndLine"], props[key+"EndColumn"] = loc.EndLine, loc.EndColumn
+				}
+			}
 		}
 		if n.Gitlink != "" {
 			props["gitlink"] = n.Gitlink

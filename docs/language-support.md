@@ -75,7 +75,7 @@ Facts.Calls.Targets 保存语法提出的名称、接收者类型、模块限定
 
 ## Go
 
-同目录同 package 名的源码贡献 Package；调用方提供 ModulePath / GoModules 时，Module
+同目录同 package 名的源码贡献 Package；提供 go.mod 或 ModulePath / GoModules 时，Module
 通过 contains 组织所辖 Package。最具体模块根决定归属，目录嵌套不推导父子包或父子模块。
 
 
@@ -179,6 +179,13 @@ this、显式类型、局部实例初始化及显式导入的类可提供候选�
 具名基类和显式接口关系形成 extends / implements；唯一语法绑定为 exact，多个目标保持 scoped。
 继承方法查找复用已绑定类型关系，运行时分派仍未证明。
 独立编译器参照与未评估范围见 [TypeScript 仓库评测](typescript-corpus.md)。
+
+## Manifest 格式
+
+`Capabilities("gomod", "toml", "json")` 描述清单提取边界；普通 JSON/TOML 文件不自动成为清单。
+go.mod 提取模块名并贡献 Module；pyproject.toml 和 package.json 提取显式项目元数据，
+不创建同名导入命名空间。适配器复用 gotreesitter 语法树，名称和版本保留来源位置。
+支持范围、缺口与查询见 [Manifest 材料](document.md#manifest-材料)。
 
 ## 其他 grammar 与扩展
 

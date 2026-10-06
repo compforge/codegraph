@@ -193,7 +193,7 @@ func TestDocumentOnlyDocumentsEnterGraph(t *testing.T) {
 		t.Fatalf("file node = %v", rows)
 	}
 	f := rows[0]["f"].(Node)
-	if f.Kind != DocumentKind || f.Language != "" || f.Name != "notes.cg-unrecognized" {
+	if f.Kind != DocumentNodeKind || f.Language != "" || f.Name != "notes.cg-unrecognized" {
 		t.Fatalf("file-only node = %+v", f)
 	}
 	if got := query(t, g, `MATCH (:Document {path:'notes.cg-unrecognized'})-[:declares]->(n) RETURN n`, nil); len(got) != 0 {
@@ -306,7 +306,7 @@ func TestGitlinkDocumentIdentity(t *testing.T) {
 		t.Fatal(report, err, g.Result().Nodes())
 	}
 	node, ok := g.Result().Node(document.ID())
-	if !ok || node.Kind != DocumentKind || node.Gitlink != gitlinkCommit || node.Location.Path != document.Path || node.Location.EndByte != 0 {
+	if !ok || node.Kind != DocumentNodeKind || node.Gitlink != gitlinkCommit || node.Location.Path != document.Path || node.Location.EndByte != 0 {
 		t.Fatal(node)
 	}
 	rows := query(t, g.Result(), `MATCH (n:Document {gitlink:$commit}) RETURN n,n.gitlink AS revision`, map[string]any{"commit": gitlinkCommit})
