@@ -112,18 +112,29 @@ func TestRepositories(t *testing.T) {
 			t.Fatalf("unknown corpus repository %q", name)
 		}
 	}
+	// Only reports produced by this invocation contribute to the scorecard.
+	// Write a running snapshot first so an interrupted run cannot look complete.
+	var reports []runReport
 	for _, repo := range repos {
-		if !selected["all"] && !selected[repo.Name] {
-			continue
+		if selected["all"] || selected[repo.Name] {
+			reports = append(reports, runReport{Status: "not_run", Input: InputIdentity{Repository: repo}})
 		}
+	}
+	started := time.Now().UTC()
+	writeScorecard(t, *reportDir, reports, started, false)
+	t.Cleanup(func() { writeScorecard(t, *reportDir, reports, started, true) })
+	for i := range reports {
+		repo := reports[i].Input.Repository
 		t.Run(repo.Name, func(t *testing.T) {
+			r := &reports[i]
+			r.Status = "error"
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
 			dir := filepath.Join(*reportDir, repo.Name)
 			if err := os.MkdirAll(dir, 0755); err != nil {
 				t.Fatal(err)
 			}
-			r := runReport{SchemaVersion: 3, Status: "error", Input: InputIdentity{Repository: repo, Profile: "linux/amd64 CGO_ENABLED=0; production packages; root module; -mod=readonly"}, Evaluator: EvaluatorIdentity{Toolchain: runtime.Version(), Dependencies: evaluatorDependencies(t)}}
+			*r = runReport{SchemaVersion: 3, Status: "error", Input: InputIdentity{Repository: repo, Profile: "linux/amd64 CGO_ENABLED=0; production packages; root module; -mod=readonly"}, Evaluator: EvaluatorIdentity{Toolchain: runtime.Version(), Dependencies: evaluatorDependencies(t)}}
 			if repo.Language == "python" {
 				r.Input.Profile = "CPython AST; reviewed bindings; UTF-8; source root=" + repo.SourceRoot
 			}
@@ -140,7 +151,7 @@ func TestRepositories(t *testing.T) {
 			r.Subject.SourceSHA256 = sourceHash(t)
 			defer func() {
 				writeJSON(t, filepath.Join(dir, "report.json"), r)
-				if err := os.WriteFile(filepath.Join(dir, "summary.md"), []byte(renderSummary(r)), 0644); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, "summary.md"), []byte(renderSummary(*r)), 0644); err != nil {
 					t.Error(err)
 				}
 			}()
@@ -196,7 +207,7 @@ func TestRepositories(t *testing.T) {
 					r.Error = err.Error()
 					t.Fatal(err)
 				}
-				r.Regressions, err = compareBaseline(baseline, r)
+				r.Regressions, err = compareBaseline(baseline, *r)
 				if err != nil {
 					r.Status = "error"
 					r.Error = err.Error()
@@ -238,7 +249,10 @@ func writeJSON(t *testing.T, name string, v any) {
 }
 
 func observe(ctx context.Context, module, snapshot string, docs []cg.Document) (observed, error) {
-	opts := cg.Options{ModulePath: module, MaxDocuments: 2000, MaxNodes: 100000, MaxRelations: 500000, MaxSourceBytes: 64 << 20, MaxResultRows: 500000, MaxResultBytes: 128 << 20}
+	// The pinned TypeScript corpus alone has about 90k reference sites plus
+	// declarations and other source items. Budget the published graph, not just
+	// declarations; these evaluation limits do not change library defaults.
+	opts := cg.Options{ModulePath: module, MaxDocuments: 2000, MaxNodes: 250000, MaxRelations: 500000, MaxSourceBytes: 64 << 20, MaxResultRows: 500000, MaxResultBytes: 256 << 20}
 	builder, err := cg.NewBuilder(snapshot, opts)
 	if err != nil {
 		return observed{}, err

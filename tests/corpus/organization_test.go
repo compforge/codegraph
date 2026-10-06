@@ -183,7 +183,7 @@ func compareSemanticRelations(e *evaluation, o *oracle, a observed, nodeKeys map
 		}
 		// Imports to external/unresolved targets and runtime call targets have no
 		// independent answer in this profile; keep that boundary explicit.
-		assessed := r.Kind == cg.Declares || r.Kind == cg.Contains
+		assessed := r.Kind == cg.Declares || r.Kind == cg.Contains || r.Kind == cg.InNamespace
 		if r.Kind == cg.Imports {
 			for _, w := range o.Relations {
 				if w.Kind == r.Kind && w.Site.Path == at.Path && w.Site.Start <= at.End && w.Site.End >= at.Start {

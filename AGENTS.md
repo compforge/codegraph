@@ -45,7 +45,7 @@ docs/kernel.md                          # 稳定模型、主流程与设计依�
 3. 同一 Graph 只容纳同一快照。Extractor 拥有解析与缓存；Builder 拥有构图、预算及原子发布，Graph 是只读结果；补入 Document 后重新组织与绑定，最新结果可修订既有节点、关系和证据，旧结果不变。语言实现通过阶段接口提供事实、关系与诊断，不获取材料或直接操作图存储。
 4. 消费侧视图只读取 Node + Relation；缺少信息时补足图表达，不回读 Facts 或解析树。Facts 服务生产侧的依赖探索、解析与构图；Outline 在提取内部复用 gotreesitter，转换为声明和覆盖诊断后释放。AST 与引擎对象不穿透公共 API。新增语言能力同步更新注册声明及契约测试，grammar 可用不等于语义完整。
 5. 执行失败由 error 表达；局部诊断不否定无关事实。根包测试验证公共契约，内部机制测试随所属包维护；跨阶段语言回归放在 tests/semantics，真实语料验证语义覆盖，消费者验证自身策略与执行行为。
-6. 验证入口为 `make lint test build`，测试启用 race detector；工具准备和语料命令见 [评测执行入口](docs/corpus.md#执行与证据)。
+6. 验证入口为 `make lint test build`，测试启用 race detector；`make eval` 按语言评测符号、关系与 namespace 组织结构；工具准备和语料命令见 [评测执行入口](docs/corpus.md#执行与证据)。
 7. `VERSION` 格式为 X.Y.Z，任何代码文件变更（含测试、增删及重命名）须在同一提交 bump，默认递增 patch；纯文档变更无需 bump。
 
 ## References

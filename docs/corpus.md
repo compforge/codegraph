@@ -63,7 +63,8 @@ CodeGraph 接口相互一致当成语义正确的 ground truth。
 ```sh
 make setup-typescript-corpus             # 首次安装锁定的 TypeScript 编译器参照
 make lint test build                     # 库测试和评测器本地契约；真实仓库评测显示 skipped
-make test-corpus                         # 全部 Go / Python / TypeScript 固定仓库，允许下载源码及 Go 依赖
+make eval                                # 三语言统一评分表与证据；全部六个固定仓库
+make test-corpus                         # 同一评测入口，允许下载源码及 Go 依赖
 make test-python-corpus                  # python-stdx、agentue，仅静态分析源码
 make test-typescript-corpus              # Doctor，仅静态分析源码
 make test-corpus CORPUS=go-stdx,agentgo    # 精确选择语料
@@ -73,6 +74,31 @@ make test-corpus CORPUS=go-stdx,agentgo    # 精确选择语料
 查询有显式预算。无需模型凭据、数据库或 Kubernetes 环境。普通 Go 测试仍需要其正常的模块依赖缓存。评测器的 Python 契约测试需要 CPython 3.11+；
 `make fix` / `make lint` 还需要 PATH 中的 Ruff。`PYTHON` 可指定解释器路径。TypeScript 参照契约需要
 Node.js 20+、npm 和锁定的 TypeScript 5.6.3；安装入口只安装评测器依赖，不安装目标应用依赖。
+
+`make eval` 复用同一 corpus 评测，支持 `CORPUS`、`PYTHON`、`NODE` 和基线参数。
+终端及 `.corpus-results/summary.md` 按语言并列展示三个维度，`summary.json` 保留分项计数与比率：
+
+| 维度 | 核对内容 |
+|---|---|
+| 符号与语法事实 | 声明类别、名称与范围；引用、调用表达式和 import 的发生位置 |
+| 调用与引用目标 | 内部目标命中率、已评分 exact 边的正确率、错误目标与未知／动态／外部目标数量 |
+| 代码组织 | Package/Module/Namespace 的身份及贡献文件；Document 的 `in_namespace`；组织节点间的 `contains` 嵌套 |
+
+组织嵌套的分母单独计算，不与大量普通声明成员边混算；比较包含端点、种类和发生位置。
+Go 以 module/package 组织，Python 以已知包与子模块组织，TypeScript 源文件模块不因同目录而成为父子。
+统计中的源码位置来自独立参照，图中 Node ID 不作为标准答案。符号与组织节点、目标和组织关系从图读取；
+语法发生位置仍复用已有 Extractor Facts 评分，报告明确区分两者。
+
+汇总先累加同语言各仓的计数再计算百分比，不平均仓库百分比，也不把不同维度拼成一个“总体准确率”。
+事实匹配率为 `found / (found + unexpected)`，召回率为 `found / expected`；额外语法输出是待核对的参照差异，
+不能直接认定为误报。契约内声明只报告召回，避免杜撰其未匹配输出分母。零分母显示 N/A，JSON 比率为 null。
+
+报告只聚合本轮所选仓库，列出 measured/selected 与失败状态；不会扫描旧产物目录补数据。
+运行开始写入 running 状态，正常结束后更新为 measured、failed 或 error。质量门禁失败保留测量结果，
+加载／解析失败保留错误且退出非零。没有被选择的语言不视为通过。
+Python 的 `ast` 是[标准库](https://docs.python.org/3/library/ast.html)，但不提供完整跨模块绑定答案；
+当前关系评分限于审定样本。TypeScript 当前固定仓库不代表独立 JavaScript 语料覆盖。
+Go 生产适配器本身也使用 AST，因此这是 CodeGraph 表达与独立参照的对照，不是三语言都使用不同解析器的测试。
 
 默认产物在 gitignored `.corpus-results/<repo>/`，可通过 `CORPUS_REPORT_DIR` 指定：
 

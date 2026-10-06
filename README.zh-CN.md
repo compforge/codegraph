@@ -89,6 +89,12 @@ func main() {
 输出为 `Entry`。构建成功仍可能伴随局部分析缺口，由调用方判断其与当前任务的关系。
 更多可执行示例见 [example_test.go](example_test.go)。
 
+## 评估覆盖
+
+首次运行 `make setup-typescript-corpus`，随后用 `make eval` 对固定 Go、Python、TypeScript 仓库
+进行独立参照评测。评分表分别呈现符号、调用／引用目标和 namespace 组织结构，保留缺失与未评估项。
+环境准备、指标口径和证据入口见[真实仓库评测](docs/corpus.md)。
+
 ## 深入使用
 
 - [使用指南](docs/usage.md)：分批补充材料、复用分析结果、源码定位与更多关系查询，以及从图生成文件大纲。

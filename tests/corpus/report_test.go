@@ -36,7 +36,7 @@ func renderSummary(r runReport) string {
 		}
 		var organizationKeys []string
 		for key := range e.Measurements {
-			if strings.HasPrefix(key, "organizations/") || strings.HasPrefix(key, "relation_occurrences/") {
+			if strings.HasPrefix(key, "organizations/") || strings.HasPrefix(key, "organization_structure/") || strings.HasPrefix(key, "relation_occurrences/") {
 				organizationKeys = append(organizationKeys, key)
 			}
 		}
