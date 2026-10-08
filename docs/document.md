@@ -34,8 +34,9 @@ Directory 不具有源码 Location，其路径可通过 Node.Path 或 Cypher 的
 
 `Tag` 是以 string 为底层类型的开放枚举，内置 ManifestTag、GeneratedTag、TestFixtureTag、
 DependencyTag、BuildOutputTag、CacheTag、MinifiedTag，也允许调用方定义新值。
+CodeGraph 负责执行分类规则并在节点上保存标签；如何分类、标签在业务中意味着什么，以及如何处理已标记材料，由调用方决定。
 `TagRule{Name, Pattern}` 按规范化路径应用 Go 正则；规则可以匹配 Document 和 Directory。
-默认使用 `BuiltinTagRules()`：支持清单、常见生成文件、测试素材、依赖、构建输出、缓存及压缩资源。
+内置 `BuiltinTagRules()` 是可替换的默认策略，覆盖清单、常见生成文件、测试素材、依赖、构建输出、缓存及压缩资源。
 nil TagRules 选择内置规则，显式空集合关闭标签，非空集合替换内置规则；追加方式如下：
 
 ```go
@@ -46,12 +47,27 @@ rules := append(codegraph.BuiltinTagRules(), codegraph.TagRule{
 builder, err := codegraph.NewBuilder("revision", codegraph.Options{TagRules: rules})
 ```
 
-规则在创建 Builder 时校验并编译，此后固定。所有匹配结果累加，同名标签去重并按名称排序；
+只需要路径分类时，可以独立创建匹配器，无需提供 Document 或构图：
+
+```go
+matcher, err := codegraph.NewTagMatcher(rules)
+if err != nil {
+    return err
+}
+tags := matcher.Match("tests/input.pb.go")
+```
+
+`NewTagMatcher` 校验并编译规则，nil、空集合和替换规则的含义与 Builder 一致。
+匹配器创建后固定，可以并发复用；调用方后续修改规则或返回的标签不会影响它。
+`Match` 接收规范化的快照相对路径，使用 `/` 分隔、目录无末尾斜杠、根目录为 `.`。
+Builder 使用同一个匹配器实现，为已接纳的材料和目录计算标签。
+
+所有匹配结果累加，同名标签去重并按名称排序；
 规则顺序不影响结果。正则默认允许部分匹配，完整匹配需要显式添加 `^` 和 `$`。
 节点标签只来自自身路径匹配，不继承祖先标签。例如 `^vendor$` 只标记 vendor 目录，
 `(^|/)vendor(/|$)` 则分别匹配目录与其后代材料。
 
-标签在构图阶段计算，不进入提取缓存，也不控制 parser、语义解析或材料排除。
+标签在构图阶段计算，不进入提取缓存；内置和自定义标签均不控制 parser、语义解析或材料排除。
 同一份 Facts 可以在不同 Builder 中使用不同标签规则；未知格式和解析失败的 Document 仍保留路径标签。
 是否根据 dependency 或 generated 跳过评审由消费者决定。
 

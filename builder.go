@@ -20,7 +20,7 @@ import (
 // immutable Graph on each successful Build. Failed builds leave Result intact.
 // Snapshot-specific binding is never cached in Facts or Extractor.
 type Builder struct {
-	tagRules    []compiledTagRule
+	tagMatcher  *TagMatcher
 	resolution  analysis.ResolutionContext
 	mu          sync.RWMutex
 	buildMu     sync.Mutex
@@ -47,7 +47,7 @@ func NewBuilder(snapshot string, opts Options) (*Builder, error) {
 	if err != nil {
 		return nil, err
 	}
-	tagRules, err := compileTagRules(opts.TagRules)
+	tagMatcher, err := NewTagMatcher(opts.TagRules)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func NewBuilder(snapshot string, opts Options) (*Builder, error) {
 	opts.ResolutionContext = ResolutionContext{}
 	b := &Builder{snapshot: snapshot, opts: opts, documents: map[string]analysis.Facts{}, failures: map[string]Diagnostic{}}
 	b.resolution = resolution
-	b.tagRules = tagRules
+	b.tagMatcher = tagMatcher
 	b.result = newGraph(snapshot, opts, map[string]Node{}, map[string]Relation{}, BuildReport{Snapshot: snapshot, Documents: []string{}})
 	return b, nil
 }
