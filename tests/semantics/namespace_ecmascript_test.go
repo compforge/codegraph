@@ -77,7 +77,7 @@ func TestNamespaceECMAScriptBudgetRollback(t *testing.T) {
 	if _, _, err := codegraph.Build(ctx, "budget", []codegraph.Document{doc}, codegraph.Options{MaxNodes: 1}); !errors.Is(err, codegraph.ErrBuildBudget) {
 		t.Fatalf("module not included in node budget: %v", err)
 	}
-	g, _, err := buildTestBuilder(ctx, "budget", []codegraph.Document{doc}, codegraph.Options{MaxNodes: 2})
+	g, _, err := buildTestBuilder(ctx, "budget", []codegraph.Document{doc}, codegraph.Options{MaxNodes: 3})
 	if err != nil {
 		t.Fatal(err)
 	}

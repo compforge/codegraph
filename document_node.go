@@ -6,14 +6,13 @@ import (
 )
 
 // DocumentKind describes material, independently of its parsing grammar.
-// A Manifest is not evidence of an independent engineering Component.
+// Manifest classification is expressed by the manifest tag, independently of grammar.
 type DocumentKind string
 
 const (
-	SourceDocument   DocumentKind = "source"
-	ManifestDocument DocumentKind = "manifest"
-	GitlinkDocument  DocumentKind = "gitlink"
-	UnknownDocument  DocumentKind = "unknown"
+	SourceDocument  DocumentKind = "source"
+	GitlinkDocument DocumentKind = "gitlink"
+	UnknownDocument DocumentKind = "unknown"
 )
 
 // ManifestMetadata preserves explicit project declarations. Name is a Go module

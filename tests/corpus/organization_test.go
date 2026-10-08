@@ -93,7 +93,7 @@ func compareOrganizations(e *evaluation, o *oracle, a observed, nodeKeys map[str
 	}
 	found := map[string]bool{}
 	for _, n := range a.Nodes {
-		if n.Location != nil {
+		if n.Location != nil || n.Kind == cg.DirectoryNodeKind {
 			continue
 		}
 		match := ""
@@ -141,7 +141,7 @@ func compareSemanticRelations(e *evaluation, o *oracle, a observed, nodeKeys map
 		if n.Kind == cg.Reference || n.Kind == cg.Import || n.Kind == cg.Export {
 			sourceItems[n.ID] = true
 		}
-		if n.Location == nil {
+		if n.Location == nil && n.Kind != cg.DirectoryNodeKind {
 			organizationNodes[n.ID] = true
 		}
 	}

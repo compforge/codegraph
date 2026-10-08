@@ -121,7 +121,7 @@ func TestDocumentsRollback(t *testing.T) {
 		{name: "file count", opts: Options{MaxDocuments: 1}, documents: []Document{added}, wantErr: ErrBuildBudget},
 		{name: "file bytes", opts: Options{MaxDocumentBytes: int64(len(seed.Content))}, documents: []Document{added}, wantErr: ErrBuildBudget},
 		{name: "source bytes", opts: Options{MaxSourceBytes: int64(len(seed.Content) + len(added.Content) - 1)}, documents: []Document{added}, wantErr: ErrBuildBudget},
-		{name: "node count", opts: Options{MaxNodes: 3}, documents: []Document{added}, wantErr: ErrBuildBudget},
+		{name: "node count", opts: Options{MaxNodes: 4}, documents: []Document{added}, wantErr: ErrBuildBudget},
 		{name: "invalid path", documents: []Document{added, {Path: "../escape.go", Content: seed.Content}}},
 		{name: "canceled", documents: []Document{added}, wantErr: context.Canceled, cancel: true},
 	} {
@@ -302,7 +302,7 @@ func TestGitlinkDocumentIdentity(t *testing.T) {
 		t.Fatal(facts, err)
 	}
 	report, err := g.Wait(ctx)
-	if err != nil || len(report.Diagnostics) != 0 || len(g.Result().Nodes()) != 1 || len(g.Result().Relations()) != 0 {
+	if err != nil || len(report.Diagnostics) != 0 || len(g.Result().Nodes()) != 2 || len(g.Result().Relations()) != 1 {
 		t.Fatal(report, err, g.Result().Nodes())
 	}
 	node, ok := g.Result().Node(document.ID())

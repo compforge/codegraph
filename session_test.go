@@ -259,7 +259,7 @@ func TestAsyncParseFailureIsNotRetriedByWait(t *testing.T) {
 	if node, ok := g.Result().Node(doc.ID()); !ok || node.Kind != DocumentNodeKind || node.Location.EndByte != len(doc.Content) {
 		t.Fatal("failed parser erased the supplied file identity", node)
 	}
-	if len(g.Result().Find(doc.Path, "", "")) != 0 || len(g.Result().RelationsFrom(doc.ID())) != 0 {
+	if len(g.Result().Find(doc.Path, "", "")) != 0 || len(g.Result().RelationsFrom(doc.ID(), Declares, Encloses, InNamespace)) != 0 {
 		t.Fatal("failed parser invented declarations or relations")
 	}
 	if _, err := g.AddDocument(context.Background(), doc).Wait(); err == nil {

@@ -12,15 +12,54 @@ CodeGraph 只分析显式提供的材料，使相同输入的结果不受本机 
 
 ## 材料类别与语法格式
 
-图中的 Document 节点通过 DocumentKind 区分 source、manifest、gitlink 和 unknown。
-类别描述材料角色，Language 描述 grammar；JSON/TOML parser 可同时用于项目清单和普通数据文件。
-未识别用途的 JSON/TOML 等数据材料保留 unknown，不能因 grammar 存在就推断工程角色。
-Manifest 按已支持的清单格式识别，pyproject.toml 即使只有工具配置也保留 manifest 类别。
+图中的 Document 节点通过 DocumentKind 区分 source、gitlink 和 unknown；Language 描述 grammar。
+JSON/TOML/gomod 等数据或清单材料使用 unknown，清单角色由 manifest 标签表达。
 Gitlink 由调用方提供的 Git 元数据识别，分类不依赖路径后缀。
+Document 与 Directory 的 Tags 保存路径匹配结果，同一节点可以同时属于多个分类。
 
 输入 Document 与图中的 DocumentNode 职责不同：前者提供材料，后者组合 Node，作为同一图节点的
 类型化查询结果。`g.Document(path)`、`g.Node(DocumentID(path))` 和 Cypher 读取相同事实，
 返回值均可独立修改；DocumentNode 不另存成员或 outline。
+
+## Directory 与路径标签
+
+Builder 根据已接纳 Document 的路径补齐祖先 Directory，包括根目录 `.`，同一路径只创建一个节点。
+Directory 的 Path 是快照相对路径，不带末尾斜杠；其身份为 `DirectoryID(path)`。
+`g.Directory(path)` 返回同一图节点的类型化视图。目录存在只证明它是已提供材料的祖先，
+不证明内容完整，也不触发文件系统扫描。没有输入材料时不生成目录；gitlink 自身仍是 Document。
+
+Document 和子 Directory 通过 `in_directory` 指向直接父 Directory。它表达路径结构；
+语言 Package、Module 等节点由适配器组织，namespace 查询继续使用语义关系。
+Directory 不具有源码 Location，其路径可通过 Node.Path 或 Cypher 的 path 属性查询。
+
+`Tag` 是以 string 为底层类型的开放枚举，内置 ManifestTag、GeneratedTag、TestFixtureTag、
+DependencyTag、BuildOutputTag、CacheTag、MinifiedTag，也允许调用方定义新值。
+`TagRule{Name, Pattern}` 按规范化路径应用 Go 正则；规则可以匹配 Document 和 Directory。
+默认使用 `BuiltinTagRules()`：支持清单、常见生成文件、测试素材、依赖、构建输出、缓存及压缩资源。
+nil TagRules 选择内置规则，显式空集合关闭标签，非空集合替换内置规则；追加方式如下：
+
+```go
+rules := append(codegraph.BuiltinTagRules(), codegraph.TagRule{
+    Name:    codegraph.Tag("test"),
+    Pattern: `(^|/)tests?(/|$)`,
+})
+builder, err := codegraph.NewBuilder("revision", codegraph.Options{TagRules: rules})
+```
+
+规则在创建 Builder 时校验并编译，此后固定。所有匹配结果累加，同名标签去重并按名称排序；
+规则顺序不影响结果。正则默认允许部分匹配，完整匹配需要显式添加 `^` 和 `$`。
+节点标签只来自自身路径匹配，不继承祖先标签。例如 `^vendor$` 只标记 vendor 目录，
+`(^|/)vendor(/|$)` 则分别匹配目录与其后代材料。
+
+标签在构图阶段计算，不进入提取缓存，也不控制 parser、语义解析或材料排除。
+同一份 Facts 可以在不同 Builder 中使用不同标签规则；未知格式和解析失败的 Document 仍保留路径标签。
+是否根据 dependency 或 generated 跳过评审由消费者决定。
+
+```cypher
+MATCH (d:Document)-[:in_directory]->(p:Directory)
+WHERE 'generated' IN d.tags
+RETURN d.path, d.tags, p.path
+```
 
 ## Manifest 材料
 
@@ -39,10 +78,12 @@ Gitlink 由调用方提供的 Git 元数据识别，分类不依赖路径后缀�
 显式提供的 go.mod 声明优先于同根的 ModulePath / GoModules 提示，冲突发布
 conflicting_module_context 诊断。不同根按最近模块边界组织，嵌套 module 是独立所有者。
 补充清单会在下一次 Build 重新组织和绑定；同一快照中替换清单内容仍属于材料冲突。
-分类由路径和 Git 元数据确定，解析失败不抹除材料类别；失败清单不发布猜测的元数据或声明。
+默认规则按路径添加 manifest 标签，解析失败仍保留该标签；失败清单不发布猜测的元数据或声明。
+修改标签规则不会改变格式识别与清单解析；为普通文件添加 manifest 标签也不会使其产生清单语义。
 
 ```cypher
-MATCH (d:Document {documentKind:'manifest'})
+MATCH (d:Document)
+WHERE 'manifest' IN d.tags
 RETURN d.path, d.manifestFormat, d.manifestName, d.manifestVersion
 ```
 
@@ -64,7 +105,7 @@ codegraph.Document{
 
 注册 grammar 的源码由语言适配器提取事实；解析能力与关系绑定能力分别声明。
 没有 grammar 时仍保留 Document 节点，并以 unsupported_language 报告覆盖缺口，
-不产生声明和关系。是否纳入非代码材料由调用方选择。
+保留路径结构，不产生语言声明与语义关系。是否纳入非代码材料由调用方选择。
 源码解析失败同样保留材料身份及文档级诊断，不补造声明。
 
 Extractor 统一分类与提取材料，返回可独立传给 Builder 的 Facts。
@@ -128,13 +169,15 @@ RETURN source.path, gitlink.path, gitlink.gitlink, r.confidence
 提取缓存同样包含材料类型和内容身份，避免跨材料或跨版本复用错误事实。
 
 材料接纳和构建受有限预算约束。gitlink commit 字节计入材料容量，Document 和 Node 数量
-沿用构建预算；不会触发额外读取或下载。失败批次不发布部分图，构建与等待的取消语义见 [使用指南](usage.md)。
+沿用构建预算；Directory、in_directory 及其证据也计入节点、关系与证据预算，不增加 Document 计数。
+不会触发额外读取或下载。失败批次不发布部分图，构建与等待的取消语义见 [使用指南](usage.md)。
 
 ## 图中表达
 
 每份材料对应一个 Document 节点，Go 常量为 DocumentNodeKind，Cypher 标签为 Document。
 源码通过 declares 连接声明或组织贡献，通过 in_namespace 连接语言确定的组织根；
-Package、Module 等实体通过 contains 组织直接成员。路径的组织含义由语言适配器解释。
+Package、Module 等实体通过 contains 组织直接成员。路径层级通过 in_directory 连接到 Directory，
+路径对应的语言语义由语言适配器解释。
 Document 的来源身份与 Namespace 的成员身份各有职责，允许多个文件贡献同一个组织。
 
 gitlink 只保留材料边界及指向它的导入证据，不产生内部声明。

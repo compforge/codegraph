@@ -192,7 +192,7 @@ func TestImportCandidatesAndScope(t *testing.T) {
 		}
 	}
 	g, r, err = Build(context.Background(), "rev", documents(fs, "src/app.ts", "src/lib.ts", "src/lib.js"), Options{Scope: []string{"src/app.ts"}})
-	if err != nil || (len(r.Diagnostics) == 0) || len(g.Nodes()) != 3 || !hasDiagnostic(r, "out_of_scope") {
+	if err != nil || (len(r.Diagnostics) == 0) || len(g.Nodes()) != 5 || !hasDiagnostic(r, "out_of_scope") {
 		t.Fatal(r, err)
 	}
 }

@@ -3,6 +3,7 @@ package codegraph
 import (
 	"context"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -29,7 +30,7 @@ func TestManifestMetadata(t *testing.T) {
 				t.Fatalf("%v %+v", err, report.Diagnostics)
 			}
 			d, ok := g.Document(tc.path)
-			if !ok || d.Kind != DocumentNodeKind || d.DocumentKind != ManifestDocument || d.Manifest == nil {
+			if !ok || d.Kind != DocumentNodeKind || !slices.Contains(d.Tags, ManifestTag) || d.Manifest == nil {
 				t.Fatalf("%+v", d)
 			}
 			m := d.Manifest
@@ -39,14 +40,14 @@ func TestManifestMetadata(t *testing.T) {
 			if tc.name != "" && (m.NameLocation == nil || m.NameLocation.Path != tc.path || m.NameLocation.EndByte <= m.NameLocation.StartByte) {
 				t.Fatalf("missing name provenance: %+v", m)
 			}
-			rows := query(t, g, `MATCH (d:Document {documentKind:'manifest'}) RETURN d, d.manifestFormat AS format, d.manifestName AS name, d.manifestVersion AS version, d.manifestProject AS project, d.manifestBuildSystem AS build, d.manifestWorkspace AS workspace`, nil)
+			rows := query(t, g, `MATCH (d:Document) WHERE 'manifest' IN d.tags RETURN d, d.manifestFormat AS format, d.manifestName AS name, d.manifestVersion AS version, d.manifestProject AS project, d.manifestBuildSystem AS build, d.manifestWorkspace AS workspace`, nil)
 			if len(rows) != 1 || rows[0]["format"] != tc.format || rows[0]["name"] != tc.name || rows[0]["version"] != tc.version || rows[0]["project"] != tc.project || rows[0]["build"] != tc.build || rows[0]["workspace"] != tc.workspace {
 				t.Fatal(rows)
 			}
 			if !reflect.DeepEqual(rows[0]["d"].(Node), d.Node) {
 				t.Fatal("typed/Cypher node disagreement")
 			}
-			if tc.format != "gomod" && len(g.Nodes()) != 1 {
+			if tc.format != "gomod" && len(query(t, g, `MATCH (n) WHERE n.kind <> 'Document' AND n.kind <> 'Directory' RETURN n`, nil)) != 0 {
 				t.Fatal("packaging project invented an import namespace", g.Nodes())
 			}
 		})
@@ -88,11 +89,14 @@ func TestDocumentKindsAndParseFailures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []DocumentKind{SourceDocument, ManifestDocument, ManifestDocument, ManifestDocument, UnknownDocument, UnknownDocument, UnknownDocument, GitlinkDocument}
+	want := []DocumentKind{SourceDocument, UnknownDocument, UnknownDocument, UnknownDocument, UnknownDocument, UnknownDocument, UnknownDocument, GitlinkDocument}
 	for i, doc := range docs {
 		n, ok := g.Document(doc.Path)
 		if !ok || n.DocumentKind != want[i] {
 			t.Fatalf("%s: %+v", doc.Path, n)
+		}
+		if slices.Contains(n.Tags, ManifestTag) != (i >= 1 && i <= 3) {
+			t.Fatalf("manifest tags: %s: %v", doc.Path, n.Tags)
 		}
 		if n.Manifest != nil {
 			t.Fatal("metadata from failed/unrecognized manifest", n)
@@ -120,11 +124,13 @@ func TestManifestInvalidMetadata(t *testing.T) {
 			t.Fatalf("%s: %v %+v", tc.source, err, r)
 		}
 		d, ok := g.Document(tc.path)
-		if !ok || d.DocumentKind != ManifestDocument || d.Manifest != nil && d.Manifest.Name != "" {
+		if !ok || !slices.Contains(d.Tags, ManifestTag) || d.Manifest != nil && d.Manifest.Name != "" {
 			t.Fatal(d)
 		}
-		if len(g.Relations()) != 0 {
-			t.Fatal("invalid identity produced relations", g.Relations())
+		for _, r := range g.Relations() {
+			if r.Kind != InDirectory {
+				t.Fatal("invalid identity produced semantic relation", r)
+			}
 		}
 	}
 }

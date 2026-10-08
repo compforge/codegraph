@@ -122,3 +122,27 @@ func TestFlatModulesDoNotInventNamespaceParents(t *testing.T) {
 		t.Fatalf("fabricated directory nesting was accepted: %+v", m)
 	}
 }
+
+// Directory nodes have no source Location, but are not language organizations.
+// Their presence must not hide a fabricated semantic membership edge either.
+func TestDirectoryIsOutsideLanguageOrganizationOracle(t *testing.T) {
+	o := &oracle{Organizations: map[string]organization{
+		"m": {Kind: cg.Module, Name: "m", QualifiedName: "m"},
+	}}
+	a := observed{Nodes: []cg.Node{
+		{ID: "m", Kind: cg.Module, Name: "m", QualifiedName: "m"},
+		{ID: "dir", Kind: cg.DirectoryNodeKind, Path: "src"},
+		{ID: "root", Kind: cg.DirectoryNodeKind, Path: "."},
+	}, Relations: []cg.Relation{{Source: "dir", Target: "root", Kind: cg.InDirectory}}}
+	e := evaluate(o, a)
+	if e.Measurements["organizations/Directory"] != nil || len(e.Findings) != 0 {
+		t.Fatal("directory counted as language organization", e)
+	}
+	if m := e.Measurements["organizations/Module"]; m == nil || m.Expected != 1 || m.Found != 1 || m.Unexpected != 0 {
+		t.Fatal(m)
+	}
+	a.Relations = append(a.Relations, cg.Relation{Source: "m", Target: "dir", Kind: cg.Contains})
+	if m := evaluate(o, a).Measurements["relation_occurrences/contains"]; m == nil || m.Unexpected != 1 {
+		t.Fatal("fabricated semantic membership escaped the oracle", m)
+	}
+}

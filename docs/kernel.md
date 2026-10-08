@@ -52,7 +52,8 @@ NodeKind 与 RelationKind 是代码到图的映射词汇，定义模型能保留
 
 | 对象 | 当前 NodeKind | 分类依据 |
 |---|---|---|
-| 输入材料 | `Document` | 已接纳材料的身份；DocumentKind 描述 source、manifest、gitlink 或 unknown，独立于 grammar 与解析是否成功 |
+| 输入材料 | `Document` | 已接纳材料的身份；DocumentKind 描述 source、gitlink 或 unknown；Tags 表达 manifest 等可叠加分类，独立于 grammar 与解析是否成功 |
+| 路径结构 | `Directory` | 已提供材料的祖先目录，按路径去重，Tags 直接匹配自身路径 |
 | 名称与成员组织 | `Package`、`Module`、`Namespace` | 语言中的组织实体，不将物理目录直接等同于命名空间 |
 | 类型声明 | `Struct`、`Interface`、`Type`、`TypeAlias`、`Class`、`Enum`、`Record`、`Trait`、`Union` | 保留具体声明类别；Symbol 是这些实体的逻辑角色 |
 | 可调用声明 | `Function`、`Method`、`Constructor` | 保留声明身份及其语言类别 |
@@ -64,6 +65,7 @@ NodeKind 与 RelationKind 是代码到图的映射词汇，定义模型能保留
 
 | 联系 | 当前 RelationKind 与方向 | 保留的区别 |
 |---|---|---|
+| 路径归属 | `Document / Directory ─in_directory→ Directory` | 直接父目录，与 namespace 归属独立 |
 | 源码贡献 | `Document ─declares→ 声明或组织` | 哪份材料贡献了该实体 |
 | 词法嵌套 | `Document / 声明 ─encloses→ 声明` | 同一文件内最近的已保留声明层级 |
 | 文件组织上下文 | `Document ─in_namespace→ 组织根` | 语言确定的 document 组织归属，根可以是源码声明或合成节点 |
@@ -105,6 +107,9 @@ NodeKind 与 RelationKind 是代码到图的映射词汇，定义模型能保留
 Document 表达一份输入材料：逻辑路径对应文件内容或 gitlink 固定 commit。
 DocumentNode 是图中同一 Document 节点的类型化视图；材料类别与 manifest 元数据属于节点属性，
 声明的 Module 等实体通过关系连接。清单事实由 CodeGraph 解释，工程 Component 由 repocli 判定。
+Builder 从材料路径补齐 Directory，并用固定的 TagRule 集合计算 Document 与 Directory 的直接标签。
+Tag 是开放分类词汇，标签不继承、不参与语言解析；消费方根据标签制定排除或处理策略。
+路径结构、标签与语言事实共同受构建预算约束，随同一个 Graph 原子发布。
 Extractor 负责有界解析并产出 Facts，Facts 保存脱离 AST 的完整单文件材料，包括词法线索、
 语言专有证据、候选关系与局部诊断。Facts 的身份由路径和材料内容决定，可以跨快照复用。
 
