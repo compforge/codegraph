@@ -20,6 +20,7 @@ import (
 // immutable Graph on each successful Build. Failed builds leave Result intact.
 // Snapshot-specific binding is never cached in Facts or Extractor.
 type Builder struct {
+	tagRules    []compiledTagRule
 	resolution  analysis.ResolutionContext
 	mu          sync.RWMutex
 	buildMu     sync.Mutex
@@ -46,9 +47,15 @@ func NewBuilder(snapshot string, opts Options) (*Builder, error) {
 	if err != nil {
 		return nil, err
 	}
+	tagRules, err := compileTagRules(opts.TagRules)
+	if err != nil {
+		return nil, err
+	}
+	opts.TagRules = nil // Only the detached compiled rules are used after construction.
 	opts.ResolutionContext = ResolutionContext{}
 	b := &Builder{snapshot: snapshot, opts: opts, documents: map[string]analysis.Facts{}, failures: map[string]Diagnostic{}}
 	b.resolution = resolution
+	b.tagRules = tagRules
 	b.result = newGraph(snapshot, opts, map[string]Node{}, map[string]Relation{}, BuildReport{Snapshot: snapshot, Documents: []string{}})
 	return b, nil
 }
@@ -183,6 +190,9 @@ func (b *Builder) Report() BuildReport { return b.Result().Report() }
 // Scope contains snapshot-relative, slash-separated document paths or directory prefixes.
 // Empty Scope allows any relative path; documents are only analyzed when supplied.
 type Options struct {
+	// TagRules classifies Document and Directory paths without controlling parsing.
+	// Nil selects BuiltinTagRules; an explicit empty slice disables all tags.
+	TagRules          []TagRule
 	ResolutionContext ResolutionContext
 	// ExtractionCache optionally shares raw facts across snapshots; graph budgets
 	// and relationship binding still apply independently to each Graph.
@@ -327,7 +337,7 @@ func (g *Builder) assemble(ctx context.Context, files map[string]analysis.Facts,
 	for _, d := range failures {
 		report.Diagnostics = append(report.Diagnostics, d)
 		// A failed parser cannot erase the identity of a supplied document.
-		// Keep only the Document node; no declarations or relations are inferred.
+		// Keep the Document and its path structure; no language declarations are inferred.
 		if d.Code == "parse_error" {
 			id := DocumentID(d.Location.Path)
 			nodes[id] = Node{ID: id, Kind: DocumentNodeKind, Name: path.Base(d.Location.Path),
@@ -406,6 +416,9 @@ func (g *Builder) assemble(ctx context.Context, files map[string]analysis.Facts,
 			r.Evidence = append(r.Evidence, evidence)
 		}
 		relations[id] = r
+	}
+	if err := g.publishDocumentStructure(ctx, nodes, relations); err != nil {
+		return nil, nil, report, err
 	}
 	if err := publishReferences(ctx, files, ids, nodes, relations, g.opts); err != nil {
 		return nil, nil, report, err

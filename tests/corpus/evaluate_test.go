@@ -24,6 +24,9 @@ func evaluate(o *oracle, a observed) evaluation {
 	nodeKeys := map[string]string{}
 	found := map[string]bool{}
 	for _, n := range a.Nodes {
+		if n.Kind == cg.DirectoryNodeKind {
+			continue // Path structure is outside the language oracle.
+		}
 		if n.Location == nil {
 			if o.Organizations == nil {
 				e.Unassessed["organization/"+string(n.Kind)]++

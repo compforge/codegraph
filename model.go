@@ -19,6 +19,8 @@ type NodeKind string
 const (
 	// DocumentNodeKind represents the input material itself, including opaque gitlinks.
 	DocumentNodeKind NodeKind = "Document"
+	// DirectoryNodeKind represents an ancestor path of supplied documents.
+	DirectoryNodeKind NodeKind = "Directory"
 	// Reference identifies a source use independently of whether static analysis
 	// can bind a target. Node.ReferenceKind distinguishes calls from other uses.
 	Reference NodeKind = "Reference"
@@ -66,6 +68,10 @@ type Location struct {
 // declares relations retain its contributing source locations.
 type Node struct {
 	ID string `json:"id"`
+	// Path and Tags belong to Document and Directory nodes. Tags are direct
+	// path matches; they are neither inherited nor parsing instructions.
+	Path string `json:"path,omitempty"`
+	Tags []Tag  `json:"tags,omitempty"`
 	// DocumentKind and Manifest are present only on Document nodes.
 	DocumentKind DocumentKind      `json:"documentKind,omitempty"`
 	Manifest     *ManifestMetadata `json:"manifest,omitempty"`
@@ -98,6 +104,7 @@ type Node struct {
 }
 
 func cloneNode(n Node) Node {
+	n.Tags = append([]Tag(nil), n.Tags...)
 	n.Manifest = cloneManifest(n.Manifest)
 	if n.Binding != nil {
 		b := *n.Binding
@@ -155,6 +162,9 @@ type ModuleBinding struct {
 type RelationKind string
 
 const (
+	// InDirectory connects a Document or Directory to its direct parent Directory.
+	// It is path structure, independent of language namespace membership.
+	InDirectory RelationKind = "in_directory"
 	// InNamespace connects a Document to its language-defined organization root.
 	// It is independent of source contributions and does not make documents members.
 	InNamespace RelationKind = "in_namespace"

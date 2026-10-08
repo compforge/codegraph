@@ -239,6 +239,14 @@ func (g *Graph) materialize(ctx context.Context, nodes map[string]Node, relation
 			props["form"] = n.Binding.Form
 			props["typeOnly"] = n.Binding.TypeOnly
 		}
+		if n.Kind == DocumentNodeKind || n.Kind == DirectoryNodeKind {
+			props["path"] = n.Path
+			tags := make([]string, len(n.Tags))
+			for i, tag := range n.Tags {
+				tags[i] = string(tag)
+			}
+			props["tags"] = tags
+		}
 		if n.Kind == DocumentNodeKind {
 			props["documentKind"] = string(n.DocumentKind)
 		}
