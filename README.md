@@ -6,6 +6,7 @@ CodeGraph is a multilingual code analysis library you can embed in a Go program.
 files, and it statically builds a graph of symbols and their relationships. Code review, impact analysis,
 and source navigation tools can query those connections and inspect the evidence behind them.
 It runs in your process, without a separate database service or a requirement to write source files to disk.
+Syntax parsing is powered by [gotreesitter](https://github.com/odvcencio/gotreesitter), a pure Go tree-sitter runtime.
 
 ## What it helps you answer
 
