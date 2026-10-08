@@ -46,7 +46,22 @@ rules := append(codegraph.BuiltinTagRules(), codegraph.TagRule{
 builder, err := codegraph.NewBuilder("revision", codegraph.Options{TagRules: rules})
 ```
 
-规则在创建 Builder 时校验并编译，此后固定。所有匹配结果累加，同名标签去重并按名称排序；
+只需要路径分类时，可以独立创建匹配器，无需提供 Document 或构图：
+
+```go
+matcher, err := codegraph.NewTagMatcher(rules)
+if err != nil {
+    return err
+}
+tags := matcher.Match("tests/input.pb.go")
+```
+
+`NewTagMatcher` 校验并编译规则，nil、空集合和替换规则的含义与 Builder 一致。
+匹配器创建后固定，可以并发复用；调用方后续修改规则或返回的标签不会影响它。
+`Match` 接收规范化的快照相对路径，使用 `/` 分隔、目录无末尾斜杠、根目录为 `.`。
+Builder 使用同一个匹配器实现，为已接纳的材料和目录计算标签。
+
+所有匹配结果累加，同名标签去重并按名称排序；
 规则顺序不影响结果。正则默认允许部分匹配，完整匹配需要显式添加 `^` 和 `$`。
 节点标签只来自自身路径匹配，不继承祖先标签。例如 `^vendor$` 只标记 vendor 目录，
 `(^|/)vendor(/|$)` 则分别匹配目录与其后代材料。

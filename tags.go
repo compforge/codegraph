@@ -51,7 +51,18 @@ type compiledTagRule struct {
 	pattern *regexp.Regexp
 }
 
-func compileTagRules(rules []TagRule) ([]compiledTagRule, error) {
+// TagMatcher applies compiled path rules without reading files or constructing a graph.
+// It is immutable after construction and safe for concurrent Match calls.
+// The zero value matches no tags.
+type TagMatcher struct {
+	rules []compiledTagRule
+}
+
+// NewTagMatcher validates and compiles rules. Nil selects BuiltinTagRules;
+// an explicit empty slice disables tags. Later changes to rules do not affect
+// the matcher. Invalid regular expressions and blank names return an error.
+// +why=Graph construction and consumers share one path classification implementation.
+func NewTagMatcher(rules []TagRule) (*TagMatcher, error) {
 	if rules == nil {
 		rules = BuiltinTagRules()
 	}
@@ -66,13 +77,17 @@ func compileTagRules(rules []TagRule) ([]compiledTagRule, error) {
 		}
 		out = append(out, compiledTagRule{name: rule.Name, pattern: pattern})
 	}
-	return out, nil
+	return &TagMatcher{rules: out}, nil
 }
 
-func matchTags(rules []compiledTagRule, path string) []Tag {
+// Match returns all matching tags, deduplicated and sorted by name, or nil if none match.
+// Path must be a normalized snapshot-relative, slash-separated path; directory
+// paths have no trailing slash and the root is ".". Match does not normalize paths.
+// The returned slice belongs to the caller. Tags are not inherited from ancestors.
+func (m *TagMatcher) Match(path string) []Tag {
 	var tags []Tag
 	seen := map[Tag]bool{}
-	for _, rule := range rules {
+	for _, rule := range m.rules {
 		if !seen[rule.name] && rule.pattern.MatchString(path) {
 			seen[rule.name] = true
 			tags = append(tags, rule.name)

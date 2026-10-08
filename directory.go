@@ -36,7 +36,7 @@ func (b *Builder) publishDocumentStructure(ctx context.Context, nodes map[string
 	}
 	for _, n := range documents {
 		n.Path = n.Location.Path
-		n.Tags = matchTags(b.tagRules, n.Path)
+		n.Tags = b.tagMatcher.Match(n.Path)
 		nodes[n.ID] = n
 		child, parent := n.ID, path.Dir(n.Path)
 		for {
@@ -49,7 +49,7 @@ func (b *Builder) publishDocumentStructure(ctx context.Context, nodes map[string
 				if len(nodes) >= b.opts.MaxNodes {
 					return fmt.Errorf("%w: directory nodes", ErrBuildBudget)
 				}
-				nodes[id] = Node{ID: id, Kind: DirectoryNodeKind, Name: path.Base(parent), Path: parent, Tags: matchTags(b.tagRules, parent)}
+				nodes[id] = Node{ID: id, Kind: DirectoryNodeKind, Name: path.Base(parent), Path: parent, Tags: b.tagMatcher.Match(parent)}
 			}
 			edgeID := identity(child, id, InDirectory)
 			if len(relations) >= b.opts.MaxRelations || evidence >= b.opts.MaxEvidence {
