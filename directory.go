@@ -2,7 +2,6 @@ package codegraph
 
 import (
 	"context"
-	"fmt"
 	"path"
 )
 
@@ -47,13 +46,16 @@ func (b *Builder) publishDocumentStructure(ctx context.Context, nodes map[string
 			_, exists := nodes[id]
 			if !exists {
 				if len(nodes) >= b.opts.MaxNodes {
-					return fmt.Errorf("%w: directory nodes", ErrBuildBudget)
+					return &BuildBudgetError{Stage: "directory", Resource: "MaxNodes", Used: len(nodes), Adding: 1, Limit: b.opts.MaxNodes}
 				}
 				nodes[id] = Node{ID: id, Kind: DirectoryNodeKind, Name: path.Base(parent), Path: parent, Tags: b.tagMatcher.Match(parent)}
 			}
 			edgeID := identity(child, id, InDirectory)
-			if len(relations) >= b.opts.MaxRelations || evidence >= b.opts.MaxEvidence {
-				return fmt.Errorf("%w: directory relations or evidence", ErrBuildBudget)
+			if len(relations) >= b.opts.MaxRelations {
+				return &BuildBudgetError{Stage: "directory", Resource: "MaxRelations", Used: len(relations), Adding: 1, Limit: b.opts.MaxRelations}
+			}
+			if evidence >= b.opts.MaxEvidence {
+				return &BuildBudgetError{Stage: "directory", Resource: "MaxEvidence", Used: evidence, Adding: 1, Limit: b.opts.MaxEvidence}
 			}
 			relations[edgeID] = Relation{ID: edgeID, Source: child, Target: id, Kind: InDirectory,
 				Confidence: Exact, Evidence: []Evidence{{Basis: "document_path", Confidence: Exact}}}

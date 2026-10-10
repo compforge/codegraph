@@ -3,13 +3,11 @@ package codegraph
 import (
 	"crypto/sha256"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"sort"
 
 	"github.com/compforge/codegraph/internal/analysis"
 	"github.com/compforge/codegraph/internal/confidence"
-	"github.com/compforge/codegraph/internal/graphstore"
 )
 
 // NodeKind is the concrete code category used both by Node.Kind and Cypher labels.
@@ -376,14 +374,3 @@ func locationPtr(f analysis.Facts, span analysis.Span) *Location {
 	loc := location(f, span)
 	return &loc
 }
-
-var (
-	ErrSnapshotChanged  = errors.New("source changed within graph snapshot")
-	ErrDocumentNotFound = errors.New("document not found in graph")
-	ErrBuildBudget      = errors.New("build budget exceeded")
-)
-
-var (
-	ErrQueryBudget = graphstore.ErrBudget
-	ErrReadOnly    = graphstore.ErrReadOnly
-)

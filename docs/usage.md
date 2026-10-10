@@ -243,6 +243,7 @@ before / after 应使用不同 Builder；同路径不同内容会产生 ErrSnaps
 - 单文件解析失败保留 Document 与诊断，其他文件的可用事实仍可发布。
 - 预算失败、快照冲突及构建取消阻止整个失败批次发布；查询错误不返回部分行。
 - Options 为材料、事实、时间和查询结果提供有限预算；MaxEvidence 与 MaxRelations 分别限制证据及关系发生数。
+- 用 `errors.Is(err, ErrBuildBudget)` 判断构建预算失败。目录结构和源码使用节点发布阶段返回 `*BuildBudgetError`，可用 `errors.As` 读取 `Stage`、`Resource`（对应 Options 字段）、`Used`、`Adding` 和 `Limit`，无需解析错误文本；其他阶段可能只提供错误类别。
 - ExtractionOptions.Concurrency 限制共享 Extractor 的提取并发；Builder 的材料提交接口使用 Options.BuildConcurrency。
 
 配置字段及默认值见 [Options](../graph.go)。材料接纳与内存所有权见 [Document 契约](document.md)。
