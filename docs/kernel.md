@@ -308,8 +308,11 @@ Builder 的异步补料接口按需创建独立的私有 session，由它协调�
 
 gotreesitter 提供语法解析与事实提取，GoGraph 提供进程内属性图及 Cypher，pond 提供有界任务调度。
 CodeGraph 拥有它们之间的代码语义契约，依赖已有能力完成基础工作。
-语言语法提取优先复用 gotreesitter 的 FactProgram、Outliner 和已解析的语法树，
-覆盖缺口在适配器中转换为脱离树的事实；跨文件组织、绑定与关系证据由 CodeGraph 组合并发布。
+
+语言语法提取优先复用 gotreesitter 的 FactProgram、Outliner 和已解析的语法树。
+遇到语法解析、声明范围或通用事实提取不足时，先构造最小复现，优先向 gotreesitter 提交 PR/MR，
+再由 CodeGraph 升级依赖消费修复。语言适配器负责将上游事实转换为脱离语法树的构图材料，
+并补充跨文件组织、名称绑定和关系证据等语言语义；不将上游语法缺口长期补在适配器中。
 
 图存储采用有向多重图，按独立 edge handle 写入属性，保留相同端点的不同关系发生。
 公开查询只读，节点、关系与路径还原为 CodeGraph 领域值；访问器返回独立副本，防止调用方修改图状态。
