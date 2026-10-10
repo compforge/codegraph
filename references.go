@@ -42,8 +42,11 @@ func publishReferences(ctx context.Context, files map[string]analysis.Facts, ids
 		if _, exists := relations[r.ID]; exists {
 			return nil
 		}
-		if len(relations) >= opts.MaxRelations || evidenceCount+len(r.Evidence) > opts.MaxEvidence {
-			return fmt.Errorf("%w: source-use relations or evidence", ErrBuildBudget)
+		if len(relations) >= opts.MaxRelations {
+			return &BuildBudgetError{Stage: "source-use", Resource: "MaxRelations", Used: len(relations), Adding: 1, Limit: opts.MaxRelations}
+		}
+		if evidenceCount+len(r.Evidence) > opts.MaxEvidence {
+			return &BuildBudgetError{Stage: "source-use", Resource: "MaxEvidence", Used: evidenceCount, Adding: len(r.Evidence), Limit: opts.MaxEvidence}
 		}
 		relations[r.ID] = r
 		evidenceCount += len(r.Evidence)
@@ -60,7 +63,7 @@ func publishReferences(ctx context.Context, files map[string]analysis.Facts, ids
 			return nil
 		}
 		if len(nodes) >= opts.MaxNodes {
-			return fmt.Errorf("%w: source-use nodes", ErrBuildBudget)
+			return &BuildBudgetError{Stage: "source-use", Resource: "MaxNodes", Used: len(nodes), Adding: 1, Limit: opts.MaxNodes}
 		}
 		parent := ids[analysis.SourceRef(f.Path, owner)]
 		if parent == "" {
