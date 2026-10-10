@@ -6,6 +6,7 @@ import (
 
 type GoType struct {
 	Kind, Name, Module string
+	Parameters         []*GoType // direct named parameter types; nil for unsupported syntax
 	Results            []*GoType // declared result types in signature order
 	Result             int       // selected result of a call projection
 	Element, Key       *GoType   // container element and map key types
@@ -20,6 +21,7 @@ func typeShape(e analysis.Extension) *GoType { t, _ := e.(*GoType); return t }
 type usageHints struct {
 	Key       *GoType
 	Receivers []*GoType
+	Arguments []*GoType // named composite literals in argument order; nil for other expressions
 }
 
 func (usageHints) Language() string         { return "go" }
