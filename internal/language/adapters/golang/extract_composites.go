@@ -96,6 +96,18 @@ func goTypeDescriber(f *Facts, fset *token.FileSet) func(ast.Expr) *GoType {
 		switch n := expr.(type) {
 		case *ast.FuncType:
 			hint.Kind = "function"
+			if n.Params != nil {
+				for _, field := range n.Params.List {
+					var parameter *GoType
+					switch field.Type.(type) {
+					case *ast.Ident, *ast.SelectorExpr:
+						parameter = describe(field.Type)
+					}
+					for i := 0; i < max(1, len(field.Names)); i++ {
+						hint.Parameters = append(hint.Parameters, parameter)
+					}
+				}
+			}
 			if n.Results != nil {
 				for _, field := range n.Results.List {
 					for i := 0; i < max(1, len(field.Names)); i++ {

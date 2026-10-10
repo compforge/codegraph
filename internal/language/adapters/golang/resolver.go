@@ -97,6 +97,11 @@ func (s session) Resolve(ctx context.Context, index *analysis.Index, limit int) 
 			}
 		}
 	}
+	dispatch, err := resolveInterfaceCalls(ctx, files, edges, module, methods, limit-len(edges))
+	if err != nil {
+		return nil, nil, err
+	}
+	edges = append(edges, dispatch...)
 	references, gaps, err := resolveReferences(ctx, files, names, module, methods, limit-len(edges))
 	if err != nil {
 		return nil, nil, err

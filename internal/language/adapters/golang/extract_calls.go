@@ -179,6 +179,21 @@ func enrichGoCallTargets(f *Facts, nodes map[Span]*ast.CallExpr, closures []Span
 		if node == nil {
 			continue
 		}
+		hints := usageHints{Arguments: make([]*GoType, len(node.Args))}
+		for i, arg := range node.Args {
+			// Start with explicit construction sites, without guessing variable
+			// flow, generic substitution or the dynamic value of an interface.
+			if address, ok := arg.(*ast.UnaryExpr); ok && address.Op == token.AND {
+				arg = address.X
+			}
+			if literal, ok := arg.(*ast.CompositeLit); ok {
+				switch literal.Type.(type) {
+				case *ast.Ident, *ast.SelectorExpr:
+					hints.Arguments[i] = describe(literal.Type)
+				}
+			}
+		}
+		call.Extension = hints
 		// Keep the existing static-function path. Only supplement dispatch it could
 		// not represent, preserving lexical binding instead of bare-name guessing.
 		if !call.Blocked {
@@ -186,7 +201,8 @@ func enrichGoCallTargets(f *Facts, nodes map[Span]*ast.CallExpr, closures []Span
 		}
 		call.Targets = goCallableTargets(node.Fun, "callable_binding", map[*ast.Object]bool{}, assignments)
 		if selector, ok := goUnwrapInstantiation(node.Fun).(*ast.SelectorExpr); ok {
-			call.Extension = usageHints{Receivers: goMemberReceiverTypes(selector.X, assignments, describe)}
+			hints.Receivers = goMemberReceiverTypes(selector.X, assignments, describe)
+			call.Extension = hints
 		}
 	}
 }
