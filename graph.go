@@ -226,7 +226,7 @@ func (g *Graph) materialize(ctx context.Context, nodes map[string]Node, relation
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		props := map[string]any{"id": n.ID, "kind": string(n.Kind), "name": n.Name, "qualifiedName": n.QualifiedName, "language": n.Language, "snapshot": g.snapshot}
+		props := map[string]any{"id": n.ID, "kind": string(n.Kind), "name": n.Name, "qualifiedName": n.QualifiedName, "language": n.Language, "snapshot": g.snapshot, "entrypoint": n.Entrypoint}
 		if n.Kind == Reference {
 			props["receiver"] = n.Receiver
 			props["referenceKind"] = string(n.ReferenceKind)

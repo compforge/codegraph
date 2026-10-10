@@ -10,6 +10,7 @@ import (
 // Entity describes one graph endpoint. Identity provenance is independent of
 // its concrete kind and of its role as a symbol or namespace.
 type Entity struct {
+	Entrypoint                          bool
 	Binding                             *ModuleBinding
 	Ref                                 Ref
 	Kind, Name, QualifiedName, Language string
@@ -117,7 +118,7 @@ func (x *Index) AddSources(ctx context.Context, names []string) error {
 				return fmt.Errorf("%s: unsupported declaration kind %q", p, d.Kind)
 			}
 			ref := DeclarationRef(p, i)
-			e := Entity{Ref: ref, Kind: kind, Name: d.Name, QualifiedName: d.QualifiedName, Language: f.Language, Location: &SourceLocation{Path: p, Span: d.Span}, Comments: d.Comments, Documentation: d.Documentation}
+			e := Entity{Ref: ref, Kind: kind, Entrypoint: d.Entrypoint, Name: d.Name, QualifiedName: d.QualifiedName, Language: f.Language, Location: &SourceLocation{Path: p, Span: d.Span}, Comments: d.Comments, Documentation: d.Documentation}
 			if d.NameSpan.End > d.NameSpan.Start {
 				e.NameLocation = &SourceLocation{Path: p, Span: d.NameSpan}
 			}

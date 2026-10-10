@@ -3,6 +3,8 @@ package analysis
 type Span struct{ Start, End int }
 type Declaration struct {
 	Name, QualifiedName, Kind string
+	// Entrypoint is recognized by language rules, independently of consumer policy.
+	Entrypoint bool
 	// NameSpan preserves the identifier capture separately from the declaration.
 	// A zero span means the extractor did not supply a name location.
 	NameSpan Span

@@ -28,6 +28,7 @@ type BindResult struct {
 	Resolver RelationResolver
 }
 type Capability struct {
+	Entrypoints                                                                           bool
 	Documentation                                                                         bool
 	Language                                                                              string
 	Organizations, Declarations, SourceItems, References, Relations, Markers, Limitations []string

@@ -66,6 +66,9 @@ type Location struct {
 // declares relations retain its contributing source locations.
 type Node struct {
 	ID string `json:"id"`
+	// Entrypoint identifies a runtime entrypoint recognized by supported language
+	// rules. False means none was identified; it is not proof of no external callers.
+	Entrypoint bool `json:"entrypoint,omitempty"`
 	// Path and Tags belong to Document and Directory nodes. Tags are direct
 	// path matches; they are neither inherited nor parsing instructions.
 	Path string `json:"path,omitempty"`
