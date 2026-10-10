@@ -3,6 +3,7 @@ package codegraph
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"slices"
 	"strings"
@@ -259,6 +260,10 @@ func TestSourceUseBudgetsPreservePublication(t *testing.T) {
 	for _, r := range complete.Relations() {
 		evidence += len(r.Evidence)
 	}
+	// Exactly filling every budget succeeds; only the next addition fails.
+	if _, _, err := Build(ctx, "snapshot", docs, Options{MaxNodes: report.Nodes, MaxRelations: report.Relations, MaxEvidence: evidence}); err != nil {
+		t.Fatal("exact budget rejected", err)
+	}
 	for name, opts := range map[string]Options{
 		"nodes":     {MaxNodes: report.Nodes - 1},
 		"relations": {MaxRelations: report.Relations - 1},
@@ -273,8 +278,20 @@ func TestSourceUseBudgetsPreservePublication(t *testing.T) {
 				t.Fatal(err)
 			}
 			previous := b.Result()
-			if _, err := b.addDocumentsSync(ctx, docs[1]); !errors.Is(err, ErrBuildBudget) {
+			_, err = b.addDocumentsSync(ctx, docs[1])
+			if !errors.Is(err, ErrBuildBudget) {
 				t.Fatal("source uses escaped budget", err)
+			}
+			limit, option := opts.MaxNodes, "MaxNodes"
+			switch name {
+			case "relations":
+				limit, option = opts.MaxRelations, "MaxRelations"
+			case "evidence":
+				limit, option = opts.MaxEvidence, "MaxEvidence"
+			}
+			want := fmt.Sprintf("build budget exceeded: source-use %s (used=%d, adding=1, %s=%d)", name, limit, option, limit)
+			if err.Error() != want {
+				t.Fatalf("budget error = %q, want %q", err, want)
 			}
 			if b.Result() != previous {
 				t.Fatal("failed build replaced publication")
