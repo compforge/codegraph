@@ -77,8 +77,13 @@ func extractGoReferences(f *Facts, file *ast.File, fset *token.FileSet, assignme
 			case *ast.TypeSpec:
 				start = fset.Position(decl.Pos()).Offset
 			case *ast.ValueSpec:
-				if len(decl.Names) == 1 {
-					start = fset.Position(decl.Names[0].Pos()).Offset
+				// A ValueSpec shares syntax across names, but each name has its own
+				// declaration node. Follow the AST binding to preserve shadowing.
+				for _, name := range decl.Names {
+					if name.Obj == id.Obj {
+						start = fset.Position(name.Pos()).Offset
+						break
+					}
 				}
 			}
 
