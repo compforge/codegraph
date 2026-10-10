@@ -27,6 +27,10 @@ func init() {}
 func main(arg int) {}
 func init() int { return 1 }
 `)},
+		{Path: "empty/main.go", Content: []byte(`package main
+func main() () {}
+func init() (/* empty */) {}
+`)},
 		{Path: "generic/main.go", Content: []byte(`package main
 func main[T any]() {}
 `)},
@@ -41,7 +45,7 @@ func main[T any]() {}
 		if node.Kind != codegraph.Function && node.Kind != codegraph.Method {
 			continue
 		}
-		want := node.Kind == codegraph.Function && (node.Location.Path == "cmd/main.go" && (node.Name == "main" || node.Name == "init") || node.Location.Path == "library/library.go" && node.Name == "init")
+		want := node.Kind == codegraph.Function && ((node.Location.Path == "cmd/main.go" || node.Location.Path == "empty/main.go") && (node.Name == "main" || node.Name == "init") || node.Location.Path == "library/library.go" && node.Name == "init")
 		if node.Entrypoint != want {
 			t.Fatalf("wrong entrypoint classification: %+v want=%v", node, want)
 		}
@@ -50,7 +54,7 @@ func main[T any]() {}
 		}
 	}
 	rows := query(t, g, `MATCH (n) WHERE n.entrypoint = true RETURN n`, nil)
-	if entries != 4 || len(rows) != entries {
+	if entries != 6 || len(rows) != entries {
 		t.Fatalf("entries=%d query=%+v", entries, rows)
 	}
 	for _, row := range rows {

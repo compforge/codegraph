@@ -19,21 +19,26 @@ func markGoEntrypoints(f *Facts, tree *gts.Tree) {
 			continue
 		}
 		params := n.ChildByFieldName("parameters", lang)
-		if params == nil || n.ChildByFieldName("type_parameters", lang) != nil || n.ChildByFieldName("result", lang) != nil {
+		result := n.ChildByFieldName("result", lang)
+		if n.ChildByFieldName("type_parameters", lang) != nil || !emptyGoParameterList(params, lang) || result != nil && !emptyGoParameterList(result, lang) {
 			continue
 		}
-		empty := true
-		for j := 0; j < params.NamedChildCount(); j++ {
-			if params.NamedChild(j).Type(lang) != "comment" {
-				empty = false
-				break
-			}
-		}
-		if empty {
-			entries[int(n.StartByte())] = true
-		}
+		entries[int(n.StartByte())] = true
 	}
 	for i := range f.Declarations {
 		f.Declarations[i].Entrypoint = entries[f.Declarations[i].Start]
 	}
+}
+
+// Empty result lists, including comments, have the same signature as no result.
+func emptyGoParameterList(n *gts.Node, lang *gts.Language) bool {
+	if n == nil || n.Type(lang) != "parameter_list" {
+		return false
+	}
+	for i := 0; i < n.NamedChildCount(); i++ {
+		if n.NamedChild(i).Type(lang) != "comment" {
+			return false
+		}
+	}
+	return true
 }
