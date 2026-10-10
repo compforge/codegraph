@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"go/ast"
 	"go/token"
+	"slices"
 	"sort"
 
 	"github.com/compforge/codegraph/internal/analysis"
@@ -93,6 +94,11 @@ func enrichGoDeclarations(f *Facts, file *ast.File, fset *token.FileSet) {
 			}
 		}
 		return true
+	})
+	// Blank var/const names declare no binding. Keep visiting their types and
+	// initializers so discarded values still contribute calls and references.
+	f.Declarations = slices.DeleteFunc(f.Declarations, func(d Declaration) bool {
+		return d.Name == "_" && (d.Kind == "variable" || d.Kind == "constant")
 	})
 	assignDeclarationParents(f.Declarations)
 }

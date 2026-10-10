@@ -365,7 +365,7 @@ func (g *Builder) assemble(ctx context.Context, files map[string]analysis.Facts,
 		default:
 			id = "node:" + identity(ref.SyntheticKey())
 		}
-		n := Node{ID: id, Kind: NodeKind(e.Kind), Name: e.Name, QualifiedName: e.QualifiedName, Language: e.Language}
+		n := Node{ID: id, Kind: NodeKind(e.Kind), Entrypoint: e.Entrypoint, Name: e.Name, QualifiedName: e.QualifiedName, Language: e.Language}
 		if e.Binding != nil {
 			b := ModuleBinding(*e.Binding)
 			n.Binding = &b

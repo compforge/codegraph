@@ -37,5 +37,6 @@ func (Adapter) Extract(ctx context.Context, f Facts, tree *gts.Tree, entry gramm
 	if err := enrichGo(&f); err != nil {
 		return f, err
 	}
+	markGoEntrypoints(&f, tree)
 	return f, ctx.Err()
 }
