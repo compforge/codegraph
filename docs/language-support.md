@@ -20,8 +20,8 @@ grammar 可用不表示语义完整。具体类别与语言覆盖以实际注册
 Graph 通过 encloses 和声明位置保留词法嵌套，通过 contains 保留语义成员归属。
 消费侧从节点和关系生成文件 outline，见 [从 Graph 读取文件结构](usage.md#从-graph-读取文件结构)。
 
-Python 和通用适配器使用注册的声明 query，JS/TS 使用适配器维护的声明 query，
-内部复用 gotreesitter Outline 提取声明与层级；Go 通过专有声明分析提取。
+Go、Python 和 JS/TS 消费 gotreesitter 的声明、签名与调用参数 facts，并投影名称和成员归属。
+通用适配器复用注册的声明 query 与 Outline；上游尚未覆盖的范围保留有界补充。
 结构视图覆盖图已接纳的声明，query 遗漏及未支持的结构由 BuildReport 说明。
 
 ## 声明文档
@@ -86,7 +86,7 @@ Facts.Calls.Targets 保存语法提出的名称、接收者类型、模块限定
 var/const 的空白标识符不声明节点；其类型和初始化表达式仍贡献引用及调用。Type 表达其他命名类型，TypeAlias 表达显式别名，
 不会因右侧语法而丢失别名身份。
 
-命名 struct/interface 只展开直接成员，匿名嵌套类型和提升成员不展开。
+命名 struct/interface 和有归属的匿名嵌套成员保留上游提供的层级；提升成员不展开。
 同组字段各有身份并互为兄弟，内嵌结构体字段按非限定类型名命名。
 包及跨文件接收者归属规则见 [命名空间组织](namespaces.md)。
 
@@ -140,7 +140,7 @@ interface 嵌入形成 extends，struct 嵌入表达组合。
 
 ### 模块与导入
 
-提取 outline 声明、源码导入、显式模块绑定、局部函数调用和前置注释 marker。
+提取函数、类、模块/类赋值声明、源码导入、显式模块绑定、局部函数调用和前置注释 marker。
 import 指向 Module / Package，from-import 与 alias 可连接已加载声明。
 函数内 import 不泄漏到其他函数；显式导入的类可以参与构造与方法绑定。
 `from . import name` / `from .. import name` 保留相对包锚点，可沿已提供的包 initializer 转导出绑定。
@@ -178,7 +178,7 @@ import 事实保存绑定名及语句挂靠。结构是语言中立的，当前�
 
 ### 模块绑定
 
-提取 outline 声明、源码 import、局部函数调用及前置注释 marker，包含 export 包装。
+提取声明、源码 import、局部函数调用及前置注释 marker，包含 export 包装和 enum 成员。
 文件以 Module 组织顶层声明；具名、default、namespace import 及显式 re-export 链连接已加载目标。
 显式导出优先于星号转导出，星号转导出不传播 default；循环按路径和公开名称检测。
 

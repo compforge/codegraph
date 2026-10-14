@@ -7,30 +7,30 @@ import (
 
 func goCompositeKeys(f *Facts, file *ast.File, fset *token.FileSet) map[*ast.Ident]*GoType {
 	describe := goTypeDescriber(f, fset)
-	declarations := map[int]int{}
+	declarations := map[int][]int{}
 	for i, d := range f.Declarations {
-		declarations[d.Start] = i
+		declarations[d.Start] = append(declarations[d.Start], i)
 	}
 	keys := map[*ast.Ident]*GoType{}
 	ast.Inspect(file, func(node ast.Node) bool {
 		switch n := node.(type) {
-		case *ast.FuncDecl:
-			if i, ok := declarations[fset.Position(n.Pos()).Offset]; ok {
-				f.Declarations[i].Extension = describe(n.Type)
-			}
 		case *ast.TypeSpec:
 			if typ := describe(n.Name); typ.Target >= 0 {
 				f.Declarations[typ.Target].Extension = describe(n.Type)
 			}
 		case *ast.Field:
 			for _, name := range n.Names {
-				if i, ok := declarations[fset.Position(name.Pos()).Offset]; ok && (f.Declarations[i].Kind == "field" || f.Declarations[i].Kind == "method") {
-					f.Declarations[i].Extension = describe(n.Type)
+				for _, i := range declarations[fset.Position(name.Pos()).Offset] {
+					if f.Declarations[i].Kind == "field" {
+						f.Declarations[i].Extension = describe(n.Type)
+					}
 				}
 			}
 			if len(n.Names) == 0 {
-				if i, ok := declarations[fset.Position(n.Pos()).Offset]; ok && (f.Declarations[i].Kind == "field" || f.Declarations[i].Kind == "method") {
-					f.Declarations[i].Extension = describe(n.Type)
+				for _, i := range declarations[fset.Position(n.Pos()).Offset] {
+					if f.Declarations[i].Kind == "field" {
+						f.Declarations[i].Extension = describe(n.Type)
+					}
 				}
 			}
 		case *ast.CompositeLit:

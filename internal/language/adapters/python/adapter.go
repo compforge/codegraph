@@ -14,10 +14,9 @@ import (
 type Adapter struct{}
 
 func (Adapter) Extract(ctx context.Context, f Facts, tree *gts.Tree, entry grammars.LangEntry) (Facts, error) {
-	entry.TagsQuery = grammars.ResolveTagsQuery(entry)
-	f, err := (syntax.ModuleExtractor{Dialect: Dialect{}}).Extract(ctx, f, tree, entry)
+	f, facts, err := (syntax.ModuleExtractor{Dialect: Dialect{}}).Extract(ctx, f, tree, entry)
 	if err == nil {
-		f.Statements = pythonProgram(&f, tree)
+		f.Statements = pythonProgram(&f, tree, facts)
 	}
 	return f, err
 }

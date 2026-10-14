@@ -13,7 +13,7 @@ func recordDeclarationCoverage(f *Facts, tree *gts.Tree) {
 	syntax.Walk(tree.RootNode(), func(n *gts.Node) {
 		switch n.Type(tree.Language()) {
 		case "internal_module", "module", "function_signature", "abstract_class_declaration",
-			"abstract_method_signature", "method_signature", "property_signature", "public_field_definition",
+			"abstract_method_signature", "method_signature", "method_definition", "property_signature", "public_field_definition",
 			"field_definition", "variable_declarator", "index_signature", "call_signature", "construct_signature":
 		default:
 			return

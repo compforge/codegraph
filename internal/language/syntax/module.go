@@ -8,17 +8,14 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
-func (x ModuleExtractor) Extract(ctx context.Context, f Facts, tree *gts.Tree, entry grammars.LangEntry) (Facts, error) {
-	var err error
-	f, err = Outline(ctx, f, tree, entry)
+func (x ModuleExtractor) Extract(ctx context.Context, f Facts, tree *gts.Tree, entry grammars.LangEntry) (Facts, gts.FactSet, error) {
+	program, err := FactProgram(tree.Language(), gts.FactDefinitions|gts.FactDeclarations|gts.FactSignatures|gts.FactCallArguments|gts.FactImports|gts.FactCalls, entry)
 	if err != nil {
-		return f, err
-	}
-	program, err := FactProgram(tree.Language(), gts.FactImports|gts.FactCalls)
-	if err != nil {
-		return f, err
+		return f, gts.FactSet{}, err
 	}
 	facts := program.Extract(tree)
+	Declarations(&f, facts)
+	x.signatures = facts.Signatures
 	for _, imp := range facts.Imports {
 		recorded := Import{Alias: imp.Alias, Path: imp.Path, From: imp.From, Relative: imp.Relative, Binding: imp.Name, Span: Span{Start: int(imp.StartByte), End: int(imp.EndByte)}}
 		// A from-import names the imported symbol; everything else pulls the
@@ -28,9 +25,9 @@ func (x ModuleExtractor) Extract(ctx context.Context, f Facts, tree *gts.Tree, e
 		}
 		f.Imports = append(f.Imports, recorded)
 	}
-	x.enrichModuleSyntax(&f, tree)
+	x.enrichModuleSyntax(&f, tree, facts)
 	CaptureSignatures(&f, tree)
-	x.lexical = x.Dialect.Lexical(&f, tree)
+	x.lexical = x.Dialect.Lexical(&f, tree, facts.Signatures)
 	f.Lexical = x.lexical
 	// Retain ancestry from downward traversal. Some grammars materialize hidden
 	// nodes whose Parent chain ends before the visible lexical scope.
@@ -80,12 +77,12 @@ func (x ModuleExtractor) Extract(ctx context.Context, f Facts, tree *gts.Tree, e
 	x.bindModuleUses(&f, tree)
 	x.enrichModuleCallTargets(&f, tree)
 	x.extractModuleTypeRelations(&f, tree)
-	return f, ctx.Err()
+	return f, facts, ctx.Err()
 }
 
-func (x ModuleExtractor) enrichModuleSyntax(f *Facts, tree *gts.Tree) {
+func (x ModuleExtractor) enrichModuleSyntax(f *Facts, tree *gts.Tree, facts gts.FactSet) {
 	lang := tree.Language()
-	x.Dialect.Enrich(f, tree)
+	x.Dialect.Enrich(f, tree, facts)
 	var comments []Comment
 	wrappers := map[int]int{}
 	Walk(tree.RootNode(), func(n *gts.Node) {

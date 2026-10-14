@@ -9,7 +9,7 @@ import (
 
 type Dialect struct{}
 
-func (Dialect) Enrich(f *Facts, tree *gts.Tree) {
+func (Dialect) Enrich(f *Facts, tree *gts.Tree, facts gts.FactSet) {
 	attachDocumentation(f, tree)
 	for i := range f.Imports {
 		imp := &f.Imports[i]
@@ -37,33 +37,46 @@ func (Dialect) Enrich(f *Facts, tree *gts.Tree) {
 	}
 	locateImportItems(f, tree)
 }
-func (Dialect) Parameters(n *gts.Node, lang *gts.Language) (names []*gts.Node, expressions []syntax.ParameterExpression, handled bool) {
+func (Dialect) Parameters(n *gts.Node, lang *gts.Language, signatures []gts.SignatureFact) (names []*gts.Node, expressions []syntax.ParameterExpression, handled bool) {
 	if n.Type(lang) != "parameters" && n.Type(lang) != "lambda_parameters" {
 		return
 	}
+	if parameters, ok := syntax.SignatureParameters(signatures, n, lang); ok && n.Type(lang) != "lambda_parameters" {
+		syntax.Walk(n, func(id *gts.Node) {
+			if id.Type(lang) != "identifier" {
+				return
+			}
+			for _, p := range parameters {
+				if int(id.StartByte()) >= int(p.NameStartByte) && int(id.EndByte()) <= int(p.NameEndByte) {
+					names = append(names, id)
+					break
+				}
+			}
+		})
+	} else if n.Type(lang) == "lambda_parameters" {
+		// Unbound lambdas have no upstream signature facts.
+		for i := 0; i < n.NamedChildCount(); i++ {
+			if id := pythonLambdaParameterName(n.NamedChild(i), lang); id != nil {
+				names = append(names, id)
+			}
+		}
+	}
 	for i := 0; i < n.NamedChildCount(); i++ {
 		p := n.NamedChild(i)
-		if id := pythonParameterName(p, lang); id != nil {
-			names = append(names, id)
-		}
 		visitPythonParameterExpressions(p, lang, func(e *gts.Node) {
 			expressions = append(expressions, syntax.ParameterExpression{Node: e, Parameter: p})
 		})
 	}
 	return names, expressions, true
 }
-func (Dialect) Self(f *Facts, tree *gts.Tree, owner int, receiver string) bool {
-	lang := tree.Language()
-	self := receiver == "this"
-	syntax.Walk(tree.RootNode(), func(n *gts.Node) {
-		if int(n.StartByte()) != f.Declarations[owner].Start {
-			return
+func (Dialect) Self(f *Facts, tree *gts.Tree, owner int, receiver string, signatures []gts.SignatureFact) bool {
+	d := f.Declarations[owner]
+	for _, s := range signatures {
+		if int(s.NameStartByte) == d.NameSpan.Start && len(s.Parameters) > 0 {
+			return s.Parameters[0].Name == receiver
 		}
-		if params := n.ChildByFieldName("parameters", lang); params != nil && params.NamedChildCount() > 0 {
-			self = params.NamedChild(0).Text(f.Source) == receiver
-		}
-	})
-	return self
+	}
+	return false
 }
 func (Dialect) Bases(n *gts.Node, lang *gts.Language, add func(*gts.Node, string)) {
 	if bases := n.ChildByFieldName("superclasses", lang); bases != nil {
