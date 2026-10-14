@@ -4,7 +4,7 @@ import (
 	gts "github.com/odvcencio/gotreesitter"
 )
 
-func pythonParameterName(parameter *gts.Node, lang *gts.Language) *gts.Node {
+func pythonLambdaParameterName(parameter *gts.Node, lang *gts.Language) *gts.Node {
 	n := parameter
 	switch n.Type(lang) {
 	case "typed_parameter":

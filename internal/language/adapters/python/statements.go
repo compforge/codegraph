@@ -3,11 +3,14 @@ package python
 import (
 	"strings"
 
+	"github.com/compforge/codegraph/internal/language/syntax"
 	gts "github.com/odvcencio/gotreesitter"
 )
 
-func pythonProgram(f *Facts, tree *gts.Tree) []Statement {
+func pythonProgram(f *Facts, tree *gts.Tree, facts gts.FactSet) []Statement {
 	lang := tree.Language()
+	nodes := syntax.NodesBySpan(tree)
+	arguments := syntax.ArgumentsByCall(facts.CallArguments)
 	imports := map[int][]Import{}
 	for _, imp := range f.Imports {
 		imports[imp.Start] = append(imports[imp.Start], imp)
@@ -62,10 +65,8 @@ func pythonProgram(f *Facts, tree *gts.Tree) []Statement {
 			e.Children = []Expression{expr(n.ChildByFieldName("left", lang), depth+1), expr(n.ChildByFieldName("right", lang), depth+1)}
 		case "call":
 			e.Children = []Expression{expr(n.ChildByFieldName("function", lang), depth+1)}
-			if args := n.ChildByFieldName("arguments", lang); args != nil {
-				for i := 0; i < args.NamedChildCount(); i++ {
-					e.Children = append(e.Children, expr(args.NamedChild(i), depth+1))
-				}
+			for _, arg := range arguments[syntax.NodeSpan(n)] {
+				e.Children = append(e.Children, expr(nodes[Span{Start: int(arg.StartByte), End: int(arg.EndByte)}], depth+1))
 			}
 		default:
 			for i := 0; i < n.NamedChildCount(); i++ {
@@ -114,20 +115,18 @@ func pythonProgram(f *Facts, tree *gts.Tree) []Statement {
 			params := n.ChildByFieldName("parameters", lang)
 			if params != nil {
 				s.Target = Expression{Kind: "parameters"}
+				if parameters, ok := syntax.SignatureParameters(facts.Signatures, params, lang); ok {
+					for _, p := range parameters {
+						// Preserve splat target structure for context evaluation.
+						binding := nodes[Span{Start: int(p.NameStartByte), End: int(p.NameEndByte)}]
+						s.Target.Children = append(s.Target.Children, expr(binding, 0))
+					}
+				}
 				for i := 0; i < params.NamedChildCount(); i++ {
 					param := params.NamedChild(i)
 					// Parameter targets bind names, not annotation/default references.
 					// Defaults are captured once below; other expressions (including
 					// lambda defaults) keep their complete expression structure.
-					binding := param
-					switch param.Type(lang) {
-					case "typed_parameter", "default_parameter", "typed_default_parameter":
-						binding = param.ChildByFieldName("name", lang)
-						if binding == nil && param.NamedChildCount() > 0 {
-							binding = param.NamedChild(0)
-						}
-					}
-					s.Target.Children = append(s.Target.Children, expr(binding, 0))
 					if value := param.ChildByFieldName("value", lang); value != nil {
 						s.Prelude = append(s.Prelude, expr(value, 0))
 					}

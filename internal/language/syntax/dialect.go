@@ -6,16 +6,17 @@ import (
 )
 
 type ModuleDialect interface {
-	Enrich(*Facts, *gts.Tree)
-	Lexical(*Facts, *gts.Tree) *analysis.Lexicon
-	Parameters(*gts.Node, *gts.Language) (names []*gts.Node, expressions []ParameterExpression, handled bool)
-	Self(*Facts, *gts.Tree, int, string) bool
+	Enrich(*Facts, *gts.Tree, gts.FactSet)
+	Lexical(*Facts, *gts.Tree, []gts.SignatureFact) *analysis.Lexicon
+	Parameters(*gts.Node, *gts.Language, []gts.SignatureFact) (names []*gts.Node, expressions []ParameterExpression, handled bool)
+	Self(*Facts, *gts.Tree, int, string, []gts.SignatureFact) bool
 	Bases(*gts.Node, *gts.Language, func(*gts.Node, string))
 	Closure(*gts.Node, *gts.Language) Span
 }
 type ModuleExtractor struct {
-	Dialect ModuleDialect
-	lexical *analysis.Lexicon
+	Dialect    ModuleDialect
+	lexical    *analysis.Lexicon
+	signatures []gts.SignatureFact
 }
 
 func NodeContains(outer, inner *gts.Node) bool {

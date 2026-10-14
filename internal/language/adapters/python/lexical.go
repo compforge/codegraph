@@ -6,7 +6,7 @@ import (
 	gts "github.com/odvcencio/gotreesitter"
 )
 
-func (d Dialect) Lexical(f *Facts, tree *gts.Tree) *analysis.Lexicon {
+func (d Dialect) Lexical(f *Facts, tree *gts.Tree, signatures []gts.SignatureFact) *analysis.Lexicon {
 	l := analysis.NewLexicon(len(f.Source))
 	lang := tree.Language()
 	var bind func(*gts.Node, *gts.Node, int, string)
@@ -44,7 +44,7 @@ func (d Dialect) Lexical(f *Facts, tree *gts.Tree) *analysis.Lexicon {
 			}
 			inner := l.AddScope(syntax.NodeSpan(body), parent, kind)
 			if params := n.ChildByFieldName("parameters", lang); params != nil {
-				names, expressions, _ := d.Parameters(params, lang)
+				names, expressions, _ := d.Parameters(params, lang, signatures)
 				for _, id := range names {
 					owner := id
 					for i := 0; i < params.NamedChildCount(); i++ {

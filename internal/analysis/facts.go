@@ -14,6 +14,10 @@ type Declaration struct {
 	Parent int
 	// Receiver is an explicit nonlexical member owner, bound by the language adapter.
 	Receiver string
+	// Container captures grammar-owned lexical ownership, including anonymous
+	// struct members whose field/variable owner does not introduce a scope.
+	Container     string
+	ContainerSpan Span
 	// Extension is detached evidence interpreted only by the owning language.
 	Extension Extension
 	Span

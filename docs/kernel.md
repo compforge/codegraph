@@ -130,7 +130,7 @@ Graph 类型只提供查询，不持有生产会话，也不返回解析材料�
 
 生产侧从 Document 提取 Facts，探索依赖并向 Builder 提供解析上下文。Outline 是这一过程中的
 辅助结构：适配器按需复用 gotreesitter 的结果，将声明、名称范围与词法嵌套转换为构图材料，
-将遗漏信息转换为覆盖诊断，然后释放中间 Outline。Go 可直接从其声明分析获得相同结构事实。
+将遗漏信息转换为覆盖诊断，然后释放中间 Outline。支持结构化事实的语言优先消费 FactProgram 的声明、签名与调用参数。
 
 消费侧唯一的代码事实是 Node + Relation。文件 outline 是节点、encloses 与源码位置的投影；
 类型成员视图使用 contains，调用路径使用 calls。投影可有自己的结果类型、排序和展示规则，

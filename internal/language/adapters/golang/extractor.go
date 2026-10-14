@@ -12,14 +12,21 @@ import (
 type Adapter struct{}
 
 func (Adapter) Extract(ctx context.Context, f Facts, tree *gts.Tree, entry grammars.LangEntry) (Facts, error) {
-	program, err := syntax.FactProgram(tree.Language(), gts.FactDefinitions|gts.FactCalls|gts.FactImports)
+	program, err := syntax.FactProgram(tree.Language(), gts.FactDefinitions|gts.FactDeclarations|gts.FactSignatures|gts.FactCallArguments|gts.FactCalls|gts.FactImports, entry)
 	if err != nil {
 		return f, err
 	}
 	facts := program.Extract(tree)
-	for _, d := range facts.Definitions {
-		f.Declarations = append(f.Declarations, Declaration{Name: d.Name, QualifiedName: d.Name, Kind: d.Kind, Span: Span{Start: int(d.StartByte), End: int(d.EndByte)}})
+	// Declaration rules omit blank names, including padding fields.
+	blankEntry := entry
+	blankEntry.TagsQuery = `(field_declaration name: (field_identifier) @name @definition.field (#eq? @name "_"))`
+	blanks, err := syntax.Outline(ctx, Facts{Language: f.Language, Source: f.Source}, tree, blankEntry)
+	if err != nil {
+		return f, err
 	}
+	f.Declarations = append(f.Declarations, blanks.Declarations...)
+	syntax.Declarations(&f, facts)
+	syntax.CaptureSignatures(&f, tree)
 	for _, c := range facts.Calls {
 		f.Calls = append(f.Calls, Call{Name: c.Name, Receiver: c.Receiver, Span: Span{Start: int(c.StartByte), End: int(c.EndByte)}})
 	}
@@ -34,9 +41,9 @@ func (Adapter) Extract(ctx context.Context, f Facts, tree *gts.Tree, entry gramm
 	if bytes.Contains(f.Source, []byte("//go:embed")) {
 		f.Issues = append(f.Issues, Issue{Code: "unsupported_resource", Message: "go:embed dependencies are not resolved", Subject: "resources", Span: Span{End: len(f.Source)}})
 	}
-	if err := enrichGo(&f); err != nil {
+	if err := enrichGo(&f, facts); err != nil {
 		return f, err
 	}
-	markGoEntrypoints(&f, tree)
+	markGoEntrypoints(&f, facts.Signatures)
 	return f, ctx.Err()
 }

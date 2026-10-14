@@ -10,10 +10,13 @@ import (
 
 type Dialect struct{}
 
-func (Dialect) Enrich(f *Facts, tree *gts.Tree) {
+func (Dialect) Enrich(f *Facts, tree *gts.Tree, facts gts.FactSet) {
+	captureMethodNames(f, tree)
 	recordDeclarationCoverage(f, tree)
 	attachDocumentation(f, tree)
 	lang := tree.Language()
+	nodes := syntax.NodesBySpan(tree)
+	arguments := syntax.ArgumentsByCall(facts.CallArguments)
 	if f.Exports == nil {
 		f.Exports = map[string]string{}
 	}
@@ -84,19 +87,20 @@ func (Dialect) Enrich(f *Facts, tree *gts.Tree) {
 			}
 			switch fn.Text(f.Source) {
 			case "import", "require", "require.resolve":
-				args := n.ChildByFieldName("arguments", lang)
-				if args != nil && args.NamedChildCount() == 1 {
-					AddModuleImport(f, args.NamedChild(0), lang)
+				args := arguments[syntax.NodeSpan(n)]
+				if len(args) == 1 {
+					arg := args[0]
+					AddModuleImport(f, nodes[Span{Start: int(arg.StartByte), End: int(arg.EndByte)}], lang)
 				}
 			}
 		}
 	})
 }
 
-func (Dialect) Parameters(n *gts.Node, lang *gts.Language) ([]*gts.Node, []syntax.ParameterExpression, bool) {
+func (Dialect) Parameters(n *gts.Node, lang *gts.Language, signatures []gts.SignatureFact) ([]*gts.Node, []syntax.ParameterExpression, bool) {
 	return nil, nil, false
 }
-func (Dialect) Self(f *Facts, tree *gts.Tree, owner int, receiver string) bool {
+func (Dialect) Self(f *Facts, tree *gts.Tree, owner int, receiver string, signatures []gts.SignatureFact) bool {
 	return receiver == "this"
 }
 func (Dialect) Bases(n *gts.Node, lang *gts.Language, add func(*gts.Node, string)) {

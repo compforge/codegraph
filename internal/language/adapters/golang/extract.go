@@ -7,23 +7,40 @@ import (
 	"go/types"
 
 	"github.com/compforge/codegraph/internal/language/syntax"
+	gts "github.com/odvcencio/gotreesitter"
 )
 
-func enrichGo(f *Facts) error {
+func enrichGo(f *Facts, facts gts.FactSet) error {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, f.Path, f.Source, parser.ParseComments)
 	if err != nil {
 		return err
 	}
-	f.Package = file.Name.Name
 	offset := func(p token.Pos) int { return fset.Position(p).Offset }
-	enrichGoDeclarations(f, file, fset)
+	attachGoDocumentation(f, file, fset)
+	embedded := map[int]bool{}
+	for _, d := range facts.Declarations {
+		if d.Embedded && d.Kind == "field" {
+			embedded[int(d.NameStartByte)] = true
+		}
+	}
+	// Graph locations retain distinct per-name identities for Go siblings.
+	for i := range f.Declarations {
+		d := &f.Declarations[i]
+		if d.Kind == "field" && !embedded[d.NameSpan.Start] || d.Kind == "variable" || d.Kind == "constant" {
+			d.Start = d.NameSpan.Start
+		}
+	}
 	// File scope variables shadow package functions in Go. Keep them blocked,
 	// rather than connecting a callback invocation to a same-named function.
 	// Nested calls may share a start offset; their full spans identify them.
 	callNodes := map[Span]*ast.CallExpr{}
+	expressions := map[Span]ast.Expr{}
 	var closures []Span
 	ast.Inspect(file, func(n ast.Node) bool {
+		if e, ok := n.(ast.Expr); ok {
+			expressions[Span{Start: offset(e.Pos()), End: offset(e.End())}] = e
+		}
 		if fn, ok := n.(*ast.FuncLit); ok {
 			closures = append(closures, Span{Start: offset(fn.Pos()), End: offset(fn.End())})
 		}
@@ -80,24 +97,12 @@ func enrichGo(f *Facts) error {
 		}
 	}
 	assignments := goAssignments(file)
-	enrichGoCallTargets(f, callNodes, closures, assignments, goTypeDescriber(f, fset))
+	describe := goTypeDescriber(f, fset)
+	applyGoSignatures(f, facts.Signatures, expressions, describe)
+	enrichGoCallTargets(f, callNodes, closures, assignments, describe, facts.CallArguments, expressions)
 	extractGoReferences(f, file, fset, assignments)
-	extractGoTypeRelations(f, file, fset)
+	extractGoTypeRelations(f, facts.Declarations, file, fset, expressions)
 	return nil
-}
-
-func receiverName(e ast.Expr) string {
-	switch e := e.(type) {
-	case *ast.Ident:
-		return e.Name
-	case *ast.StarExpr:
-		return receiverName(e.X)
-	case *ast.IndexExpr:
-		return receiverName(e.X)
-	case *ast.IndexListExpr:
-		return receiverName(e.X)
-	}
-	return "?"
 }
 
 func comments(group *ast.CommentGroup, fset *token.FileSet) []Comment {

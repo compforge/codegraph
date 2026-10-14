@@ -11,6 +11,7 @@ import (
 type factProgramKey struct {
 	language *gts.Language
 	kinds    gts.FactKind
+	name     string
 }
 
 type outlineProgramKey struct {
@@ -23,16 +24,20 @@ type outlineProgramKey struct {
 var factPrograms sync.Map
 var outlinePrograms sync.Map
 
-// FactProgram reuses an immutable program for the exact grammar and fact kinds.
+// FactProgram reuses an immutable program for the exact grammar, rule owner and fact kinds.
 // The grammar pointer matters: upstream rejects trees from another Language,
 // even when the languages have the same name.
-func FactProgram(lang *gts.Language, kinds gts.FactKind) (*gts.FactProgram, error) {
-	key := factProgramKey{lang, kinds}
+func FactProgram(lang *gts.Language, kinds gts.FactKind, entry grammars.LangEntry) (*gts.FactProgram, error) {
+	key := factProgramKey{lang, kinds, entry.Name}
 	if cached, ok := factPrograms.Load(key); ok {
 		return cached.(func() (*gts.FactProgram, error))()
 	}
 	compile := sync.OnceValues(func() (*gts.FactProgram, error) {
-		return gts.NewFactProgram(lang, kinds)
+		entry.Language = func() *gts.Language { return lang }
+		return gts.NewFactProgramWithOptions(lang, kinds,
+			gts.WithDeclarationRules(declarationRules(entry)),
+			gts.WithSignatureRules(grammars.SignatureRules(entry)),
+			gts.WithCallArgumentRules(grammars.CallArgumentRules(entry)))
 	})
 	cached, _ := factPrograms.LoadOrStore(key, compile)
 	return cached.(func() (*gts.FactProgram, error))()

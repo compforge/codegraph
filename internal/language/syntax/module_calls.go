@@ -38,7 +38,7 @@ func (x ModuleExtractor) moduleReceiverHints(f *Facts, tree *gts.Tree, use *gts.
 	if owner >= 0 && f.Declarations[owner].Parent >= 0 {
 		class := f.Declarations[f.Declarations[owner].Parent]
 		if class.Kind == "class" {
-			self := x.Dialect.Self(f, tree, owner, receiver)
+			self := x.Dialect.Self(f, tree, owner, receiver, x.signatures)
 			if self {
 				return []CallTarget{{ReceiverType: class.Name, Kind: "method", Basis: "lexical_receiver"}}
 			}

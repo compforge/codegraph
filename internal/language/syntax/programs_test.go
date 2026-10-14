@@ -27,8 +27,11 @@ func TestSharedProgramsConcurrent(t *testing.T) {
 	lang := freshGoGrammar(t)
 	entry.Language = func() *gts.Language { return lang }
 	entry.TagsQuery = `(function_declaration name: (identifier) @name) @definition.function`
-	kinds := gts.FactDefinitions | gts.FactCalls | gts.FactImports
-	freshFacts, err := gts.NewFactProgram(lang, kinds)
+	kinds := gts.FactDefinitions | gts.FactCalls | gts.FactImports | gts.FactDeclarations | gts.FactSignatures | gts.FactCallArguments
+	freshFacts, err := gts.NewFactProgramWithOptions(lang, kinds,
+		gts.WithDeclarationRules(declarationRules(entry)),
+		gts.WithSignatureRules(grammars.SignatureRules(entry)),
+		gts.WithCallArgumentRules(grammars.CallArgumentRules(entry)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +40,7 @@ func TestSharedProgramsConcurrent(t *testing.T) {
 		t.Fatal(err)
 	}
 	sources := []string{
-		"package first\nfunc Entry() { Target() }\nfunc Target() {}\n",
+		"package first\nvar First, Second int\nfunc Entry() { Target(First, Second) }\nfunc Target(a,b int) {}\n",
 		"package second\nimport \"fmt\"\nfunc Other() { fmt.Println(1) }\n",
 	}
 	type expected struct {
@@ -51,7 +54,7 @@ func TestSharedProgramsConcurrent(t *testing.T) {
 		tree := programTree(t, lang, sources[i%len(sources)])
 		outline, report := freshOutline.OutlineTree(tree)
 		facts := freshFacts.Extract(tree)
-		if len(facts.Definitions) == 0 || len(outline) == 0 {
+		if len(facts.Definitions) == 0 || len(facts.Signatures) == 0 || len(facts.CallArguments) == 0 || len(outline) == 0 {
 			t.Fatal("fixture has no declarations")
 		}
 		cases = append(cases, expected{tree, facts, outline, report})
@@ -61,7 +64,7 @@ func TestSharedProgramsConcurrent(t *testing.T) {
 	for _, tc := range cases {
 		wg.Go(func() {
 			<-start
-			program, err := FactProgram(lang, kinds)
+			program, err := FactProgram(lang, kinds, entry)
 			if err != nil {
 				t.Error(err)
 				return
@@ -80,6 +83,8 @@ func TestSharedProgramsConcurrent(t *testing.T) {
 				}
 				// Callers own results; mutation must not affect later extractions.
 				facts.Definitions[0].Name = "mutated"
+				facts.Signatures[0].Name = "mutated"
+				facts.CallArguments[0].Kind = "mutated"
 				outline[0].Name = "mutated"
 			}
 		})
@@ -93,11 +98,11 @@ func TestSharedProgramConfiguration(t *testing.T) {
 	entry := *grammars.DetectLanguageByName("go")
 	lang := entry.Language()
 	tree := programTree(t, lang, "package p\ntype Box struct{}\nfunc (b Box) Work() {}\nfunc Entry() { Target() }\n")
-	definitions, err := FactProgram(lang, gts.FactDefinitions)
+	definitions, err := FactProgram(lang, gts.FactDefinitions, entry)
 	if err != nil {
 		t.Fatal(err)
 	}
-	calls, err := FactProgram(lang, gts.FactCalls)
+	calls, err := FactProgram(lang, gts.FactCalls, entry)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,9 +112,25 @@ func TestSharedProgramConfiguration(t *testing.T) {
 	if facts := calls.Extract(tree); len(facts.Calls) != 1 || len(facts.Definitions) != 0 {
 		t.Fatal(facts)
 	}
+	rich, err := FactProgram(lang, gts.FactDeclarations|gts.FactSignatures, entry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	alias := entry
+	alias.Name = "program-test-alias"
+	unsupported, err := FactProgram(lang, gts.FactDeclarations|gts.FactSignatures, alias)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if facts := rich.Extract(tree); len(facts.Declarations) == 0 || len(facts.Signatures) == 0 {
+		t.Fatal(facts)
+	}
+	if facts := unsupported.Extract(tree); len(facts.Declarations) != 0 || len(facts.Signatures) != 0 {
+		t.Fatal("rule selection leaked across entry names", facts)
+	}
 	otherLang := freshGoGrammar(t)
 	otherTree := programTree(t, otherLang, "package p\nfunc Other() {}\n")
-	other, err := FactProgram(otherLang, gts.FactDefinitions)
+	other, err := FactProgram(otherLang, gts.FactDefinitions, entry)
 	if err != nil {
 		t.Fatal(err)
 	}

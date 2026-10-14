@@ -145,7 +145,7 @@ func TestModuleDeclarationsAndMarkers(t *testing.T) {
 		marked       string
 	}{
 		{"app.py", "# +spec=Class contract\nclass Box:\n    # +rule=Method contract\n    def run(self):\n        pass\n", map[string]NodeKind{"Box": Class, "Box.run": Method}, "Box.run"},
-		{"app.ts", "// +rule=Export contract\nexport class Box { run() {} }\ninterface Reader {}\ntype Alias = string;\nconst work = () => {};\nenum Mode { On, Off }", map[string]NodeKind{"Box": Class, "Box.run": Method, "Reader": Interface, "Alias": TypeAlias, "work": Variable, "Mode": Enum}, "Box"},
+		{"app.ts", "// +rule=Export contract\nexport class Box { run() {} }\ninterface Reader {}\ntype Alias = string;\nconst work = () => {};\nenum Mode { On, Off }", map[string]NodeKind{"Box": Class, "Box.run": Method, "Reader": Interface, "Alias": TypeAlias, "work": Variable, "Mode": Enum, "Mode.On": Constant, "Mode.Off": Constant}, "Box"},
 		{"app.js", "// +rule=Export contract\nexport function entry() {}", map[string]NodeKind{"entry": Function}, "entry"},
 	} {
 		t.Run(tc.path, func(t *testing.T) {

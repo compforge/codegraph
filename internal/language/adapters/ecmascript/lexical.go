@@ -6,9 +6,10 @@ import (
 	gts "github.com/odvcencio/gotreesitter"
 )
 
-func (Dialect) Lexical(f *Facts, tree *gts.Tree) *analysis.Lexicon {
+func (Dialect) Lexical(f *Facts, tree *gts.Tree, signatures []gts.SignatureFact) *analysis.Lexicon {
 	l := analysis.NewLexicon(len(f.Source))
 	lang := tree.Language()
+	nodes := syntax.NodesBySpan(tree)
 	var pattern func(*gts.Node, *gts.Node, int, string)
 	pattern = func(n, owner *gts.Node, scope int, kind string) {
 		if n == nil {
@@ -66,6 +67,21 @@ func (Dialect) Lexical(f *Facts, tree *gts.Tree) *analysis.Lexicon {
 				}
 			}
 		case "formal_parameters":
+			if parameters, ok := syntax.SignatureParameters(signatures, n, lang); ok {
+				for _, p := range parameters {
+					owner := nodes[Span{Start: int(p.StartByte), End: int(p.EndByte)}]
+					if name := nodes[Span{Start: int(p.NameStartByte), End: int(p.NameEndByte)}]; name != nil {
+						pattern(name, owner, scope, "parameter")
+					} else if owner != nil {
+						// Anonymous destructured/this parameters retain only their pattern binding.
+						name := owner.ChildByFieldName("pattern", lang)
+						if name != nil {
+							pattern(name, owner, scope, "parameter")
+						}
+					}
+				}
+				break
+			}
 			for i := 0; i < n.NamedChildCount(); i++ {
 				c := n.NamedChild(i)
 				name := c

@@ -3,6 +3,9 @@ package golang
 import (
 	"go/ast"
 	"go/token"
+
+	"github.com/compforge/codegraph/internal/language/syntax"
+	gts "github.com/odvcencio/gotreesitter"
 )
 
 func goTypeHint(e ast.Expr) (string, string) {
@@ -163,7 +166,8 @@ func goCallableTargets(expr ast.Expr, basis string, seen map[*ast.Object]bool, a
 	return nil
 }
 
-func enrichGoCallTargets(f *Facts, nodes map[Span]*ast.CallExpr, closures []Span, assignments map[*ast.Object][]goAssignment, describe func(ast.Expr) *GoType) {
+func enrichGoCallTargets(f *Facts, nodes map[Span]*ast.CallExpr, closures []Span, assignments map[*ast.Object][]goAssignment, describe func(ast.Expr) *GoType, arguments []gts.CallArgumentFact, expressions map[Span]ast.Expr) {
+	byCall := syntax.ArgumentsByCall(arguments)
 	for i := range f.Calls {
 		call := &f.Calls[i]
 		hidden := false
@@ -179,8 +183,14 @@ func enrichGoCallTargets(f *Facts, nodes map[Span]*ast.CallExpr, closures []Span
 		if node == nil {
 			continue
 		}
-		hints := usageHints{Arguments: make([]*GoType, len(node.Args))}
-		for i, arg := range node.Args {
+		args := byCall[call.Span]
+		hints := usageHints{Arguments: make([]*GoType, len(args))}
+		for _, fact := range args {
+			if fact.Spread {
+				continue
+			}
+			arg := expressions[Span{Start: int(fact.StartByte), End: int(fact.EndByte)}]
+			i := fact.Index
 			// Start with explicit construction sites, without guessing variable
 			// flow, generic substitution or the dynamic value of an interface.
 			if address, ok := arg.(*ast.UnaryExpr); ok && address.Op == token.AND {

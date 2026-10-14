@@ -14,7 +14,7 @@ func (x ModuleExtractor) extractModuleReferences(f *Facts, tree *gts.Tree) {
 		if typ == "comment" || typ == "string" || typ == "import_statement" || typ == "import_from_statement" {
 			return
 		}
-		if _, expressions, handled := x.Dialect.Parameters(n, lang); handled {
+		if _, expressions, handled := x.Dialect.Parameters(n, lang, x.signatures); handled {
 			for _, expr := range expressions {
 				visit(expr.Node, expr.Parameter)
 			}

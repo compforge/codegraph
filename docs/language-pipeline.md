@@ -52,6 +52,8 @@ Evidence，并派生 confidence。Organizer 的 document 根发布为 in_namespa
 
 Go、Python、ECMAScript 各自拥有语义规则；共享算法由它们显式调用：
 
+- gotreesitter 的 FactProgram 提供声明、结构化签名和调用参数；CodeGraph 将事实投影为图模型，负责词法绑定、类型与关系证据。上游已支持的语法形状不另行实现提取器。
+- 上游默认规则缺少的局部声明范围，通过 FactProgram 的补充规则表达；函数类型、未绑定函数字面量、完整声明头和文档归属等缺口由适配器保留有界补充。
 - 通用 outline 与 marker 提取保持一个实现。
 - Python 和 JS/TS 共享模块语法遍历，通过 dialect 接口提供词法登记、参数表达式、接收者和基类等差异。
 - 模块绑定共享转导出与候选汇总算法，路径、兼容语言和导出策略由各自实现提供。
@@ -61,7 +63,7 @@ Go、Python、ECMAScript 各自拥有语义规则；共享算法由它们显式�
 注册项不保存跨快照可变状态。Extract 只能在调用期间借用语法树，返回的事实及语言扩展证据必须
 脱离 parser 且只读；Binder 返回的 Resolver 状态属于本轮构建。公共索引始终由当前源码快照重建。
 
-语法层按 grammar 实例和提取配置复用只读的 FactProgram 与 Outliner，避免逐文件重复编译。
+语法层按 grammar 实例、语言规则和提取配置复用只读的 FactProgram 与 Outliner，避免逐文件重复编译。
 编译结果随进程复用，不持有源码、AST 或提取结果；并发提取各自拥有结果缓冲。
 
 ## 验证边界
