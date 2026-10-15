@@ -74,7 +74,7 @@ func TestManifestTOMLSectionIdentity(t *testing.T) {
 	}
 }
 
-func TestDocumentKindsAndParseFailures(t *testing.T) {
+func TestDocumentTagsAndParseFailures(t *testing.T) {
 	docs := []Document{
 		{Path: "a.go", Content: []byte("package p\nfunc F() {}\n")},
 		{Path: "bad/go.mod", Content: []byte("module (\n")},
@@ -89,10 +89,10 @@ func TestDocumentKindsAndParseFailures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []DocumentKind{SourceDocument, UnknownDocument, UnknownDocument, UnknownDocument, UnknownDocument, UnknownDocument, UnknownDocument, GitlinkDocument}
+	want := []Tag{SourceTag, ResourceTag, ResourceTag, ResourceTag, ResourceTag, ResourceTag, "", ""}
 	for i, doc := range docs {
 		n, ok := g.Document(doc.Path)
-		if !ok || n.DocumentKind != want[i] {
+		if !ok || want[i] != "" && !slices.Contains(n.Tags, want[i]) {
 			t.Fatalf("%s: %+v", doc.Path, n)
 		}
 		if slices.Contains(n.Tags, ManifestTag) != (i >= 1 && i <= 3) {
@@ -210,7 +210,6 @@ func TestManifestContextConflictAndIsolation(t *testing.T) {
 	f := extractTestFacts(t, e, "go.mod", "module example.org/actual\n")
 	f.Manifest.Name = "corrupted"
 	f.Manifest.NameLocation.StartByte = 999
-	f.DocumentKind = GitlinkDocument
 	context := ResolutionContext{GoModules: map[string]string{".": "example.org/hint"}}
 	g := buildTestFacts(t, "s", Options{ResolutionContext: context}, f, extractTestFacts(t, e, "a.go", "package app\n"))
 	if context.GoModules["."] != "example.org/hint" || !hasDiagnostic(g.Report(), "conflicting_module_context") {

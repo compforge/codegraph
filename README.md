@@ -51,7 +51,8 @@ not prove that no connection exists elsewhere in the repository.
 
 Go, Python, JavaScript, TypeScript, and TSX have language-specific name binding and relationship analysis.
 Supplied go.mod, pyproject.toml, and package.json files expose manifest metadata; go.mod also establishes Go module ownership.
-Document paths also produce Directory nodes. Configurable TagRule patterns assign multiple tags such as
+Document paths also produce Directory nodes. Both retain their NodeKind; material classification uses Tags.
+Recognized formats contribute source, documentation or resource tags. Configurable TagRule patterns add tags such as
 manifest, generated, and dependency to documents and directories; tags classify paths independently of admission policy.
 See [directory and tag semantics](docs/document.md#directory-与路径标签) for customization.
 For a focused analysis graph, set `Options{Admission: codegraph.AnalysisAdmission()}`.

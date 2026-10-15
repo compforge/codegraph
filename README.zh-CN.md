@@ -93,6 +93,8 @@ func main() {
 输出为 `Entry`。构建成功仍可能伴随局部分析缺口，由调用方判断其与当前任务的关系。
 更多可执行示例见 [example_test.go](example_test.go)。
 
+Document、Directory 的图身份由 NodeKind 表达，物料分类统一使用 Tags；Language 与 Gitlink 分别保存语法格式和子模块引用。
+
 ## 分析图准入
 
 面向代码阅读和影响分析时，可设置 `Options{Admission: codegraph.AnalysisAdmission()}`：

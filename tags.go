@@ -2,9 +2,13 @@ package codegraph
 
 import (
 	"fmt"
+	"path"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
+
+	"github.com/compforge/codegraph/internal/language"
 )
 
 // Tag is an open classification vocabulary. Applications may define additional
@@ -12,14 +16,17 @@ import (
 type Tag string
 
 const (
-	DevelopmentMetadataTag Tag = "development_metadata"
-	ManifestTag            Tag = "manifest"
-	GeneratedTag           Tag = "generated"
-	TestFixtureTag         Tag = "test_fixture"
-	DependencyTag          Tag = "dependency"
-	BuildOutputTag         Tag = "build_output"
-	CacheTag               Tag = "cache"
-	MinifiedTag            Tag = "minified"
+	SourceTag        Tag = "source"
+	DocumentationTag Tag = "documentation"
+	ResourceTag      Tag = "resource"
+	ToolingTag       Tag = "tooling"
+	ManifestTag      Tag = "manifest"
+	GeneratedTag     Tag = "generated"
+	TestFixtureTag   Tag = "test_fixture"
+	DependencyTag    Tag = "dependency"
+	BuildOutputTag   Tag = "build_output"
+	CacheTag         Tag = "cache"
+	MinifiedTag      Tag = "minified"
 )
 
 // TagRule assigns Name to each Document or Directory whose snapshot-relative
@@ -44,7 +51,7 @@ func BuiltinTagRules() []TagRule {
 		{Name: BuildOutputTag, Pattern: `(^|/)(dist|\.next)(/|$)`},
 		{Name: CacheTag, Pattern: `(^|/)(\.cache|__pycache__|\.pytest_cache|\.mypy_cache|\.ruff_cache)(/|$)`},
 		{Name: MinifiedTag, Pattern: `\.min\.(js|css)$`},
-		{Name: DevelopmentMetadataTag, Pattern: `(^|/)(\.git|\.idea|\.vscode|\.codebase|\.devloop|\.codex|\.claude|\.agents|\.cursor)(/|$)`},
+		{Name: ToolingTag, Pattern: `(^|/)(\.git|\.idea|\.vscode|\.codebase|\.devloop|\.codex|\.claude|\.agents|\.cursor)(/|$)`},
 	}
 }
 
@@ -55,13 +62,13 @@ type compiledTagRule struct {
 
 // TagMatcher applies compiled path rules without reading files or constructing a graph.
 // It is immutable after construction and safe for concurrent Match calls.
-// The zero value matches no tags.
+// The zero value has no path rules; DocumentTags still classifies formats.
 type TagMatcher struct {
 	rules []compiledTagRule
 }
 
 // NewTagMatcher validates and compiles rules. Nil selects BuiltinTagRules;
-// an explicit empty slice disables tags. Later changes to rules do not affect
+// an explicit empty slice disables path tags. Later changes to rules do not affect
 // the matcher. Invalid regular expressions and blank names return an error.
 // +why=Graph construction and consumers share one path classification implementation.
 func NewTagMatcher(rules []TagRule) (*TagMatcher, error) {
@@ -97,4 +104,43 @@ func (m *TagMatcher) Match(path string) []Tag {
 	}
 	sort.Slice(tags, func(i, j int) bool { return tags[i] < tags[j] })
 	return tags
+}
+
+// DocumentTags combines format classification with direct path tags without parsing
+// content. Gitlinks remain opaque and receive only path tags, even at source paths.
+// Empty TagRules disables path rules, not format classification.
+func (m *TagMatcher) DocumentTags(d Document) []Tag {
+	tags := m.Match(d.Path)
+	if d.Gitlink == "" {
+		if tag := Tag(language.MaterialTag(d.Path)); tag != "" && !slices.Contains(tags, tag) {
+			tags = append(tags, tag)
+			slices.Sort(tags)
+		}
+	}
+	return tags
+}
+
+// ExcludedBy returns the first matching exclusion tag on the document or an
+// ancestor directory, or empty when admitted. It does not inherit directory tags
+// into DocumentTags. Document paths must be normalized snapshot-relative paths.
+// +spec=Consumers and Builder apply the same material exclusions before parsing and document budgets.
+func (m *TagMatcher) ExcludedBy(d Document, excluded []Tag) Tag {
+	if len(excluded) == 0 {
+		return ""
+	}
+	for _, tag := range m.DocumentTags(d) {
+		if slices.Contains(excluded, tag) {
+			return tag
+		}
+	}
+	for current := path.Dir(d.Path); ; current = path.Dir(current) {
+		for _, tag := range m.Match(current) {
+			if slices.Contains(excluded, tag) {
+				return tag
+			}
+		}
+		if current == "." {
+			return ""
+		}
+	}
 }

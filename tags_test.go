@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -44,7 +45,11 @@ func TestTagMatcherRulesAndGraphParity(t *testing.T) {
 			}
 			for _, node := range g.Nodes() {
 				if node.Kind == cg.DocumentNodeKind || node.Kind == cg.DirectoryNodeKind {
-					if got := m.Match(node.Path); !reflect.DeepEqual(got, node.Tags) {
+					got := m.Match(node.Path)
+					if node.Kind == cg.DocumentNodeKind {
+						got = m.DocumentTags(cg.Document{Path: node.Path, Gitlink: node.Gitlink})
+					}
+					if !reflect.DeepEqual(got, node.Tags) {
 						t.Fatalf("%s: matcher = %v, graph = %v", node.Path, got, node.Tags)
 					}
 				}
@@ -102,4 +107,54 @@ func ExampleNewTagMatcher() {
 	}
 	fmt.Println(matcher.Match("vendor/lib/go.mod"))
 	// Output: [dependency manifest]
+}
+
+// +case:id=material_tags,desc=`Format and path classification share Tags while gitlink stays opaque`,expect=`Graph kinds remain separate from material tags`
+func TestDocumentMaterialTags(t *testing.T) {
+	m, err := cg.NewTagMatcher(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		document cg.Document
+		want     []cg.Tag
+	}{
+		{cg.Document{Path: "main.go"}, []cg.Tag{cg.SourceTag}},
+		{cg.Document{Path: "main.pb.go"}, []cg.Tag{cg.GeneratedTag, cg.SourceTag}},
+		{cg.Document{Path: "README.md"}, []cg.Tag{cg.DocumentationTag}},
+		{cg.Document{Path: "settings.json"}, []cg.Tag{cg.ResourceTag}},
+		{cg.Document{Path: "logo.png"}, []cg.Tag{cg.ResourceTag}},
+		{cg.Document{Path: "unknown.xyz"}, nil},
+		{cg.Document{Path: "submodule.go", Gitlink: strings.Repeat("a", 40)}, nil},
+	} {
+		if got := m.DocumentTags(tc.document); !reflect.DeepEqual(got, tc.want) {
+			t.Fatalf("%s: got %v want %v", tc.document.Path, got, tc.want)
+		}
+	}
+	custom, err := cg.NewTagMatcher([]cg.TagRule{{Name: cg.ToolingTag, Pattern: `^workspace$`}, {Name: cg.SourceTag, Pattern: `\.go$`}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := cg.Document{Path: "workspace/nested/main.go"}
+	if got := custom.ExcludedBy(doc, []cg.Tag{cg.ToolingTag}); got != cg.ToolingTag {
+		t.Fatal(got)
+	}
+	if got := custom.DocumentTags(doc); !reflect.DeepEqual(got, []cg.Tag{cg.SourceTag}) {
+		t.Fatal("duplicate or inherited tags", got)
+	}
+	if got := custom.ExcludedBy(doc, []cg.Tag{cg.SourceTag}); got != cg.SourceTag {
+		t.Fatal("material tag not used for exclusion", got)
+	}
+	disabled, _ := cg.NewTagMatcher([]cg.TagRule{})
+	if got := disabled.DocumentTags(doc); !slices.Contains(got, cg.SourceTag) {
+		t.Fatal("format classification disabled with path rules", got)
+	}
+	for _, name := range []string{".idea", ".vscode", ".codex", ".claude", ".devloop"} {
+		if got := m.ExcludedBy(cg.Document{Path: "nested/" + name + "/source.go"}, []cg.Tag{cg.ToolingTag}); got != cg.ToolingTag {
+			t.Fatal(name, got)
+		}
+	}
+	if got := m.ExcludedBy(cg.Document{Path: ".idea-notes/source.go"}, []cg.Tag{cg.ToolingTag}); got != "" {
+		t.Fatal(got)
+	}
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"path"
 	"slices"
 
 	"github.com/compforge/codegraph/internal/analysis"
@@ -13,14 +12,14 @@ import (
 )
 
 // AdmissionPolicy separates material selection from graph publication. NodeKinds
-// never restrict extraction or binding. Nil kind slices admit all kinds; empty
-// slices admit none. ExcludedTags apply to documents and every ancestor directory.
-// Recognized manifests still supply metadata when their material kind is not parsed.
+// never restrict extraction or binding. Nil ParseTags and NodeKinds admit all;
+// empty slices admit none. ExcludedTags apply to documents and ancestor directories.
+// Recognized manifests still supply metadata when their tags are not selected for parsing.
 // +spec=Resolve complete admitted source facts before selecting published nodes and endpoint-closed relations.
 // +link=component://docs/admission.md
 type AdmissionPolicy struct {
-	ParseDocumentKinds []DocumentKind
-	ExcludedTags       []Tag
+	ParseTags    []Tag
+	ExcludedTags []Tag
 	// NodeKinds selects the initial nodes; dependency bridges may add candidates.
 	NodeKinds []NodeKind
 	// GlobalVariablesOnly omits initial variable/constant selections in local or type
@@ -37,8 +36,8 @@ type AdmissionPolicy struct {
 // Git ignore evaluation belongs to the snapshot owner, not this library.
 func AnalysisAdmission() *AdmissionPolicy {
 	return &AdmissionPolicy{
-		ParseDocumentKinds: []DocumentKind{SourceDocument},
-		ExcludedTags:       []Tag{DependencyTag, GeneratedTag, BuildOutputTag, CacheTag, MinifiedTag, DevelopmentMetadataTag, TestFixtureTag},
+		ParseTags:    []Tag{SourceTag},
+		ExcludedTags: []Tag{DependencyTag, GeneratedTag, BuildOutputTag, CacheTag, MinifiedTag, ToolingTag, TestFixtureTag},
 		NodeKinds: []NodeKind{DocumentNodeKind, DirectoryNodeKind, Module, Package, Namespace,
 			Struct, Interface, Class, Type, TypeAlias, Enum, Record, Trait, Union,
 			Function, Method, Constructor, Variable, Constant},
@@ -52,36 +51,32 @@ func cloneAdmission(p *AdmissionPolicy) *AdmissionPolicy {
 		return nil
 	}
 	out := *p
-	out.ParseDocumentKinds = slices.Clone(p.ParseDocumentKinds)
+	out.ParseTags = slices.Clone(p.ParseTags)
 	out.ExcludedTags = slices.Clone(p.ExcludedTags)
 	out.NodeKinds = slices.Clone(p.NodeKinds)
 	return &out
 }
 
-func (b *Builder) excludedMaterial(name string) string {
+func (b *Builder) excludedMaterial(d Document) string {
 	p := b.opts.Admission
 	if p == nil {
 		return ""
 	}
-	for current := name; ; current = path.Dir(current) {
-		for _, tag := range b.tagMatcher.Match(current) {
-			if slices.Contains(p.ExcludedTags, tag) {
-				return fmt.Sprintf("%s classified as %s", current, tag)
-			}
-		}
-		if current == "." {
-			return ""
-		}
+	if tag := b.tagMatcher.ExcludedBy(d, p.ExcludedTags); tag != "" {
+		return fmt.Sprintf("%s excluded by %s material or ancestor tag", d.Path, tag)
 	}
+	return ""
 }
 
 func (b *Builder) parsesDocument(d Document) bool {
-	if !b.allowed(d.Path) || b.excludedMaterial(d.Path) != "" {
+	if !b.allowed(d.Path) || b.excludedMaterial(d) != "" {
 		return false
 	}
 	p := b.opts.Admission
-	return p == nil || p.ParseDocumentKinds == nil ||
-		slices.Contains(p.ParseDocumentKinds, materialKind(d.Path, d.Gitlink)) || manifest.Format(d.Path) != ""
+	if p == nil || p.ParseTags == nil || manifest.Format(d.Path) != "" {
+		return true
+	}
+	return slices.ContainsFunc(b.tagMatcher.DocumentTags(d), func(tag Tag) bool { return slices.Contains(p.ParseTags, tag) })
 }
 
 func documentFacts(d Document) analysis.Facts {
@@ -99,12 +94,12 @@ func (b *Builder) admittedFiles(files map[string]analysis.Facts) (map[string]ana
 	out := make(map[string]analysis.Facts, len(files))
 	var excluded []Diagnostic
 	for name, f := range files {
-		if reason := b.excludedMaterial(name); reason != "" {
+		d := Document{Path: name, Content: f.Source, Gitlink: f.Gitlink}
+		if reason := b.excludedMaterial(d); reason != "" {
 			excluded = append(excluded, Diagnostic{Code: "excluded_material", Subject: DocumentSubject,
 				Message: reason, Location: location(f, analysis.Span{End: len(f.Source)})})
 			continue
 		}
-		d := Document{Path: name, Content: f.Source, Gitlink: f.Gitlink}
 		if !b.parsesDocument(d) {
 			f = documentFacts(d)
 		}

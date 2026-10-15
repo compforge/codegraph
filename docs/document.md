@@ -12,10 +12,14 @@ CodeGraph 只分析显式提供的材料，使相同输入的结果不受本机 
 
 ## 材料类别与语法格式
 
-图中的 Document 节点通过 DocumentKind 区分 source、gitlink 和 unknown；Language 描述 grammar。
-JSON/TOML/gomod 等数据或清单，以及 Markdown/HTML/CSS 等文档或资源材料使用 unknown，清单角色由 manifest 标签表达。
-Gitlink 由调用方提供的 Git 元数据识别，分类不依赖路径后缀。
-Document 与 Directory 的 Tags 保存路径匹配结果，同一节点可以同时属于多个分类。
+Document、Directory 在图中分别使用 `Document`、`Directory` NodeKind，联系由 RelationKind 表达。
+物料分类统一保存于 Tags，不另设 DocumentKind 或 DirectoryKind。Language 描述 grammar，Gitlink
+保存调用方提供的子模块 commit；gitlink 保持不透明，不因路径类似源码就被标为 source。
+
+Document 的标签由格式分类和路径规则累加：已识别代码格式带 source，Markdown/RST 带 documentation，
+已识别数据、清单、样式及图片等资源格式带 resource。未知格式不强行归类；分类不依赖解析成功。
+manifest、generated、dependency、tooling 等角色通过可配置路径规则追加，同一材料可以有多个标签。
+Directory 没有文件格式分类，仅应用路径规则。祖先标签不复制到子节点，但准入检查会检查祖先目录。
 
 输入 Document 与图中的 DocumentNode 职责不同：前者提供材料，后者组合 Node，作为同一图节点的
 类型化查询结果。`g.Document(path)`、`g.Node(DocumentID(path))` 和 Cypher 读取相同事实，
@@ -33,11 +37,11 @@ Document 和子 Directory 通过 `in_directory` 指向直接父 Directory。它�
 Directory 不具有源码 Location，其路径可通过 Node.Path 或 Cypher 的 path 属性查询。
 
 `Tag` 是以 string 为底层类型的开放枚举，内置 ManifestTag、GeneratedTag、TestFixtureTag、
-DependencyTag、BuildOutputTag、CacheTag、MinifiedTag，也允许调用方定义新值。
+DependencyTag、BuildOutputTag、CacheTag、MinifiedTag、ToolingTag，以及 SourceTag、DocumentationTag、ResourceTag，也允许调用方定义新值。
 CodeGraph 负责执行分类规则并在节点上保存标签；如何分类、标签在业务中意味着什么，以及如何处理已标记材料，由调用方决定。
 `TagRule{Name, Pattern}` 按规范化路径应用 Go 正则；规则可以匹配 Document 和 Directory。
 内置 `BuiltinTagRules()` 是可替换的默认策略，覆盖清单、常见生成文件、测试素材、依赖、构建输出、缓存及压缩资源。
-nil TagRules 选择内置规则，显式空集合关闭标签，非空集合替换内置规则；追加方式如下：
+nil TagRules 选择内置规则，显式空集合关闭路径标签，非空集合替换内置路径规则；格式标签仍保留。追加方式如下：
 
 ```go
 rules := append(codegraph.BuiltinTagRules(), codegraph.TagRule{
@@ -60,15 +64,17 @@ tags := matcher.Match("tests/input.pb.go")
 `NewTagMatcher` 校验并编译规则，nil、空集合和替换规则的含义与 Builder 一致。
 匹配器创建后固定，可以并发复用；调用方后续修改规则或返回的标签不会影响它。
 `Match` 接收规范化的快照相对路径，使用 `/` 分隔、目录无末尾斜杠、根目录为 `.`。
-Builder 使用同一个匹配器实现，为已接纳的材料和目录计算标签。
+`DocumentTags(Document)` 在直接路径匹配上补入格式标签，不需要 Content 或解析树。
+`ExcludedBy(Document, excludedTags)` 检查材料标签及每一级祖先目录，返回命中的排除标签。
+Builder 与消费者在材料预算之前共用这两个入口；Directory 节点使用 `Match`。
 
 所有匹配结果累加，同名标签去重并按名称排序；
 规则顺序不影响结果。正则默认允许部分匹配，完整匹配需要显式添加 `^` 和 `$`。
-节点标签只来自自身路径匹配，不继承祖先标签。例如 `^vendor$` 只标记 vendor 目录，
+路径标签只来自自身路径匹配，不继承祖先标签。例如 `^vendor$` 只标记 vendor 目录，
 `(^|/)vendor(/|$)` 则分别匹配目录与其后代材料。
 
 标签分类不进入原始提取缓存；标签自身不控制 parser 或材料排除。
-显式设置 `Options.Admission` 后，Builder 在解析前消费标签和材料类别进行准入，见 [分析材料与图准入](admission.md)。
+显式设置 `Options.Admission` 后，Builder 在解析前消费标签进行准入，见 [分析材料与图准入](admission.md)。
 同一份 Facts 可以在不同 Builder 中使用不同标签规则；未知格式和解析失败的 Document 仍保留路径标签。
 是否根据 dependency 或 generated 跳过评审由消费者决定。
 

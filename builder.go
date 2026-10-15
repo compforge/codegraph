@@ -340,7 +340,7 @@ func (g *Builder) assemble(ctx context.Context, files map[string]analysis.Facts,
 	files, excluded := g.admittedFiles(files)
 	report := BuildReport{Snapshot: g.snapshot, Documents: sortedFiles(files), Diagnostics: excluded}
 	for _, d := range failures {
-		if reason := g.excludedMaterial(d.Location.Path); reason != "" {
+		if reason := g.excludedMaterial(Document{Path: d.Location.Path}); reason != "" {
 			report.Diagnostics = append(report.Diagnostics, Diagnostic{Code: "excluded_material", Subject: DocumentSubject, Message: reason, Location: d.Location})
 			continue
 		}
@@ -350,7 +350,7 @@ func (g *Builder) assemble(ctx context.Context, files map[string]analysis.Facts,
 		if d.Code == "parse_error" {
 			id := DocumentID(d.Location.Path)
 			nodes[id] = Node{ID: id, Kind: DocumentNodeKind, Name: path.Base(d.Location.Path),
-				Language: Language(d.Location.Path), DocumentKind: materialKind(d.Location.Path, ""), Location: &d.Location}
+				Language: Language(d.Location.Path), Location: &d.Location}
 		}
 	}
 	index, issues, err := pipeline.BuiltinsWithResolution(ctx, files, g.opts.ModulePath, g.resolution, g.opts.MaxNodes-len(nodes), g.opts.MaxRelations, g.opts.MaxEvidence)
@@ -384,7 +384,6 @@ func (g *Builder) assemble(ctx context.Context, files map[string]analysis.Facts,
 			if n.Language == "" && n.Gitlink == "" {
 				n.Language = Language(ref.Path)
 			}
-			n.DocumentKind = materialKind(ref.Path, n.Gitlink)
 			n.Manifest = projectManifest(files[ref.Path])
 		}
 		if e.Location != nil {

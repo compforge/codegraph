@@ -8,7 +8,7 @@ NodeKind、RelationKind 保持原有定义，准入策略独立于语言识别�
 
 ```text
 调用方提供同一快照的 Documents
-  → 按 DocumentKind、路径标签及祖先目录判断材料准入
+  → 按 物料标签及祖先目录判断材料准入
   → 对允许的源码提取完整 Facts；清单提取工程元数据
   → Organize → Bind → Resolve，得到生产阶段的完整实体与关系
   → 按 NodeKind 和作用域选取核心节点及结构上下文
@@ -76,23 +76,26 @@ Evidence 都应一致。材料不全时允许暂时缺边；补入材料后重�
 ## 材料准入
 
 `Options.Admission` 配置准入，nil 保留完整材料与节点词汇；配置在 Builder 创建时复制。
-`ParseDocumentKinds` 控制符号提取，nil 不限制，空集合跳过所有普通材料的语法提取。
+`ParseTags` 控制符号提取：命中任一标签才解析，nil 不限制，空集合跳过所有普通材料的语法提取。
 已识别的 go.mod、package.json、pyproject.toml 仍提取清单元数据，供模块绑定使用。
 未解析的普通材料保留 Document 与目录结构，不产生符号或 unsupported_language 诊断。
 
-Directory 的分类复用开放式 Tag，不增加与 Tags 重复的 DirectoryKind 枚举。
-`ExcludedTags` 匹配文件自身和每一级祖先目录；命中后既不解析，也不进入发布图。
-例如规则 `^vendor$` 只给目录打标签，但其子树仍被准入规则排除。节点自身的 Tags 仍只保存直接匹配，
+Document、Directory 的物料分类统一使用 Tags；图中仍分别是 Document、Directory NodeKind，
+in_directory、declares 等 RelationKind 保持原义，不另设物料 Kind。
+`ExcludedTags` 匹配文件的格式及路径标签和每一级祖先目录的路径标签；命中后既不解析，也不进入发布图。
+例如规则 `^vendor$` 只给目录打标签，但其子树仍被准入规则排除。节点自身的 Tags 保存格式分类和直接路径匹配，
 不把祖先标签复制到子节点。`excluded_material` 诊断记录排除路径与原因，表示主动选择的范围边界。
 普通测试源码可参与分析；测试素材目录由预设排除，消费者可调整标签策略。
 
 `AnalysisAdmission()` 提供源码分析预设：解析 source，排除 dependency、generated、build_output、
-cache、minified、development_metadata 和 test_fixture 材料。开发元数据包括 .git、.idea、.vscode、
+cache、minified、tooling 和 test_fixture 材料。开发元数据包括 .git、.idea、.vscode、
 .codebase、.devloop、.codex、.claude、.agents、.cursor。普通隐藏目录不因此全部排除。
-Markdown、HTML、CSS 等文档或资源材料与 JSON/TOML 数据一样使用 unknown 材料类别，grammar 仍独立识别。
+Markdown/RST 使用 documentation 标签；HTML/CSS、JSON/TOML 等使用 resource 标签；代码格式使用 source。
+这些格式标签与路径标签累加，未知格式不强行归类；Language 与 Gitlink 仍各自保存语法格式和子模块引用。
 
 Builder.Extract、AddDocument 与 AddDocuments 在解析前应用同一材料规则，命中排除时不会查询或污染原始
-提取缓存。独立 Extractor 不绑定某个 Builder 的策略；使用它的调用方负责在提取前选材。
+提取缓存。调用方可通过同一 TagMatcher 的 ExcludedBy 在文档预算之前排除材料。
+独立 Extractor 不绑定某个 Builder 的策略；使用它的调用方负责在提取前选材。
 外部 Facts 通过 Add 接纳时仍会在构图前应用材料规则，不能绕过准入或改变其它 Builder 的缓存内容。
 
 .gitignore 的解释属于快照拥有者：调用方依据对应版本的规则选材，CodeGraph 不读取工作区、Git 配置

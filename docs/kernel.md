@@ -9,6 +9,7 @@ Graph 消费侧以 Node + Relation 为唯一代码事实来源，文件 outline�
 声明文档、源码位置与关系证据作为节点或关系的属性提供。
 语言适配器识别语言原生入口并通过 Node.Entrypoint 发布；消费者决定入口的分析与执行策略。
 图同时组织文件结构（Document、Directory）与程序结构（语言组织实体、声明及其关系）。
+NodeKind / RelationKind 统一描述这些实体与关系；Document、Directory 通过 Tags 表达物料分类及准入依据，不另设材料 Kind。
 CodeGraph 提供可配置的标签机制；调用方负责材料获取、分类策略和标签的业务含义，并将图事实解释为评审、影响分析或执行决策。
 
 | 层次 | 责任 |
@@ -56,7 +57,7 @@ NodeKind 与 RelationKind 是代码到图的映射词汇，定义模型能保留
 
 | 对象 | 当前 NodeKind | 分类依据 |
 |---|---|---|
-| 输入材料 | `Document` | 已接纳材料的身份；DocumentKind 描述 source、gitlink 或 unknown；Tags 表达 manifest 等可叠加分类，独立于 grammar 与解析是否成功 |
+| 输入材料 | `Document` | 已接纳材料的身份；Tags 表达 source、documentation、resource、manifest 等可叠加物料分类；Language 表达 grammar，Gitlink 保存子模块引用 |
 | 路径结构 | `Directory` | 已提供材料的祖先目录，按路径去重，Tags 直接匹配自身路径 |
 | 名称与成员组织 | `Package`、`Module`、`Namespace` | 语言中的组织实体，不将物理目录直接等同于命名空间 |
 | 类型声明 | `Struct`、`Interface`、`Type`、`TypeAlias`、`Class`、`Enum`、`Record`、`Trait`、`Union` | 保留具体声明类别；Symbol 是这些实体的逻辑角色 |

@@ -413,3 +413,30 @@ func TestAdmissionDocumentOrder(t *testing.T) {
 		}
 	}
 }
+
+// +case:id=parse_tags,desc=`Material tags control parsing and exclusion`,expect=`Classification survives skipped parsing and manifests retain metadata`
+func TestAdmissionParseTags(t *testing.T) {
+	docs := []Document{{Path: "app.go", Content: []byte("package app\nfunc Run() {}\n")}, {Path: "go.mod", Content: []byte("module example.org/app\ngo 1.26\n")}}
+	g, _, err := Build(context.Background(), "tags", docs, Options{Admission: &AdmissionPolicy{ParseTags: []Tag{}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(g.Find("app.go", Function, "Run")) != 0 {
+		t.Fatal("parsed without a matching tag")
+	}
+	d, _ := g.Document("app.go")
+	if d.Kind != DocumentNodeKind || !slices.Contains(d.Tags, SourceTag) {
+		t.Fatal(d)
+	}
+	m, _ := g.Document("go.mod")
+	if m.Manifest == nil || m.Manifest.Name != "example.org/app" {
+		t.Fatal(m)
+	}
+	g, _, err = Build(context.Background(), "exclude-source", docs, Options{Admission: &AdmissionPolicy{ExcludedTags: []Tag{SourceTag}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := g.Document("app.go"); ok {
+		t.Fatal("excluded material tag admitted")
+	}
+}

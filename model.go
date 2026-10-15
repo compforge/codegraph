@@ -69,13 +69,12 @@ type Node struct {
 	// Entrypoint identifies a runtime entrypoint recognized by supported language
 	// rules. False means none was identified; it is not proof of no external callers.
 	Entrypoint bool `json:"entrypoint,omitempty"`
-	// Path and Tags belong to Document and Directory nodes. Tags are direct
-	// path matches; they are neither inherited nor parsing instructions.
+	// Path and Tags belong to Document and Directory nodes. Tags combine material
+	// classification and direct path matches; ancestor tags are not inherited.
 	Path string `json:"path,omitempty"`
 	Tags []Tag  `json:"tags,omitempty"`
-	// DocumentKind and Manifest are present only on Document nodes.
-	DocumentKind DocumentKind      `json:"documentKind,omitempty"`
-	Manifest     *ManifestMetadata `json:"manifest,omitempty"`
+	// Manifest is present only on Document nodes.
+	Manifest *ManifestMetadata `json:"manifest,omitempty"`
 	// Gitlink is set only on an opaque gitlink Document, never on symbols.
 	Gitlink       string   `json:"gitlink,omitempty"`
 	Kind          NodeKind `json:"kind"`

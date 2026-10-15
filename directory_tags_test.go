@@ -41,7 +41,7 @@ func TestDirectoryPathsAndIndependentTags(t *testing.T) {
 		t.Fatal("invented directory")
 	}
 	d, _ := old.Document("fixtures/a.pb.go")
-	if d.Path != "fixtures/a.pb.go" || !reflect.DeepEqual(d.Tags, []Tag{"custom", GeneratedTag}) {
+	if d.Path != "fixtures/a.pb.go" || !reflect.DeepEqual(d.Tags, []Tag{"custom", GeneratedTag, SourceTag}) {
 		t.Fatal(d)
 	}
 	other, _ := old.Document("fixtures/other.txt")
@@ -108,9 +108,9 @@ func TestBuiltinTagsAndReplacement(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := [][]Tag{
-		{DependencyTag, ManifestTag}, {GeneratedTag}, {BuildOutputTag, MinifiedTag},
-		{TestFixtureTag}, {GeneratedTag}, {CacheTag}, {DependencyTag, MinifiedTag},
-		{TestFixtureTag}, {BuildOutputTag},
+		{DependencyTag, ManifestTag, ResourceTag}, {GeneratedTag, SourceTag}, {BuildOutputTag, MinifiedTag, SourceTag},
+		{DocumentationTag, TestFixtureTag}, {GeneratedTag, SourceTag}, {CacheTag, DocumentationTag}, {DependencyTag, MinifiedTag, ResourceTag},
+		{DocumentationTag, TestFixtureTag}, {BuildOutputTag, SourceTag},
 	}
 	for i, doc := range docs {
 		n, _ := g.Document(doc.Path)
@@ -136,7 +136,7 @@ func TestBuiltinTagsAndReplacement(t *testing.T) {
 		if slices.Contains(n.Tags, ManifestTag) || n.Manifest == nil || n.Manifest.Name != "example.org/lib" {
 			t.Fatal("tags controlled parsing", n)
 		}
-		if len(n.Tags) != len(rules) {
+		if len(n.Tags) != len(rules)+1 {
 			t.Fatal(n.Tags)
 		}
 	}
