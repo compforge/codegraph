@@ -37,12 +37,15 @@ Document 和子 Directory 通过 `in_directory` 指向直接父 Directory。它�
 Directory 不具有源码 Location，其路径可通过 Node.Path 或 Cypher 的 path 属性查询。
 
 `Tag` 是以 string 为底层类型的开放枚举，内置 ManifestTag、GeneratedTag、TestFixtureTag、
-DependencyTag、BuildOutputTag、CacheTag、MinifiedTag、ToolingTag，以及 SourceTag、DocumentationTag、ResourceTag，也允许调用方定义新值。
+DependencyTag、BuildOutputTag、CacheTag、MinifiedTag、ToolingTag、ConfigTag，以及 SourceTag、DocumentationTag、ResourceTag，也允许调用方定义新值。
 CodeGraph 负责执行分类规则并在节点上保存标签；如何分类、标签在业务中意味着什么，以及如何处理已标记材料，由调用方决定。
 `TagRule{Name, Pattern}` 按规范化路径应用 Go 正则；规则可以匹配 Document 和 Directory。
-内置 `BuiltinTagRules()` 是可替换的默认策略，覆盖清单、常见生成文件、测试素材、依赖、构建输出、缓存、压缩资源及开发工具材料。
+内置 `BuiltinTagRules()` 是可替换的默认策略，覆盖清单、常见生成文件、测试素材、依赖、构建输出、缓存、压缩资源、仓库配置及开发工具材料。
 其中 `ToolingTag`（`tooling`）匹配 `.git`、`.idea`、`.vscode`、`.codebase`、`.devloop`、`.codex`、
 `.claude`、`.agents`、`.cursor` 路径段，包含嵌套目录及其后代材料。
+`AGENTS.md`、`CLAUDE.md`、`GEMINI.md` 在任意目录下带 tooling 标签，并保留 Markdown 的 documentation 标签。
+`ConfigTag`（`config`）覆盖 `.dockerignore`、`.gitignore`、`.ignore`、`.gitattributes`、`.editorconfig`、
+`.env` 和 `.env.*`；配置角色由路径规则标注，不因此参与符号解析。
 nil TagRules 选择内置规则，显式空集合关闭路径标签，非空集合替换内置路径规则；格式标签仍保留。追加方式如下：
 
 ```go

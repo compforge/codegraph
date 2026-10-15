@@ -91,6 +91,13 @@ func TestAnalysisMaterialAdmission(t *testing.T) {
 		{Path: "app.go", Content: []byte("package app\nfunc Run() {}\n")},
 		{Path: "external/deep/broken.go", Content: []byte("invalid go")},
 		{Path: "nested/.codex/helper.ts", Content: []byte("invalid typescript")},
+		{Path: "AGENTS.md", Content: []byte("# Agent instructions")},
+		{Path: "nested/CLAUDE.md", Content: []byte("# Agent instructions")},
+		{Path: "nested/GEMINI.md", Content: []byte("# Agent instructions")},
+		{Path: ".editorconfig", Content: []byte("invalid editor configuration")},
+		{Path: ".dockerignore", Content: []byte("build/")},
+		{Path: ".gitignore", Content: []byte("build/")},
+		{Path: ".env.example", Content: []byte("APP_MODE=example")},
 		{Path: "README.md", Content: []byte("# Guide\n")},
 		{Path: "assets/data.json", Content: []byte("invalid json")},
 		{Path: "go.mod", Content: []byte("module example.com/app\ngo 1.26\n")},
@@ -103,7 +110,7 @@ func TestAnalysisMaterialAdmission(t *testing.T) {
 	if !reflect.DeepEqual(parsed, []string{"app.go", "go.mod"}) {
 		t.Fatal(parsed)
 	}
-	for _, name := range []string{"external/deep/broken.go", "nested/.codex/helper.ts"} {
+	for _, name := range []string{"external/deep/broken.go", "nested/.codex/helper.ts", "AGENTS.md", "nested/CLAUDE.md", "nested/GEMINI.md"} {
 		if _, ok := g.Document(name); ok {
 			t.Fatal("excluded document", name)
 		}
@@ -111,7 +118,7 @@ func TestAnalysisMaterialAdmission(t *testing.T) {
 			t.Fatal(report)
 		}
 	}
-	for _, name := range []string{"README.md", "assets/data.json", "go.mod"} {
+	for _, name := range []string{"README.md", "assets/data.json", "go.mod", ".dockerignore", ".gitignore", ".env.example", ".editorconfig"} {
 		if _, ok := g.Document(name); !ok {
 			t.Fatal("missing context", name)
 		}
@@ -119,7 +126,7 @@ func TestAnalysisMaterialAdmission(t *testing.T) {
 	if d, _ := g.Document("go.mod"); d.Manifest == nil || d.Manifest.Name != "example.com/app" {
 		t.Fatal(d)
 	}
-	if len(report.Diagnostics) != 2 {
+	if len(report.Diagnostics) != 5 {
 		t.Fatal(report.Diagnostics)
 	}
 	for _, d := range report.Diagnostics {

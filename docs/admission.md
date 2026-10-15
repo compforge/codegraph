@@ -89,7 +89,9 @@ in_directory、declares 等 RelationKind 保持原义，不另设物料 Kind。
 
 `AnalysisAdmission()` 提供源码分析预设：解析 source，排除 dependency、generated、build_output、
 cache、minified、tooling 和 test_fixture 材料。开发元数据包括 .git、.idea、.vscode、
-.codebase、.devloop、.codex、.claude、.agents、.cursor。普通隐藏目录不因此全部排除。
+.codebase、.devloop、.codex、.claude、.agents、.cursor，以及任意目录下的 AGENTS.md、CLAUDE.md、GEMINI.md。
+.gitignore、.dockerignore、.env / .env.* 等常见配置带 config 标签，保留为 Document 上下文，不做符号解析。
+普通隐藏目录不因此全部排除。
 Markdown/RST 使用 documentation 标签；HTML/CSS、JSON/TOML 等使用 resource 标签；代码格式使用 source。
 这些格式标签与路径标签累加，未知格式不强行归类；Language 与 Gitlink 仍各自保存语法格式和子模块引用。
 

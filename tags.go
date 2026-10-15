@@ -20,6 +20,7 @@ const (
 	DocumentationTag Tag = "documentation"
 	ResourceTag      Tag = "resource"
 	ToolingTag       Tag = "tooling"
+	ConfigTag        Tag = "config"
 	ManifestTag      Tag = "manifest"
 	GeneratedTag     Tag = "generated"
 	TestFixtureTag   Tag = "test_fixture"
@@ -52,6 +53,8 @@ func BuiltinTagRules() []TagRule {
 		{Name: CacheTag, Pattern: `(^|/)(\.cache|__pycache__|\.pytest_cache|\.mypy_cache|\.ruff_cache)(/|$)`},
 		{Name: MinifiedTag, Pattern: `\.min\.(js|css)$`},
 		{Name: ToolingTag, Pattern: `(^|/)(\.git|\.idea|\.vscode|\.codebase|\.devloop|\.codex|\.claude|\.agents|\.cursor)(/|$)`},
+		{Name: ConfigTag, Pattern: `(^|/)(\.dockerignore|\.gitignore|\.ignore|\.gitattributes|\.editorconfig|\.env(\.[^/]+)?)$`},
+		{Name: ToolingTag, Pattern: `(^|/)(AGENTS|CLAUDE|GEMINI)\.md$`},
 	}
 }
 
