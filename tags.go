@@ -45,7 +45,7 @@ type TagRule struct {
 // Tags describe path conventions; consumers decide whether to exclude material.
 func BuiltinTagRules() []TagRule {
 	return []TagRule{
-		{Name: ManifestTag, Pattern: `(^|/)(go\.mod|pyproject\.toml|package\.json)$`},
+		{Name: ManifestTag, Pattern: `(^|/)(go\.mod|go\.work|pyproject\.toml|package\.json)$`},
 		{Name: LockfileTag, Pattern: `(^|/)(go\.sum|go\.work\.sum|uv\.lock|poetry\.lock|Pipfile\.lock|pdm\.lock|pylock(\.[^/]+)?\.toml|package-lock\.json|npm-shrinkwrap\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?|Cargo\.lock|Gemfile\.lock|composer\.lock)$`},
 		{Name: GeneratedTag, Pattern: `\.(generated\.[^/]+|gen\.go|pb\.go)$`},
 		{Name: GeneratedTag, Pattern: `(^|/)kitex_gen(/|$)`},
