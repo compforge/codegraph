@@ -19,7 +19,7 @@ func MaterialTag(name string) string {
 	switch entry.Name {
 	case "markdown", "markdown_inline", "rst", "vimdoc":
 		return "documentation"
-	case "gomod", "json", "json5", "jsonnet", "toml", "yaml", "xml", "csv", "ini", "html", "css", "scss":
+	case "gomod", "json", "json5", "jsonnet", "toml", "yaml", "xml", "csv", "ini", "editorconfig", "html", "css", "scss":
 		return "resource"
 	default:
 		return "source"

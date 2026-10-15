@@ -158,3 +158,44 @@ func TestDocumentMaterialTags(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+// +case:id=repository_material_tags,desc=`Repository configuration and agent instructions have replaceable path tags`,expect=`Agent instructions retain documentation and tooling tags at any depth`
+func TestRepositoryMaterialTags(t *testing.T) {
+	builtin, err := cg.NewTagMatcher(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	disabled, err := cg.NewTagMatcher([]cg.TagRule{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, prefix := range []string{"", "component/"} {
+		for _, name := range []string{".dockerignore", ".gitignore", ".ignore", ".gitattributes", ".editorconfig", ".env", ".env.example", ".env.local"} {
+			doc := cg.Document{Path: prefix + name}
+			want := []cg.Tag{cg.ConfigTag}
+			if name == ".editorconfig" {
+				want = append(want, cg.ResourceTag)
+			}
+			if got := builtin.DocumentTags(doc); !reflect.DeepEqual(got, want) {
+				t.Errorf("%s: tags = %v", doc.Path, got)
+			}
+			if got := disabled.DocumentTags(doc); slices.Contains(got, cg.ConfigTag) {
+				t.Errorf("disabled config rule: %s: %v", doc.Path, got)
+			}
+		}
+		for _, name := range []string{"AGENTS.md", "CLAUDE.md", "GEMINI.md"} {
+			doc := cg.Document{Path: prefix + name}
+			if got := builtin.DocumentTags(doc); !reflect.DeepEqual(got, []cg.Tag{cg.DocumentationTag, cg.ToolingTag}) {
+				t.Errorf("%s: tags = %v", doc.Path, got)
+			}
+			if got := disabled.DocumentTags(doc); !reflect.DeepEqual(got, []cg.Tag{cg.DocumentationTag}) {
+				t.Errorf("disabled tooling rule lost format: %s: %v", doc.Path, got)
+			}
+		}
+	}
+	for _, name := range []string{"my.env", ".environment", ".envexample", ".gitignore.bak", "MY_AGENTS.md", "AGENTS.md.bak", "docs/AGENTS.md/guide.txt"} {
+		if got := builtin.Match(name); len(got) != 0 {
+			t.Errorf("unrelated path %s: %v", name, got)
+		}
+	}
+}
