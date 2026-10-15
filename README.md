@@ -51,9 +51,16 @@ not prove that no connection exists elsewhere in the repository.
 
 Go, Python, JavaScript, TypeScript, and TSX have language-specific name binding and relationship analysis.
 Supplied go.mod, pyproject.toml, and package.json files expose manifest metadata; go.mod also establishes Go module ownership.
-Document paths also produce Directory nodes. Configurable TagRule patterns assign multiple tags such as
-manifest, generated, and dependency to documents and directories; tags do not exclude material from analysis.
+Document paths also produce Directory nodes. Both retain their NodeKind; material classification uses Tags.
+Recognized formats contribute source, documentation or resource tags. Configurable TagRule patterns add tags such as
+manifest, generated, and dependency to documents and directories; tags classify paths independently of admission policy.
 See [directory and tag semantics](docs/document.md#directory-与路径标签) for customization.
+For a focused analysis graph, set `Options{Admission: codegraph.AnalysisAdmission()}`.
+Binding uses complete source facts, then publication selects types, functions, global data declarations
+and structural context, plus local values or fields connecting distinct core entities.
+Import items and source-use nodes are omitted; original relationships survive when both endpoints are selected. Material admission runs before parsing.
+Leaving Admission unset preserves the complete graph. See [admission semantics](docs/admission.md).
+
 Other registered grammars primarily provide declaration structure. Coverage varies by language and code
 construct; see [language support and limitations](docs/language-support.md) (in Chinese).
 CodeGraph does not perform compiler type checking or guarantee complete runtime dispatch analysis.

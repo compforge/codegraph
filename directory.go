@@ -35,7 +35,7 @@ func (b *Builder) publishDocumentStructure(ctx context.Context, nodes map[string
 	}
 	for _, n := range documents {
 		n.Path = n.Location.Path
-		n.Tags = b.tagMatcher.Match(n.Path)
+		n.Tags = b.tagMatcher.DocumentTags(Document{Path: n.Path, Gitlink: n.Gitlink})
 		nodes[n.ID] = n
 		child, parent := n.ID, path.Dir(n.Path)
 		for {

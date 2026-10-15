@@ -2,17 +2,6 @@ package codegraph
 
 import (
 	"github.com/compforge/codegraph/internal/analysis"
-	"github.com/compforge/codegraph/internal/language"
-)
-
-// DocumentKind describes material, independently of its parsing grammar.
-// Manifest classification is expressed by the manifest tag, independently of grammar.
-type DocumentKind string
-
-const (
-	SourceDocument  DocumentKind = "source"
-	GitlinkDocument DocumentKind = "gitlink"
-	UnknownDocument DocumentKind = "unknown"
 )
 
 // ManifestMetadata preserves explicit project declarations. Name is a Go module
@@ -71,8 +60,4 @@ func cloneManifest(m *ManifestMetadata) *ManifestMetadata {
 		out.VersionLocation = &loc
 	}
 	return &out
-}
-
-func materialKind(path, gitlink string) DocumentKind {
-	return DocumentKind(language.MaterialKind(path, gitlink))
 }

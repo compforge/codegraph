@@ -3,7 +3,8 @@
 ## 项目定位与边界
 
 CodeGraph 是解析和组织代码事实的 Go 库，首要目标是对输入 Documents 做静态分析，构造符号及其关系图。
-Graph 是已接纳 Documents 范围内静态代码的结构化表示，可以是局部图。NodeKind 与 RelationKind
+Graph 是已接纳 Documents 范围内静态代码的结构化表示，可以是局部图。
+解析事实先完整参与绑定；显式 AdmissionPolicy 再决定发布图的节点粒度，关系随端点保留。NodeKind 与 RelationKind
 定义对象和联系的映射范围，源码结构与跨文件语义关系支持派生文件 outline、成员视图和关系路径。
 Graph 消费侧以 Node + Relation 为唯一代码事实来源，outline、成员列表等结果均由图派生。
 Outline 只在生产侧辅助提取声明关系；声明文档、位置和证据随节点或关系提供。
@@ -45,7 +46,7 @@ docs/kernel.md                          # 稳定模型、主流程与设计依�
 1. Node 使用具体语言类别；Symbol 与 Namespace 是可重叠的逻辑角色。源码贡献、声明的词法嵌套、语义成员归属和词法可见性分别由 declares、encloses、contains 与 Scope/Binding 表达。Document 的语言组织根通过 in_namespace 发布；路径的语言语义由适配器确定；Directory 通过 in_directory 表达路径层级，不进入 namespace 归属。
 2. Reference 以 referenceKind 区分源码使用；Import / Export 保留源码绑定项，references 连接直接目标，aliases 保留名称链，decorates 从修饰应用指向被修饰声明。它们独立于目标绑定存在；局部图保留候选与缺口，不虚构外部目标。关系身份保留端点、种类及发生位置；独立 Evidence 取最高档，单条证据的必要推导链取最低档，不将证据强度解释为业务影响概率。源码使用与绑定模型见内核设计。
 3. 同一 Graph 只容纳同一快照。Extractor 拥有解析与缓存；Builder 拥有构图、预算及原子发布，Graph 是只读结果；补入 Document 后重新组织与绑定，最新结果可修订既有节点、关系和证据，旧结果不变。语言实现通过阶段接口提供事实、关系与诊断，不获取材料或直接操作图存储。
-4. DocumentKind 表达 source/gitlink/unknown，grammar 表达语法格式；Tag 是开放分类，TagRule 为 Document 与 Directory 计算直接标签，manifest 等角色由标签表达，不继承、不控制解析；清单语义由格式适配器提取，工程 Component 由消费者判定。消费侧视图只读取 Node + Relation；缺少信息时补足图表达，不回读 Facts 或解析树。Facts 服务生产侧的依赖探索、解析与构图；声明、签名与调用参数优先消费 gotreesitter，适配器只补其能力缺口并拥有绑定与关系推导；Outline 在提取内部复用 gotreesitter，转换为声明和覆盖诊断后释放。AST 与引擎对象不穿透公共 API。新增语言能力同步更新注册声明及契约测试，grammar 可用不等于语义完整。
+4. NodeKind / RelationKind 表达图中实体与关系；Document 与 Directory 的物料分类统一使用开放式 Tags，不另设材料 Kind。Document 的格式标签与 TagRule 路径标签累加，祖先标签不复制到子节点；Admission 消费标签决定解析与图准入。Language 表达 grammar，Gitlink 保存子模块引用；清单语义由格式适配器提取，工程 Component 由消费者判定。消费侧视图只读取 Node + Relation；缺少信息时补足图表达，不回读 Facts 或解析树。Facts 服务生产侧的依赖探索、解析与构图；声明、签名与调用参数优先消费 gotreesitter，适配器只补其能力缺口并拥有绑定与关系推导；Outline 在提取内部复用 gotreesitter，转换为声明和覆盖诊断后释放。AST 与引擎对象不穿透公共 API。新增语言能力同步更新注册声明及契约测试，grammar 可用不等于语义完整。
 5. 执行失败由 error 表达；局部诊断不否定无关事实。根包测试验证公共契约，内部机制测试随所属包维护；跨阶段语言回归放在 tests/semantics，真实语料验证语义覆盖，消费者验证自身策略与执行行为。
 6. 验证入口为 `make lint test build`，测试启用 race detector；`make eval` 按语言评测符号、关系与 namespace 组织结构；工具准备和语料命令见 [评测执行入口](docs/corpus.md#执行与证据)。
 7. `VERSION` 格式为 X.Y.Z，任何代码文件变更（含测试、增删及重命名）须在同一提交 bump，默认递增 patch；纯文档变更无需 bump。
@@ -54,6 +55,7 @@ docs/kernel.md                          # 稳定模型、主流程与设计依�
 
 - [使用指南](docs/usage.md) — 构建、补料、源码导航、Cypher 与诊断读取。
 - [内核设计](docs/kernel.md) — 核心模型、主流程与责任边界。
+- [分析准入](docs/admission.md) — 材料分类、节点投影与解析事实边界。
 - [Document 契约](docs/document.md) — 源码和 gitlink 材料、身份、接纳及图中表达。
 - [命名空间组织](docs/namespaces.md) — 成员、嵌套、身份与源码贡献。
 - [语言能力](docs/language-support.md) — 各语言的静态证据与限制。

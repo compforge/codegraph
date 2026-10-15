@@ -93,6 +93,16 @@ func main() {
 输出为 `Entry`。构建成功仍可能伴随局部分析缺口，由调用方判断其与当前任务的关系。
 更多可执行示例见 [example_test.go](example_test.go)。
 
+Document、Directory 的图身份由 NodeKind 表达，物料分类统一使用 Tags；Language 与 Gitlink 分别保存语法格式和子模块引用。
+
+## 分析图准入
+
+面向代码阅读和影响分析时，可设置 `Options{Admission: codegraph.AnalysisAdmission()}`：
+源码完整参与绑定，发布图保留类型、函数、全局数据声明及结构上下文，并补入连接核心实体的局部变量或字段。
+import 和源码使用节点不发布。
+材料分类在解析前生效，关系随入选端点保留。默认不设置 Admission 时发布完整事实图。
+配置、证据与预算边界见 [分析材料与图准入](docs/admission.md)。
+
 ## 评估覆盖
 
 首次运行 `make setup-typescript-corpus`，随后用 `make eval` 对固定 Go、Python、TypeScript 仓库

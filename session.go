@@ -385,6 +385,12 @@ func (g *session) Extract(ctx context.Context, document Document) (Facts, error)
 	if err := document.validate(); err != nil {
 		return Facts{}, err
 	}
+	if document.size() > g.opts.MaxDocumentBytes {
+		return Facts{}, fmt.Errorf("%w: file %s exceeds byte limit", ErrBuildBudget, document.Path)
+	}
+	if !g.parsesDocument(document) {
+		return projectFacts(documentFacts(document))
+	}
 	hash := document.digest()
 	g.factCacheMu.Lock()
 	entry, cached := g.factCache[document.Path]
@@ -532,6 +538,10 @@ func (g *session) extractBatch(ctx context.Context, documents []Document) []extr
 			return
 		}
 		document := documents[i]
+		if !g.parsesDocument(document) {
+			results[i].facts = documentFacts(document)
+			return
+		}
 		results[i].facts, results[i].err = g.extractor.extract(ctx, document)
 	}
 	if len(documents) == 1 {

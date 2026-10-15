@@ -247,9 +247,6 @@ func (g *Graph) materialize(ctx context.Context, nodes map[string]Node, relation
 			}
 			props["tags"] = tags
 		}
-		if n.Kind == DocumentNodeKind {
-			props["documentKind"] = string(n.DocumentKind)
-		}
 		if m := n.Manifest; m != nil {
 			props["manifestFormat"], props["manifestName"], props["manifestVersion"] = m.Format, m.Name, m.Version
 			props["manifestProject"], props["manifestBuildSystem"], props["manifestWorkspace"] = m.Project, m.BuildSystem, m.Workspace
