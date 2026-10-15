@@ -36,7 +36,7 @@ func FactProgram(lang *gts.Language, kinds gts.FactKind, entry grammars.LangEntr
 		entry.Language = func() *gts.Language { return lang }
 		return gts.NewFactProgramWithOptions(lang, kinds,
 			gts.WithDeclarationRules(declarationRules(entry)),
-			gts.WithSignatureRules(grammars.SignatureRules(entry)),
+			gts.WithSignatureRules(signatureRules(entry)),
 			gts.WithCallArgumentRules(grammars.CallArgumentRules(entry)))
 	})
 	cached, _ := factPrograms.LoadOrStore(key, compile)
@@ -56,4 +56,19 @@ func outlineProgram(lang *gts.Language, entry grammars.LangEntry) (*gts.Outliner
 	})
 	cached, _ := outlinePrograms.LoadOrStore(key, compile)
 	return cached.(func() (*gts.Outliner, error))()
+}
+
+// Signature rows use the same lexical scope coverage as declaration rows.
+func signatureRules(entry grammars.LangEntry) []gts.SignatureRule {
+	rules := grammars.SignatureRules(entry)
+	switch entry.Name {
+	case "javascript", "typescript", "tsx":
+		for _, rule := range rules {
+			if rule.NodeType == "variable_declarator" {
+				rule.Ancestors = nil
+				rules = append(rules, rule)
+			}
+		}
+	}
+	return rules
 }

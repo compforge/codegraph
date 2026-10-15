@@ -114,6 +114,9 @@ func Declarations(f *Facts, facts gts.FactSet) {
 			i, ok = byName[identity{name, ""}]
 		}
 		if ok {
+			if s.NodeType == "variable_declarator" && s.Kind == "function" {
+				f.Declarations[i].Callable = true
+			}
 			if s.Kind == "method" && len(s.Receiver) > 0 {
 				f.Declarations[i].Receiver = s.Container
 			}

@@ -3,7 +3,8 @@
 ## 项目定位与边界
 
 CodeGraph 是解析和组织代码事实的 Go 库，首要目标是对输入 Documents 做静态分析，构造符号及其关系图。
-Graph 是已接纳 Documents 范围内静态代码的结构化表示，可以是局部图。NodeKind 与 RelationKind
+Graph 是已接纳 Documents 范围内静态代码的结构化表示，可以是局部图。
+解析事实先完整参与绑定；显式 AdmissionPolicy 再决定发布图的节点粒度，关系随端点保留。NodeKind 与 RelationKind
 定义对象和联系的映射范围，源码结构与跨文件语义关系支持派生文件 outline、成员视图和关系路径。
 Graph 消费侧以 Node + Relation 为唯一代码事实来源，outline、成员列表等结果均由图派生。
 Outline 只在生产侧辅助提取声明关系；声明文档、位置和证据随节点或关系提供。
@@ -54,6 +55,7 @@ docs/kernel.md                          # 稳定模型、主流程与设计依�
 
 - [使用指南](docs/usage.md) — 构建、补料、源码导航、Cypher 与诊断读取。
 - [内核设计](docs/kernel.md) — 核心模型、主流程与责任边界。
+- [分析准入](docs/admission.md) — 材料分类、节点投影与解析事实边界。
 - [Document 契约](docs/document.md) — 源码和 gitlink 材料、身份、接纳及图中表达。
 - [命名空间组织](docs/namespaces.md) — 成员、嵌套、身份与源码贡献。
 - [语言能力](docs/language-support.md) — 各语言的静态证据与限制。

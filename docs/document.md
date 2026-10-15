@@ -13,7 +13,7 @@ CodeGraph 只分析显式提供的材料，使相同输入的结果不受本机 
 ## 材料类别与语法格式
 
 图中的 Document 节点通过 DocumentKind 区分 source、gitlink 和 unknown；Language 描述 grammar。
-JSON/TOML/gomod 等数据或清单材料使用 unknown，清单角色由 manifest 标签表达。
+JSON/TOML/gomod 等数据或清单，以及 Markdown/HTML/CSS 等文档或资源材料使用 unknown，清单角色由 manifest 标签表达。
 Gitlink 由调用方提供的 Git 元数据识别，分类不依赖路径后缀。
 Document 与 Directory 的 Tags 保存路径匹配结果，同一节点可以同时属于多个分类。
 
@@ -67,7 +67,8 @@ Builder 使用同一个匹配器实现，为已接纳的材料和目录计算标
 节点标签只来自自身路径匹配，不继承祖先标签。例如 `^vendor$` 只标记 vendor 目录，
 `(^|/)vendor(/|$)` 则分别匹配目录与其后代材料。
 
-标签在构图阶段计算，不进入提取缓存；内置和自定义标签均不控制 parser、语义解析或材料排除。
+标签分类不进入原始提取缓存；标签自身不控制 parser 或材料排除。
+显式设置 `Options.Admission` 后，Builder 在解析前消费标签和材料类别进行准入，见 [分析材料与图准入](admission.md)。
 同一份 Facts 可以在不同 Builder 中使用不同标签规则；未知格式和解析失败的 Document 仍保留路径标签。
 是否根据 dependency 或 generated 跳过评审由消费者决定。
 

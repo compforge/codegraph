@@ -51,6 +51,7 @@ func NewBuilder(snapshot string, opts Options) (*Builder, error) {
 	if err != nil {
 		return nil, err
 	}
+	opts.Admission = cloneAdmission(opts.Admission)
 	opts.TagRules = nil // Only the detached compiled rules are used after construction.
 	opts.ResolutionContext = ResolutionContext{}
 	b := &Builder{snapshot: snapshot, opts: opts, documents: map[string]analysis.Facts{}, failures: map[string]Diagnostic{}}
@@ -190,6 +191,9 @@ func (b *Builder) Report() BuildReport { return b.Result().Report() }
 // Scope contains snapshot-relative, slash-separated document paths or directory prefixes.
 // Empty Scope allows any relative path; documents are only analyzed when supplied.
 type Options struct {
+	// Admission optionally selects parsed material and the published graph.
+	// Nil preserves all supplied material and the complete node vocabulary.
+	Admission *AdmissionPolicy
 	// TagRules classifies Document and Directory paths without controlling parsing.
 	// Nil selects BuiltinTagRules; an explicit empty slice disables all tags.
 	TagRules          []TagRule
@@ -333,8 +337,13 @@ func (g *Builder) assemble(ctx context.Context, files map[string]analysis.Facts,
 	nodes := map[string]Node{}
 	relations := map[string]Relation{}
 	ids := map[analysis.Ref]string{}
-	report := BuildReport{Snapshot: g.snapshot, Documents: sortedFiles(files)}
+	files, excluded := g.admittedFiles(files)
+	report := BuildReport{Snapshot: g.snapshot, Documents: sortedFiles(files), Diagnostics: excluded}
 	for _, d := range failures {
+		if reason := g.excludedMaterial(d.Location.Path); reason != "" {
+			report.Diagnostics = append(report.Diagnostics, Diagnostic{Code: "excluded_material", Subject: DocumentSubject, Message: reason, Location: d.Location})
+			continue
+		}
 		report.Diagnostics = append(report.Diagnostics, d)
 		// A failed parser cannot erase the identity of a supplied document.
 		// Keep the Document and its path structure; no language declarations are inferred.
@@ -372,6 +381,9 @@ func (g *Builder) assemble(ctx context.Context, files map[string]analysis.Facts,
 		}
 		if ref.IsDocument() {
 			n.Gitlink = files[ref.Path].Gitlink
+			if n.Language == "" && n.Gitlink == "" {
+				n.Language = Language(ref.Path)
+			}
 			n.DocumentKind = materialKind(ref.Path, n.Gitlink)
 			n.Manifest = projectManifest(files[ref.Path])
 		}
@@ -443,6 +455,10 @@ func (g *Builder) assemble(ctx context.Context, files map[string]analysis.Facts,
 		}
 		return a.Message < b.Message
 	})
+	nodes, relations, err = g.projectAdmission(ctx, files, nodes, relations)
+	if err != nil {
+		return nil, nil, report, err
+	}
 	report.Nodes, report.Relations = len(nodes), len(relations)
 	return nodes, relations, report, nil
 }

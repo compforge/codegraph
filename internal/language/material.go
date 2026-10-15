@@ -11,7 +11,8 @@ func MaterialKind(name, gitlink string) string {
 		return "unknown"
 	}
 	switch entry.Name {
-	case "gomod", "json", "json5", "jsonnet", "toml", "yaml", "xml", "csv", "ini":
+	case "gomod", "json", "json5", "jsonnet", "toml", "yaml", "xml", "csv", "ini",
+		"markdown", "markdown_inline", "rst", "html", "css", "scss":
 		return "unknown"
 	default:
 		return "source"

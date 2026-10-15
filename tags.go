@@ -12,13 +12,14 @@ import (
 type Tag string
 
 const (
-	ManifestTag    Tag = "manifest"
-	GeneratedTag   Tag = "generated"
-	TestFixtureTag Tag = "test_fixture"
-	DependencyTag  Tag = "dependency"
-	BuildOutputTag Tag = "build_output"
-	CacheTag       Tag = "cache"
-	MinifiedTag    Tag = "minified"
+	DevelopmentMetadataTag Tag = "development_metadata"
+	ManifestTag            Tag = "manifest"
+	GeneratedTag           Tag = "generated"
+	TestFixtureTag         Tag = "test_fixture"
+	DependencyTag          Tag = "dependency"
+	BuildOutputTag         Tag = "build_output"
+	CacheTag               Tag = "cache"
+	MinifiedTag            Tag = "minified"
 )
 
 // TagRule assigns Name to each Document or Directory whose snapshot-relative
@@ -43,6 +44,7 @@ func BuiltinTagRules() []TagRule {
 		{Name: BuildOutputTag, Pattern: `(^|/)(dist|\.next)(/|$)`},
 		{Name: CacheTag, Pattern: `(^|/)(\.cache|__pycache__|\.pytest_cache|\.mypy_cache|\.ruff_cache)(/|$)`},
 		{Name: MinifiedTag, Pattern: `\.min\.(js|css)$`},
+		{Name: DevelopmentMetadataTag, Pattern: `(^|/)(\.git|\.idea|\.vscode|\.codebase|\.devloop|\.codex|\.claude|\.agents|\.cursor)(/|$)`},
 	}
 }
 
