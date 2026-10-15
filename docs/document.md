@@ -36,7 +36,7 @@ Document 和子 Directory 通过 `in_directory` 指向直接父 Directory。它�
 语言 Package、Module 等节点由适配器组织，namespace 查询继续使用语义关系。
 Directory 不具有源码 Location，其路径可通过 Node.Path 或 Cypher 的 path 属性查询。
 
-`Tag` 是以 string 为底层类型的开放枚举，内置 ManifestTag、GeneratedTag、TestFixtureTag、
+`Tag` 是以 string 为底层类型的开放枚举，内置 ManifestTag、LockfileTag、GeneratedTag、TestFixtureTag、
 DependencyTag、BuildOutputTag、CacheTag、MinifiedTag、ToolingTag、ConfigTag，以及 SourceTag、DocumentationTag、ResourceTag，也允许调用方定义新值。
 CodeGraph 负责执行分类规则并在节点上保存标签；如何分类、标签在业务中意味着什么，以及如何处理已标记材料，由调用方决定。
 `TagRule{Name, Pattern}` 按规范化路径应用 Go 正则；规则可以匹配 Document 和 Directory。
@@ -46,6 +46,10 @@ CodeGraph 负责执行分类规则并在节点上保存标签；如何分类、�
 `AGENTS.md`、`CLAUDE.md`、`GEMINI.md` 在任意目录下带 tooling 标签，并保留 Markdown 的 documentation 标签。
 `ConfigTag`（`config`）覆盖 `.dockerignore`、`.gitignore`、`.ignore`、`.gitattributes`、`.editorconfig`、
 `.env` 和 `.env.*`；配置角色由路径规则标注，不因此参与符号解析。
+`LockfileTag`（`lockfile`）标注依赖解析结果：`go.sum` / `go.work.sum`、`uv.lock` / `poetry.lock` /
+`Pipfile.lock` / `pdm.lock` / `pylock.toml` / `pylock.<name>.toml`、Node 包管理器锁文件、
+`Cargo.lock`、`Gemfile.lock` 和 `composer.lock`。规则匹配完整文件名，不将任意 `.lock` 文件视为依赖锁文件；
+锁文件不自动带 manifest 标签，也不改变解析或准入策略。
 nil TagRules 选择内置规则，显式空集合关闭路径标签，非空集合替换内置路径规则；格式标签仍保留。追加方式如下：
 
 ```go

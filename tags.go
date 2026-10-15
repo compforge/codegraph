@@ -22,6 +22,7 @@ const (
 	ToolingTag       Tag = "tooling"
 	ConfigTag        Tag = "config"
 	ManifestTag      Tag = "manifest"
+	LockfileTag      Tag = "lockfile"
 	GeneratedTag     Tag = "generated"
 	TestFixtureTag   Tag = "test_fixture"
 	DependencyTag    Tag = "dependency"
@@ -45,6 +46,7 @@ type TagRule struct {
 func BuiltinTagRules() []TagRule {
 	return []TagRule{
 		{Name: ManifestTag, Pattern: `(^|/)(go\.mod|pyproject\.toml|package\.json)$`},
+		{Name: LockfileTag, Pattern: `(^|/)(go\.sum|go\.work\.sum|uv\.lock|poetry\.lock|Pipfile\.lock|pdm\.lock|pylock(\.[^/]+)?\.toml|package-lock\.json|npm-shrinkwrap\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?|Cargo\.lock|Gemfile\.lock|composer\.lock)$`},
 		{Name: GeneratedTag, Pattern: `\.(generated\.[^/]+|gen\.go|pb\.go)$`},
 		{Name: GeneratedTag, Pattern: `(^|/)kitex_gen(/|$)`},
 		{Name: TestFixtureTag, Pattern: `(^|/)(testdata|fixtures|snapshots|__snapshots__)(/|$)`},

@@ -199,3 +199,48 @@ func TestRepositoryMaterialTags(t *testing.T) {
 		}
 	}
 }
+
+// +case:id=lockfile_tags,desc=`Known dependency lockfiles carry replaceable path tags`,expect=`Matcher and graph agree without treating locks as manifests`
+func TestLockfileDocumentTags(t *testing.T) {
+	matcher, err := cg.NewTagMatcher(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	disabled, err := cg.NewTagMatcher([]cg.TagRule{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := []string{"go.sum", "go.work.sum", "uv.lock", "poetry.lock", "Pipfile.lock", "pdm.lock", "pylock.toml", "pylock.production.toml", "package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb", "Cargo.lock", "Gemfile.lock", "composer.lock"}
+	var docs []cg.Document
+	for _, prefix := range []string{"", "nested/"} {
+		for _, name := range names {
+			doc := cg.Document{Path: prefix + name}
+			tags := matcher.DocumentTags(doc)
+			if !slices.Contains(tags, cg.LockfileTag) || slices.Contains(tags, cg.ManifestTag) {
+				t.Errorf("%s: %v", doc.Path, tags)
+			}
+			if slices.Contains(disabled.DocumentTags(doc), cg.LockfileTag) {
+				t.Errorf("disabled rule matched %s", doc.Path)
+			}
+			docs = append(docs, doc)
+		}
+	}
+	for _, name := range []string{"app.lock", "uv.lock.bak", "my-go.sum", "pylock..toml", "uv.lock/source.py", "package.json"} {
+		if slices.Contains(matcher.Match(name), cg.LockfileTag) {
+			t.Errorf("unrelated path %s", name)
+		}
+	}
+	graph, _, err := cg.Build(context.Background(), "locks", docs, cg.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, doc := range docs {
+		node, ok := graph.Node(cg.DocumentID(doc.Path))
+		if !ok || !reflect.DeepEqual(node.Tags, matcher.DocumentTags(doc)) {
+			t.Errorf("graph tags for %s: %v", doc.Path, node.Tags)
+		}
+	}
+	if got := matcher.Match("vendor/lib/Cargo.lock"); !slices.Contains(got, cg.LockfileTag) || !slices.Contains(got, cg.DependencyTag) {
+		t.Fatal(got)
+	}
+}
