@@ -46,6 +46,8 @@ CodeGraph 负责执行分类规则并在节点上保存标签；如何分类、�
 `AGENTS.md`、`CLAUDE.md`、`GEMINI.md` 在任意目录下带 tooling 标签，并保留 Markdown 的 documentation 标签。
 `ConfigTag`（`config`）覆盖 `.dockerignore`、`.gitignore`、`.ignore`、`.gitattributes`、`.editorconfig`、
 `.env` 和 `.env.*`；配置角色由路径规则标注，不因此参与符号解析。
+`ManifestTag`（`manifest`）覆盖 `go.mod`、`go.work`、`pyproject.toml` 和 `package.json`。
+`go.work` 在这里仅按路径标注为 workspace 清单，不因此解析 `use` / `replace` 或加载本地模块。
 `LockfileTag`（`lockfile`）标注依赖解析结果：`go.sum` / `go.work.sum`、`uv.lock` / `poetry.lock` /
 `Pipfile.lock` / `pdm.lock` / `pylock.toml` / `pylock.<name>.toml`、Node 包管理器锁文件、
 `Cargo.lock`、`Gemfile.lock` 和 `composer.lock`。规则匹配完整文件名，不将任意 `.lock` 文件视为依赖锁文件；

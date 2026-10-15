@@ -244,3 +244,57 @@ func TestLockfileDocumentTags(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+// +case:id=go_workspace_tags,desc=`Go module and workspace files share manifest/lockfile classification`,expect=`Root and nested Documents retain matcher tags in the graph without classifying unrelated filenames`
+func TestGoModuleAndWorkspaceDocumentTags(t *testing.T) {
+	matcher, err := cg.NewTagMatcher(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	disabled, err := cg.NewTagMatcher([]cg.TagRule{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var docs []cg.Document
+	for _, prefix := range []string{"", "nested/"} {
+		for _, tc := range []struct {
+			name, content string
+			tag           cg.Tag
+		}{
+			{"go.mod", "module example.org/app\n", cg.ManifestTag},
+			{"go.work", "go 1.26.0\nuse ./app\n", cg.ManifestTag},
+			{"go.sum", "", cg.LockfileTag},
+			{"go.work.sum", "", cg.LockfileTag},
+		} {
+			doc := cg.Document{Path: prefix + tc.name, Content: []byte(tc.content)}
+			tags := matcher.DocumentTags(doc)
+			other := cg.ManifestTag
+			if tc.tag == cg.ManifestTag {
+				other = cg.LockfileTag
+			}
+			if !slices.Contains(tags, tc.tag) || slices.Contains(tags, other) {
+				t.Errorf("%s: tags = %v, want only classification %s", doc.Path, tags, tc.tag)
+			}
+			if got := disabled.DocumentTags(doc); slices.Contains(got, cg.ManifestTag) || slices.Contains(got, cg.LockfileTag) {
+				t.Errorf("disabled path tags: %s: %v", doc.Path, got)
+			}
+			docs = append(docs, doc)
+		}
+	}
+	graph, _, err := cg.Build(context.Background(), "go-workspace", docs, cg.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, doc := range docs {
+		node, ok := graph.Node(cg.DocumentID(doc.Path))
+		if !ok || !reflect.DeepEqual(node.Tags, matcher.DocumentTags(doc)) {
+			t.Errorf("graph tags for %s: %v", doc.Path, node.Tags)
+		}
+	}
+	for _, name := range []string{"my-go.work", "go.work.bak", "go.work.sum.bak", "go.work/notes.txt"} {
+		tags := matcher.DocumentTags(cg.Document{Path: name})
+		if slices.Contains(tags, cg.ManifestTag) || slices.Contains(tags, cg.LockfileTag) {
+			t.Errorf("unrelated path %s: %v", name, tags)
+		}
+	}
+}
