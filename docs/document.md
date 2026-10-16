@@ -37,9 +37,10 @@ Document 和子 Directory 通过 `in_directory` 指向直接父 Directory。它�
 Directory 不具有源码 Location，其路径可通过 Node.Path 或 Cypher 的 path 属性查询。
 
 `Tag` 是以 string 为底层类型的开放枚举，内置 ManifestTag、LockfileTag、GeneratedTag、TestFixtureTag、
-DependencyTag、BuildOutputTag、CacheTag、MinifiedTag、ToolingTag、ConfigTag，以及 SourceTag、DocumentationTag、ResourceTag，也允许调用方定义新值。
+TestTag、DependencyTag、BuildOutputTag、CacheTag、MinifiedTag、ToolingTag、ConfigTag，以及 SourceTag、DocumentationTag、ResourceTag，也允许调用方定义新值。
 CodeGraph 负责执行分类规则并在节点上保存标签；如何分类、标签在业务中意味着什么，以及如何处理已标记材料，由调用方决定。
-`TagRule{Name, Pattern}` 按规范化路径应用 Go 正则；规则可以匹配 Document 和 Directory。
+`TagRule{Name, Pattern, Languages}` 按规范化路径应用 Go 正则；规则可以匹配 Document 和 Directory。
+可选 `Languages` 以现有 `Language(path)` 的 grammar 名称限制匹配，空列表不限制；它只识别路径，不加载 parser。
 内置 `BuiltinTagRules()` 是可替换的默认策略，覆盖清单、常见生成文件、测试素材、依赖、构建输出、缓存、压缩资源、仓库配置及开发工具材料。
 其中 `ToolingTag`（`tooling`）匹配 `.git`、`.idea`、`.vscode`、`.codebase`、`.devloop`、`.codex`、
 `.claude`、`.agents`、`.cursor` 路径段，包含嵌套目录及其后代材料。
@@ -52,11 +53,17 @@ CodeGraph 负责执行分类规则并在节点上保存标签；如何分类、�
 `Pipfile.lock` / `pdm.lock` / `pylock.toml` / `pylock.<name>.toml`、Node 包管理器锁文件、
 `Cargo.lock`、`Gemfile.lock` 和 `composer.lock`。规则匹配完整文件名，不将任意 `.lock` 文件视为依赖锁文件；
 锁文件不自动带 manifest 标签，也不改变解析或准入策略。
+`TestTag`（`test`）表达测试文件的命名约定：Go 的 `*_test.go`、Python 的 `test_*.py` / `*_test.py`，
+以及 JavaScript / TypeScript 的 `*.test.*`、`*.spec.*` 和 `__tests__/` 下的源码文件。
+ECMAScript 使用同一 `Language(path)` 识别结果，包括 `.mts` / `.cts` 和上游别名，不另维护一份后缀白名单。
+它不证明文件可执行或测试一定会运行；测试发现、推荐和执行仍由消费者决定。
+`conftest.py` 等支持文件及普通 `tests/` 下的 helper 不自动带 test 标签；`test_fixture` 独立描述素材目录，
+可与 test、source、dependency 等标签叠加。默认路径规则可禁用或替换，图节点与独立 matcher 保持一致。
 nil TagRules 选择内置规则，显式空集合关闭路径标签，非空集合替换内置路径规则；格式标签仍保留。追加方式如下：
 
 ```go
 rules := append(codegraph.BuiltinTagRules(), codegraph.TagRule{
-    Name:    codegraph.Tag("test"),
+    Name:    codegraph.Tag("test_support"),
     Pattern: `(^|/)tests?(/|$)`,
 })
 builder, err := codegraph.NewBuilder("revision", codegraph.Options{TagRules: rules})

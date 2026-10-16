@@ -24,6 +24,7 @@ const (
 	ManifestTag      Tag = "manifest"
 	LockfileTag      Tag = "lockfile"
 	GeneratedTag     Tag = "generated"
+	TestTag          Tag = "test"
 	TestFixtureTag   Tag = "test_fixture"
 	DependencyTag    Tag = "dependency"
 	BuildOutputTag   Tag = "build_output"
@@ -34,21 +35,29 @@ const (
 // TagRule assigns Name to each Document or Directory whose snapshot-relative
 // slash-separated path matches Pattern. Directory paths have no trailing slash;
 // the root is ".". Patterns use Go regular expressions (unanchored unless specified).
+// Languages optionally restricts matches to grammar names recognized from the path;
+// an empty list adds no language restriction. It never loads parsers or source bytes.
 // +spec=All matching rules accumulate by name, with no precedence or inheritance.
 type TagRule struct {
-	Name    Tag
-	Pattern string
+	Name      Tag
+	Pattern   string
+	Languages []string
 }
 
 // BuiltinTagRules returns a fresh rule set for common repository material.
 // Callers may append custom rules or supply a replacement through Options.TagRules.
 // Tags describe path conventions; consumers decide whether to exclude material.
+// +spec=Test tags use naming conventions and shared language recognition, not a separate extension list or proof of execution.
 func BuiltinTagRules() []TagRule {
 	return []TagRule{
 		{Name: ManifestTag, Pattern: `(^|/)(go\.mod|go\.work|pyproject\.toml|package\.json)$`},
 		{Name: LockfileTag, Pattern: `(^|/)(go\.sum|go\.work\.sum|uv\.lock|poetry\.lock|Pipfile\.lock|pdm\.lock|pylock(\.[^/]+)?\.toml|package-lock\.json|npm-shrinkwrap\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?|Cargo\.lock|Gemfile\.lock|composer\.lock)$`},
 		{Name: GeneratedTag, Pattern: `\.(generated\.[^/]+|gen\.go|pb\.go)$`},
 		{Name: GeneratedTag, Pattern: `(^|/)kitex_gen(/|$)`},
+		{Name: TestTag, Pattern: `(^|/)[^/]*_test\.go$`},
+		{Name: TestTag, Pattern: `(^|/)(test_[^/]*|[^/]*_test)\.py$`},
+		{Name: TestTag, Pattern: `(^|/)[^/]*\.(test|spec)\.[^/]+$`, Languages: []string{"javascript", "typescript", "tsx"}},
+		{Name: TestTag, Pattern: `(^|/)__tests__/`, Languages: []string{"javascript", "typescript", "tsx"}},
 		{Name: TestFixtureTag, Pattern: `(^|/)(testdata|fixtures|snapshots|__snapshots__)(/|$)`},
 		{Name: DependencyTag, Pattern: `(^|/)(vendor|node_modules)(/|$)`},
 		{Name: BuildOutputTag, Pattern: `(^|/)(dist|\.next)(/|$)`},
@@ -61,8 +70,9 @@ func BuiltinTagRules() []TagRule {
 }
 
 type compiledTagRule struct {
-	name    Tag
-	pattern *regexp.Regexp
+	name      Tag
+	pattern   *regexp.Regexp
+	languages []string
 }
 
 // TagMatcher applies compiled path rules without reading files or constructing a graph.
@@ -89,7 +99,7 @@ func NewTagMatcher(rules []TagRule) (*TagMatcher, error) {
 		if err != nil {
 			return nil, fmt.Errorf("tag rule %d (%q): %w", i, rule.Name, err)
 		}
-		out = append(out, compiledTagRule{name: rule.Name, pattern: pattern})
+		out = append(out, compiledTagRule{name: rule.Name, pattern: pattern, languages: slices.Clone(rule.Languages)})
 	}
 	return &TagMatcher{rules: out}, nil
 }
@@ -102,10 +112,14 @@ func (m *TagMatcher) Match(path string) []Tag {
 	var tags []Tag
 	seen := map[Tag]bool{}
 	for _, rule := range m.rules {
-		if !seen[rule.name] && rule.pattern.MatchString(path) {
-			seen[rule.name] = true
-			tags = append(tags, rule.name)
+		if seen[rule.name] || !rule.pattern.MatchString(path) {
+			continue
 		}
+		if len(rule.languages) > 0 && !slices.Contains(rule.languages, Language(path)) {
+			continue
+		}
+		seen[rule.name] = true
+		tags = append(tags, rule.name)
 	}
 	sort.Slice(tags, func(i, j int) bool { return tags[i] < tags[j] })
 	return tags
