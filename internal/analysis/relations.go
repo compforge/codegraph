@@ -25,6 +25,9 @@ func (x *Index) registerEdge(e Edge) bool {
 	key := edgeKey{e.Source, e.Target, e.Kind, e.Path, e.Span}
 	i, exists := x.edgeIDs[key]
 	if !exists {
+		if !x.reserve("Relations", len(x.Edges), 1, x.limits.Relations) {
+			return false
+		}
 		i = len(x.Edges)
 		x.edgeIDs[key] = i
 		c := e
@@ -46,6 +49,9 @@ func (x *Index) registerEdge(e Edge) bool {
 		}
 		if duplicate {
 			continue
+		}
+		if !x.reserve("Evidence", x.EvidenceCount, 1, x.limits.Evidence) {
+			return false
 		}
 		if proof.Location != nil {
 			loc := *proof.Location

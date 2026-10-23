@@ -63,12 +63,14 @@ func NewBuilder(snapshot string, opts Options) (*Builder, error) {
 
 // Add atomically admits extracted material. No parser or query engine runs here.
 // Identical versions are idempotent; changing a path's content requires a new builder.
+// +spec=Material exclusion cannot hide identity changes to admitted or staged paths.
 func (b *Builder) Add(facts ...Facts) error {
 	b.buildMu.Lock()
 	defer b.buildMu.Unlock()
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	staged := make(map[string]analysis.Facts, len(facts))
+	excluded := map[string]Diagnostic{}
 	total := b.sourceBytes
 	for _, f := range facts {
 		if f.raw == nil {
@@ -87,6 +89,10 @@ func (b *Builder) Add(facts ...Facts) error {
 			if !doc.matches(old) {
 				return fmt.Errorf("%w: %s", ErrSnapshotChanged, raw.Path)
 			}
+			continue
+		}
+		if reason := b.excludedMaterial(doc); reason != "" {
+			excluded[raw.Path] = Diagnostic{Code: "excluded_material", Message: reason, Subject: DocumentSubject, Location: location(raw, analysis.Span{End: len(raw.Source)})}
 			continue
 		}
 		if doc.size() > b.opts.MaxDocumentBytes || len(b.documents)+len(staged) >= b.opts.MaxDocuments || doc.size() > b.opts.MaxSourceBytes-total {
@@ -125,8 +131,12 @@ func (b *Builder) Add(facts ...Facts) error {
 		b.documents[p] = f
 	}
 	b.sourceBytes = total
-	for _, f := range facts {
-		delete(b.failures, f.raw.Path)
+	for p := range staged {
+		delete(b.failures, p)
+		delete(excluded, p)
+	}
+	for p, d := range excluded {
+		b.failures[p] = d
 	}
 	return nil
 }
@@ -207,17 +217,23 @@ type Options struct {
 	// ModulePath supplies the root Go module identity for package organization
 	// and import resolution. More specific ResolutionContext.GoModules win;
 	// supplied go.mod declarations override same-root hints with diagnostics.
-	ModulePath                           string
-	Scope                                []string
+	ModulePath string
+	Scope      []string
+	// MaxNodes / MaxRelations / MaxEvidence bound published objects, not analysis.
 	MaxDocuments, MaxNodes, MaxRelations int
 	MaxEvidence                          int
-	MaxDocumentBytes, MaxSourceBytes     int64
-	ParseTimeout, QueryTimeout           time.Duration
-	MaxQueryHops, MaxResultRows          int
-	MaxResultBytes                       int64
+	// Analysis independently bounds internal work before publication (since v0.16).
+	Analysis                         AnalysisLimits
+	MaxDocumentBytes, MaxSourceBytes int64
+	ParseTimeout, QueryTimeout       time.Duration
+	MaxQueryHops, MaxResultRows      int
+	MaxResultBytes                   int64
 }
 
 func defaults(o *Options) error {
+	if err := o.Analysis.defaults(); err != nil {
+		return err
+	}
 	for _, pair := range []struct {
 		v   *int
 		def int
@@ -331,135 +347,6 @@ func (b *Builder) SetResolutionContext(context ResolutionContext) error {
 	defer b.buildMu.Unlock()
 	b.resolution = resolution
 	return nil
-}
-
-func (g *Builder) assemble(ctx context.Context, files map[string]analysis.Facts, failures map[string]Diagnostic) (map[string]Node, map[string]Relation, BuildReport, error) {
-	nodes := map[string]Node{}
-	relations := map[string]Relation{}
-	ids := map[analysis.Ref]string{}
-	files, excluded := g.admittedFiles(files)
-	report := BuildReport{Snapshot: g.snapshot, Documents: sortedFiles(files), Diagnostics: excluded}
-	for _, d := range failures {
-		if reason := g.excludedMaterial(Document{Path: d.Location.Path}); reason != "" {
-			report.Diagnostics = append(report.Diagnostics, Diagnostic{Code: "excluded_material", Subject: DocumentSubject, Message: reason, Location: d.Location})
-			continue
-		}
-		report.Diagnostics = append(report.Diagnostics, d)
-		// A failed parser cannot erase the identity of a supplied document.
-		// Keep the Document and its path structure; no language declarations are inferred.
-		if d.Code == "parse_error" {
-			id := DocumentID(d.Location.Path)
-			nodes[id] = Node{ID: id, Kind: DocumentNodeKind, Name: path.Base(d.Location.Path),
-				Language: Language(d.Location.Path), Location: &d.Location}
-		}
-	}
-	index, issues, err := pipeline.BuiltinsWithResolution(ctx, files, g.opts.ModulePath, g.resolution, g.opts.MaxNodes-len(nodes), g.opts.MaxRelations, g.opts.MaxEvidence)
-	if err != nil {
-		if errors.Is(err, analysis.ErrEvidenceLimit) || errors.Is(err, analysis.ErrEdgeLimit) || errors.Is(err, pipeline.ErrNodeLimit) {
-			err = fmt.Errorf("%w: %v", ErrBuildBudget, err)
-		}
-		return nil, nil, report, err
-	}
-
-	for ref, e := range index.Entities {
-		if err := ctx.Err(); err != nil {
-			return nil, nil, report, err
-		}
-		var id string
-		switch {
-		case ref.IsDocument():
-			id = DocumentID(ref.Path)
-		case ref.IsDeclaration():
-			id = declarationID(ref.Path, NodeKind(e.Kind), e.QualifiedName, e.Location.Start)
-		default:
-			id = "node:" + identity(ref.SyntheticKey())
-		}
-		n := Node{ID: id, Kind: NodeKind(e.Kind), Entrypoint: e.Entrypoint, Name: e.Name, QualifiedName: e.QualifiedName, Language: e.Language}
-		if e.Binding != nil {
-			b := ModuleBinding(*e.Binding)
-			n.Binding = &b
-		}
-		if ref.IsDocument() {
-			n.Gitlink = files[ref.Path].Gitlink
-			if n.Language == "" && n.Gitlink == "" {
-				n.Language = Language(ref.Path)
-			}
-			n.Manifest = projectManifest(files[ref.Path])
-		}
-		if e.Location != nil {
-			f := files[e.Location.Path]
-			n.Location = locationPtr(f, e.Location.Span)
-			n.Documentation = projectDocumentation(f, e.Documentation)
-			for _, m := range e.Comments {
-				n.Markers = append(n.Markers, Marker{Kind: MarkerKind(m.Kind), Text: m.Text, Location: location(f, m.Span)})
-			}
-		}
-		if e.SignatureLocation != nil {
-			f := files[e.SignatureLocation.Path]
-			span := e.SignatureLocation.Span
-			n.Signature = string(f.Source[span.Start:span.End])
-			n.SignatureLocation = locationPtr(f, span)
-		}
-		if e.NameLocation != nil {
-			n.NameLocation = locationPtr(files[e.NameLocation.Path], e.NameLocation.Span)
-		}
-		ids[ref], nodes[id] = id, n
-	}
-	for _, p := range report.Documents {
-		f := files[p]
-		for _, issue := range f.Issues {
-			report.Diagnostics = append(report.Diagnostics, extractionDiagnostic(f, issue))
-		}
-	}
-	edges := index.Edges
-	for _, e := range edges {
-		if ids[e.Source] == "" || ids[e.Target] == "" {
-			return nil, nil, report, fmt.Errorf("unpublished relation endpoint: %+v", e)
-		}
-		loc := location(files[e.Path], e.Span)
-		id := identity(ids[e.Source], ids[e.Target], e.Kind, loc.Path, loc.StartByte, loc.EndByte)
-		r := Relation{ID: id, Source: ids[e.Source], Target: ids[e.Target], Kind: RelationKind(e.Kind), Confidence: Confidence(e.Confidence), Location: loc}
-		for _, proof := range e.Evidence {
-			evidence := Evidence{Basis: proof.Basis, Confidence: Confidence(proof.Confidence)}
-			if proof.Location != nil {
-				evidence.Location = locationPtr(files[proof.Location.Path], proof.Location.Span)
-			}
-			r.Evidence = append(r.Evidence, evidence)
-		}
-		relations[id] = r
-	}
-	if err := g.publishDocumentStructure(ctx, nodes, relations); err != nil {
-		return nil, nil, report, err
-	}
-	if err := publishReferences(ctx, files, ids, nodes, relations, g.opts); err != nil {
-		return nil, nil, report, err
-	}
-	for _, i := range issues {
-		report.Diagnostics = append(report.Diagnostics, Diagnostic{Code: i.Code, Message: i.Reference,
-			Subject: RelationsSubject, Relation: RelationKind(i.Relation), Location: location(files[i.Path], i.Span)})
-	}
-	if len(nodes) > g.opts.MaxNodes || len(relations) > g.opts.MaxRelations {
-		return nil, nil, report, fmt.Errorf("%w: nodes=%d relations=%d", ErrBuildBudget, len(nodes), len(relations))
-	}
-	sort.Slice(report.Diagnostics, func(i, j int) bool {
-		a, b := report.Diagnostics[i], report.Diagnostics[j]
-		if a.Location.Path != b.Location.Path {
-			return a.Location.Path < b.Location.Path
-		}
-		if a.Location.StartByte != b.Location.StartByte {
-			return a.Location.StartByte < b.Location.StartByte
-		}
-		if a.Code != b.Code {
-			return a.Code < b.Code
-		}
-		return a.Message < b.Message
-	})
-	nodes, relations, err = g.projectAdmission(ctx, files, nodes, relations)
-	if err != nil {
-		return nil, nil, report, err
-	}
-	report.Nodes, report.Relations = len(nodes), len(relations)
-	return nodes, relations, report, nil
 }
 
 func (g *Builder) allowed(p string) bool {

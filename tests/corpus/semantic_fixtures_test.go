@@ -207,7 +207,7 @@ func assertSubmissionSchedules(t *testing.T, docs []cg.Document, opts cg.Options
 				if !reflect.DeepEqual(want.Relations, got.Relations()) {
 					t.Error("submission schedule changed relations or evidence")
 				}
-				if !reflect.DeepEqual(want.Report, got.Report()) {
+				if !reflect.DeepEqual(semanticBuildReport(want.Report), semanticBuildReport(got.Report())) {
 					t.Errorf("submission schedule changed diagnostics/report: got %+v; want %+v", got.Report(), want.Report)
 				}
 			})
@@ -351,4 +351,11 @@ func writeFixtureSummary(t *testing.T, results []fixtureResult, status string) {
 	if err := os.WriteFile(filepath.Join(dir, "summary.md"), []byte(text.String()), 0644); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func semanticBuildReport(r cg.BuildReport) cg.BuildReport {
+	r.Analysis.Duration = 0
+	r.Selection.Duration = 0
+	r.Publication.Duration = 0
+	return r
 }

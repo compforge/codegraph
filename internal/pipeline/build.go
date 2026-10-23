@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
@@ -11,17 +12,28 @@ import (
 
 type Lookup func(string) analysis.Adapter
 
-// Build owns phase barriers: every language binds before any language resolves.
-// +why=`A later document or language batch may supply a base type needed by inherited member lookup`
-func Build(ctx context.Context, scope analysis.BuildScope, nodeLimit, edgeLimit, evidenceLimit int, lookup Lookup) (*analysis.Index, []analysis.Gap, error) {
+// Analyzer owns one analysis run and its language phase barriers.
+// +spec=Every language binds before any resolver runs; only this run registers contributions.
+// +link=component://docs/language-pipeline.md
+type Analyzer struct {
+	Limits   analysis.Limits
+	Lookup   Lookup
+	groups   map[string]analysis.BuildScope
+	adapters map[string]analysis.Adapter
+	bindings []analysis.BindResult
+}
+
+func (a *Analyzer) Analyze(ctx context.Context, scope analysis.BuildScope) (*analysis.Index, []analysis.Gap, error) {
+	defer func() { a.groups = nil; a.adapters = nil; a.bindings = nil }()
 	var issues []analysis.Gap
 	scope.Resolution, issues = language.Resolution(scope)
-	index := analysis.NewIndex(scope.Files)
+	index := analysis.NewBoundedIndex(scope.Files, a.Limits)
 	index.Resolution = scope.Resolution
 	if err := index.AddSources(ctx, scope.Names); err != nil {
 		return nil, nil, err
 	}
-	groups := map[string]analysis.BuildScope{}
+	a.groups = map[string]analysis.BuildScope{}
+	groups := a.groups
 	for _, p := range scope.Names {
 		f := scope.Files[p]
 		s := groups[f.Language]
@@ -35,29 +47,33 @@ func Build(ctx context.Context, scope analysis.BuildScope, nodeLimit, edgeLimit,
 	}
 	sort.Strings(names)
 	check := func() error {
+		if err := index.Err(); err != nil {
+			return err
+		}
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if index.EvidenceCount > evidenceLimit {
+		if index.EvidenceCount > a.Limits.Evidence {
 			return analysis.ErrEvidenceLimit
 		}
-		if len(index.Edges) > edgeLimit {
+		if len(index.Edges) > a.Limits.Relations {
 			return analysis.ErrEdgeLimit
 		}
 		return nil
 	}
-	adapters := map[string]analysis.Adapter{}
+	a.adapters = map[string]analysis.Adapter{}
+	adapters := a.adapters
 	var organizationEdges []analysis.Edge
 	for _, name := range names {
 		if err := check(); err != nil {
 			return nil, nil, err
 		}
-		a := lookup(name)
-		adapters[name] = a
-		if a.Organizer == nil {
+		adapter := a.Lookup(name)
+		adapters[name] = adapter
+		if adapter.Organizer == nil {
 			continue
 		}
-		organization, err := a.Organizer.Organize(ctx, groups[name])
+		organization, err := adapter.Organizer.Organize(ctx, groups[name])
 		if err != nil {
 			return nil, nil, fmt.Errorf("organize %s: %w", name, err)
 		}
@@ -69,7 +85,7 @@ func Build(ctx context.Context, scope analysis.BuildScope, nodeLimit, edgeLimit,
 		index.Add(e)
 	}
 	nodes := len(index.Entities)
-	if nodes > nodeLimit {
+	if nodes > a.Limits.Entities {
 		return nil, nil, ErrNodeLimit
 	}
 	if err := index.AttachNamespaces(ctx, scope.Names); err != nil {
@@ -81,7 +97,7 @@ func Build(ctx context.Context, scope analysis.BuildScope, nodeLimit, edgeLimit,
 	if err := check(); err != nil {
 		return nil, nil, err
 	}
-	var bindings []analysis.BindResult
+	a.bindings = nil
 	for _, name := range names {
 		if err := check(); err != nil {
 			return nil, nil, err
@@ -90,26 +106,26 @@ func Build(ctx context.Context, scope analysis.BuildScope, nodeLimit, edgeLimit,
 		if b == nil {
 			continue
 		}
-		bound, err := b.Bind(ctx, groups[name], index, evidenceLimit-index.EvidenceCount)
+		bound, err := b.Bind(ctx, groups[name], index, a.Limits.Evidence-index.EvidenceCount)
 		if err != nil {
-			return nil, nil, fmt.Errorf("bind %s: %w", name, err)
+			return nil, nil, fmt.Errorf("bind %s: %w", name, a.contributionError(index, err))
 		}
 		for _, e := range bound.Edges {
 			index.Add(e)
 		}
 		issues = append(issues, bound.Issues...)
-		bindings = append(bindings, bound)
+		a.bindings = append(a.bindings, bound)
 	}
-	for _, b := range bindings {
+	for _, b := range a.bindings {
 		if err := check(); err != nil {
 			return nil, nil, err
 		}
 		if b.Resolver == nil {
 			continue
 		}
-		edges, gaps, err := b.Resolver.Resolve(ctx, index, evidenceLimit-index.EvidenceCount)
+		edges, gaps, err := b.Resolver.Resolve(ctx, index, a.Limits.Evidence-index.EvidenceCount)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, a.contributionError(index, err)
 		}
 		for _, e := range edges {
 			index.Add(e)
@@ -122,7 +138,12 @@ func Build(ctx context.Context, scope analysis.BuildScope, nodeLimit, edgeLimit,
 	return index, append(issues, index.Conflicts()...), nil
 }
 
-var ErrNodeLimit = fmt.Errorf("node limit reached")
+func Build(ctx context.Context, scope analysis.BuildScope, nodes, edges, evidence int, lookup Lookup) (*analysis.Index, []analysis.Gap, error) {
+	a := Analyzer{Limits: analysis.Limits{Entities: nodes, Relations: edges, Evidence: evidence}, Lookup: lookup}
+	return a.Analyze(ctx, scope)
+}
+
+var ErrNodeLimit = analysis.ErrEntityLimit
 
 func Builtins(ctx context.Context, files map[string]analysis.Facts, module string, nodes, edges, evidence int) (*analysis.Index, []analysis.Gap, error) {
 	return Build(ctx, analysis.NewBuildScope(files, module), nodes, edges, evidence, language.Lookup)
@@ -132,4 +153,13 @@ func BuiltinsWithResolution(ctx context.Context, files map[string]analysis.Facts
 	scope := analysis.NewBuildScope(files, module)
 	scope.Resolution = resolution
 	return Build(ctx, scope, nodes, edges, evidence, language.Lookup)
+}
+
+// Language adapters receive the remaining evidence allowance for bounded
+// candidate expansion. Their sentinel denotes exceeding that allowance.
+func (a *Analyzer) contributionError(index *analysis.Index, err error) error {
+	if errors.Is(err, analysis.ErrEdgeLimit) || errors.Is(err, analysis.ErrEvidenceLimit) {
+		return &analysis.LimitError{Resource: "Evidence", Used: index.EvidenceCount, Adding: a.Limits.Evidence - index.EvidenceCount + 1, Limit: a.Limits.Evidence}
+	}
+	return err
 }

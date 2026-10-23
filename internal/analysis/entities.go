@@ -51,6 +51,8 @@ func NewBuildScope(files map[string]Facts, module string) BuildScope {
 // Index owns all entities and relation evidence for one build. Namespace views
 // and source contributions are projections of these same relations.
 type Index struct {
+	limits        Limits
+	err           error
 	Resolution    ResolutionContext
 	Files         map[string]Facts
 	Entities      map[Ref]Entity
@@ -71,13 +73,16 @@ func NewIndex(files map[string]Facts) *Index {
 // edges after every language has registered, so forward membership targets exist.
 func (x *Index) RegisterEntities(o Organization) {
 	for _, e := range o.Entities {
-		x.Entities[e.Ref] = e
+		x.registerEntity(e)
 	}
 	for p, root := range o.Roots {
 		x.Roots[p] = root
 	}
 }
 func (x *Index) Add(e Edge) {
+	if x.err != nil {
+		return
+	}
 	if !x.registerEdge(e) {
 		return
 	}
@@ -102,6 +107,9 @@ func (x *Index) Add(e Edge) {
 // AddSources registers source entities before any organization or membership.
 func (x *Index) AddSources(ctx context.Context, names []string) error {
 	for _, p := range names {
+		if err := x.Err(); err != nil {
+			return err
+		}
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -111,7 +119,7 @@ func (x *Index) AddSources(ctx context.Context, names []string) error {
 		if f.Gitlink != "" {
 			x.Gitlinks[p] = ref
 		}
-		x.Entities[ref] = Entity{Ref: ref, Kind: "Document", Name: path.Base(p), Language: f.Language, Location: &SourceLocation{Path: p, Span: Span{End: len(f.Source)}}}
+		x.registerEntity(Entity{Ref: ref, Kind: "Document", Name: path.Base(p), Language: f.Language, Location: &SourceLocation{Path: p, Span: Span{End: len(f.Source)}}})
 		for i, d := range f.Declarations {
 			kind := ConcreteKind(d.Kind)
 			if kind == "" {
@@ -125,7 +133,7 @@ func (x *Index) AddSources(ctx context.Context, names []string) error {
 			if d.SignatureSpan.End > d.SignatureSpan.Start {
 				e.SignatureLocation = &SourceLocation{Path: p, Span: d.SignatureSpan}
 			}
-			x.Entities[ref] = e
+			x.registerEntity(e)
 			x.Add(Edge{Source: DocumentRef(p), Target: ref, Kind: "declares", Confidence: "exact", Basis: "source_declaration", Path: p, Span: d.Span})
 		}
 	}

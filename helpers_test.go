@@ -118,3 +118,11 @@ func builtBuilder(t *testing.T, opts Options) *Builder {
 	}
 	return b
 }
+
+// Timings describe an execution; all semantic counters and diagnostics must match.
+func semanticReport(r BuildReport) BuildReport {
+	r.Analysis.Duration = 0
+	r.Selection.Duration = 0
+	r.Publication.Duration = 0
+	return r
+}

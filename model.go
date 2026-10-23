@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/compforge/codegraph/internal/analysis"
 	"github.com/compforge/codegraph/internal/confidence"
@@ -341,6 +342,27 @@ type BuildReport struct {
 	Documents        []string     `json:"documents"`
 	Diagnostics      []Diagnostic `json:"diagnostics"`
 	Nodes, Relations int
+	Materials        MaterialReport    `json:"materials"`
+	Analysis         AnalysisReport    `json:"analysis"`
+	Selection        SelectionReport   `json:"selection"`
+	Publication      PublicationReport `json:"publication"`
+}
+
+// Stage reports distinguish semantic work from the public object count.
+// MaterialReport counts current document outcomes; scope and policy rejections are excluded.
+// +spec=Submitted equals Accepted plus Excluded plus Failed.
+type MaterialReport struct{ Submitted, Accepted, Excluded, Failed int }
+type AnalysisReport struct {
+	Entities, Uses, Relations, Evidence int
+	Duration                            time.Duration
+}
+type SelectionReport struct {
+	Core, Bridges, Context, Steps int
+	Duration                      time.Duration
+}
+type PublicationReport struct {
+	References int
+	Duration   time.Duration
 }
 
 func cloneReport(r BuildReport) BuildReport {

@@ -106,7 +106,7 @@ type Facts struct {
 	Path, Package, Language string
 	Gitlink                 string
 	Manifest                *Manifest
-	Lexical                 *Lexicon
+	Lexical                 *SymbolTable
 	PackageSpan             Span
 	Source                  []byte
 	LineStarts              []int

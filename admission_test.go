@@ -2,6 +2,7 @@ package codegraph
 
 import (
 	"context"
+	"github.com/compforge/codegraph/internal/analysis"
 	"reflect"
 	"slices"
 	"sync"
@@ -446,4 +447,29 @@ func TestAdmissionParseTags(t *testing.T) {
 	if _, ok := g.Document("app.go"); ok {
 		t.Fatal("excluded material tag admitted")
 	}
+}
+
+func selectDependencyBridges(ctx context.Context, nodes map[string]Node, relations map[string]Relation, selected map[string]Node, local map[string]bool) error {
+	index := analysis.NewIndex(nil)
+	selector := entitySelector{index: index, selected: selection{}, local: map[analysis.Ref]bool{}, limit: 100000}
+	for id, n := range nodes {
+		ref := analysis.SyntheticRef(id)
+		index.RegisterEntities(analysis.Organization{Entities: []analysis.Entity{{Ref: ref, Kind: string(n.Kind)}}})
+		if _, ok := selected[id]; ok {
+			selector.selected[ref] = coreSelection
+		}
+		selector.local[ref] = local[id]
+	}
+	for _, e := range relations {
+		index.Add(analysis.Edge{Source: analysis.SyntheticRef(e.Source), Target: analysis.SyntheticRef(e.Target), Kind: string(e.Kind)})
+	}
+	if err := selector.bridges(ctx); err != nil {
+		return err
+	}
+	for id, n := range nodes {
+		if _, ok := selector.selected[analysis.SyntheticRef(id)]; ok {
+			selected[id] = n
+		}
+	}
+	return nil
 }

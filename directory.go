@@ -20,47 +20,45 @@ func (g *Graph) Directory(path string) (DirectoryNode, bool) {
 	return DirectoryNode{Node: n}, true
 }
 
-// +why=Path structure must not use contains: that relation defines semantic namespace ownership.
-// +spec=Every published Document has its ancestor directories, including parse failures and opaque gitlinks; tags match each path independently.
-func (b *Builder) publishDocumentStructure(ctx context.Context, nodes map[string]Node, relations map[string]Relation) error {
-	var documents []Node
-	for _, n := range nodes {
-		if n.Kind == DocumentNodeKind {
-			documents = append(documents, n)
+// +why=Path structure is independent of semantic member ownership and admission.
+func (a *graphAssembler) publishDocumentStructure(ctx context.Context, failures map[string]Diagnostic) error {
+	a.stage = "directory"
+	documents := map[string]string{}
+	for p, f := range a.files {
+		documents[p] = f.Gitlink
+	}
+	for p, d := range failures {
+		if d.Code == "parse_error" {
+			documents[p] = ""
 		}
 	}
-	evidence := 0
-	for _, r := range relations {
-		evidence += len(r.Evidence)
-	}
-	for _, n := range documents {
-		n.Path = n.Location.Path
-		n.Tags = b.tagMatcher.DocumentTags(Document{Path: n.Path, Gitlink: n.Gitlink})
-		nodes[n.ID] = n
-		child, parent := n.ID, path.Dir(n.Path)
+	for p, gitlink := range documents {
+		docID := DocumentID(p)
+		if n, ok := a.nodes[docID]; ok {
+			n.Path = p
+			n.Tags = a.tags.DocumentTags(Document{Path: p, Gitlink: gitlink})
+			if err := a.addNode(n); err != nil {
+				return err
+			}
+		}
+		if !permits(a.opts.Admission, DirectoryNodeKind) {
+			continue
+		}
+		child, parent := docID, path.Dir(p)
 		for {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
 			id := DirectoryID(parent)
-			_, exists := nodes[id]
+			_, exists := a.nodes[id]
 			if !exists {
-				if len(nodes) >= b.opts.MaxNodes {
-					return &BuildBudgetError{Stage: "directory", Resource: "MaxNodes", Used: len(nodes), Adding: 1, Limit: b.opts.MaxNodes}
+				if err := a.addNode(Node{ID: id, Kind: DirectoryNodeKind, Name: path.Base(parent), Path: parent, Tags: a.tags.Match(parent)}); err != nil {
+					return err
 				}
-				nodes[id] = Node{ID: id, Kind: DirectoryNodeKind, Name: path.Base(parent), Path: parent, Tags: b.tagMatcher.Match(parent)}
 			}
-			edgeID := identity(child, id, InDirectory)
-			if len(relations) >= b.opts.MaxRelations {
-				return &BuildBudgetError{Stage: "directory", Resource: "MaxRelations", Used: len(relations), Adding: 1, Limit: b.opts.MaxRelations}
+			if err := a.addRelation(Relation{ID: identity(child, id, InDirectory), Source: child, Target: id, Kind: InDirectory, Confidence: Exact, Evidence: []Evidence{{Basis: "document_path", Confidence: Exact}}}); err != nil {
+				return err
 			}
-			if evidence >= b.opts.MaxEvidence {
-				return &BuildBudgetError{Stage: "directory", Resource: "MaxEvidence", Used: evidence, Adding: 1, Limit: b.opts.MaxEvidence}
-			}
-			relations[edgeID] = Relation{ID: edgeID, Source: child, Target: id, Kind: InDirectory,
-				Confidence: Exact, Evidence: []Evidence{{Basis: "document_path", Confidence: Exact}}}
-			evidence++
-			// An existing directory already has its complete ancestor chain.
 			if exists || parent == "." {
 				break
 			}

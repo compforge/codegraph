@@ -6,8 +6,8 @@ import (
 	gts "github.com/odvcencio/gotreesitter"
 )
 
-func (Dialect) Lexical(f *Facts, tree *gts.Tree, signatures []gts.SignatureFact) *analysis.Lexicon {
-	l := analysis.NewLexicon(len(f.Source))
+func (Dialect) Lexical(f *Facts, tree *gts.Tree, signatures []gts.SignatureFact) *analysis.SymbolTable {
+	l := analysis.NewSymbolTable(len(f.Source))
 	lang := tree.Language()
 	nodes := syntax.NodesBySpan(tree)
 	var pattern func(*gts.Node, *gts.Node, int, string)
