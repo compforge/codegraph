@@ -41,7 +41,10 @@ func (c *compilation) Run(ctx context.Context) (map[string]Node, map[string]Rela
 				continue
 			}
 		}
-		if d.Code == "parse_error" {
+		switch d.Code {
+		case "out_of_scope", "excluded_material":
+			report.Materials.Excluded++
+		default:
 			report.Materials.Failed++
 		}
 		failures[name] = d

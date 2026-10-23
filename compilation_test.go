@@ -167,5 +167,139 @@ func TestExcludedMaterialDoesNotConsumeAdmissionBudget(t *testing.T) {
 		if len(b.Report().Documents) != 1 || !hasDiagnostic(b.Report(), "excluded_material") {
 			t.Fatal(b.Report())
 		}
+		if want := (MaterialReport{Submitted: 2, Accepted: 1, Excluded: 1}); b.Report().Materials != want {
+			t.Fatalf("material outcomes = %+v, want %+v", b.Report().Materials, want)
+		}
+	}
+}
+
+// +case:id=material_outcomes,desc=`Scope exclusions and parse failures reconcile with submitted materials`
+func TestMaterialOutcomesReconcile(t *testing.T) {
+	ctx := context.Background()
+	_, report, err := Build(ctx, "scope", []Document{
+		{Path: "src/main.go", Content: []byte("package p\nfunc F(){}\n")},
+		{Path: "outside.go", Content: []byte("package p\n")},
+	}, Options{Scope: []string{"src"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := (MaterialReport{Submitted: 2, Accepted: 1, Excluded: 1}); report.Materials != want {
+		t.Fatalf("scope outcomes = %+v, want %+v", report.Materials, want)
+	}
+	if !hasDiagnostic(report, "out_of_scope") {
+		t.Fatal("scope diagnostic lost")
+	}
+	b, err := NewBuilder("failed", Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := b.AddFailure(Document{Path: "bad.go"}, errors.New("parser failed")); err != nil {
+		t.Fatal(err)
+	}
+	_, report, err = b.Build(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := (MaterialReport{Submitted: 1, Failed: 1}); report.Materials != want {
+		t.Fatalf("parse outcomes = %+v, want %+v", report.Materials, want)
+	}
+}
+
+// +case:id=excluded_snapshot_identity,desc=`Material exclusion cannot hide changes to an admitted or staged path`
+func TestExcludedMaterialPreservesSnapshotIdentity(t *testing.T) {
+	ctx := context.Background()
+	extractor := newTestExtractor(t, nil)
+	link, err := extractor.Extract(ctx, Document{Path: "main.go", Gitlink: strings.Repeat("a", 40)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := extractTestFacts(t, extractor, "main.go", "package p\nfunc F(){}\n")
+	for _, batch := range []bool{false, true} {
+		b, err := NewBuilder("identity", Options{Admission: &AdmissionPolicy{ExcludedTags: []Tag{SourceTag}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !batch {
+			if err := b.Add(link); err != nil {
+				t.Fatal(err)
+			}
+			if _, _, err := b.Build(ctx); err != nil {
+				t.Fatal(err)
+			}
+		}
+		previous := b.Result()
+		if batch {
+			err = b.Add(link, source)
+		} else {
+			err = b.Add(source)
+		}
+		if !errors.Is(err, ErrSnapshotChanged) {
+			t.Fatalf("batch=%v: want snapshot error, got %v", batch, err)
+		}
+		if b.Result() != previous {
+			t.Fatal("rejected admission replaced the graph")
+		}
+		_, report, err := b.Build(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := MaterialReport{Submitted: 1, Accepted: 1}
+		if batch {
+			want = MaterialReport{}
+		}
+		if report.Materials != want || hasDiagnostic(report, "excluded_material") {
+			t.Fatalf("rejected batch changed materials: %+v", report)
+		}
+	}
+}
+
+// Excluded facts are not admitted; a later eligible material owns the path outcome.
+func TestAdmittedMaterialReplacesExcludedOutcome(t *testing.T) {
+	ctx := context.Background()
+	extractor := newTestExtractor(t, nil)
+	source := extractTestFacts(t, extractor, "main.go", "package p\n")
+	link, err := extractor.Extract(ctx, Document{Path: "main.go", Gitlink: strings.Repeat("a", 40)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := NewBuilder("outcome", Options{Admission: &AdmissionPolicy{ExcludedTags: []Tag{SourceTag}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := b.Add(source, link); err != nil {
+		t.Fatal(err)
+	}
+	_, report, err := b.Build(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Materials != (MaterialReport{Submitted: 1, Accepted: 1}) || hasDiagnostic(report, "excluded_material") {
+		t.Fatalf("stale excluded outcome: %+v", report)
+	}
+}
+
+// +case:id=resolver_budget,desc=`Resolver exhaustion retains typed budget classification and the previous graph`
+func TestResolverBudgetPreservesClassification(t *testing.T) {
+	ctx := context.Background()
+	extractor := newTestExtractor(t, nil)
+	facts := extractTestFacts(t, extractor, "main.go", "package p\nfunc F(){}\nfunc G(){F();F();F();F();F();}\n")
+	b, err := NewBuilder("budget", Options{Analysis: AnalysisLimits{Evidence: 8}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	previous := b.Result()
+	if err := b.Add(facts); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = b.Build(ctx)
+	var budget *BuildBudgetError
+	if !errors.Is(err, ErrBuildBudget) || !errors.As(err, &budget) {
+		t.Fatalf("resolver lost budget classification: %v", err)
+	}
+	if budget.Stage != "analysis" || budget.Resource != "Evidence" || budget.Limit != 8 || budget.Used+budget.Adding <= budget.Limit {
+		t.Fatalf("wrong resolver budget details: %+v", budget)
+	}
+	if b.Result() != previous {
+		t.Fatal("failed resolver replaced graph")
 	}
 }

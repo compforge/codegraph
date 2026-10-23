@@ -63,6 +63,7 @@ func NewBuilder(snapshot string, opts Options) (*Builder, error) {
 
 // Add atomically admits extracted material. No parser or query engine runs here.
 // Identical versions are idempotent; changing a path's content requires a new builder.
+// +spec=Material exclusion cannot hide identity changes to admitted or staged paths.
 func (b *Builder) Add(facts ...Facts) error {
 	b.buildMu.Lock()
 	defer b.buildMu.Unlock()
@@ -80,10 +81,6 @@ func (b *Builder) Add(facts ...Facts) error {
 		if !b.allowed(raw.Path) {
 			return fmt.Errorf("facts %s are outside allowed scope", raw.Path)
 		}
-		if reason := b.excludedMaterial(doc); reason != "" {
-			excluded[raw.Path] = Diagnostic{Code: "excluded_material", Message: reason, Subject: DocumentSubject, Location: location(raw, analysis.Span{End: len(raw.Source)})}
-			continue
-		}
 		old, ok := staged[raw.Path]
 		if !ok {
 			old, ok = b.documents[raw.Path]
@@ -92,6 +89,10 @@ func (b *Builder) Add(facts ...Facts) error {
 			if !doc.matches(old) {
 				return fmt.Errorf("%w: %s", ErrSnapshotChanged, raw.Path)
 			}
+			continue
+		}
+		if reason := b.excludedMaterial(doc); reason != "" {
+			excluded[raw.Path] = Diagnostic{Code: "excluded_material", Message: reason, Subject: DocumentSubject, Location: location(raw, analysis.Span{End: len(raw.Source)})}
 			continue
 		}
 		if doc.size() > b.opts.MaxDocumentBytes || len(b.documents)+len(staged) >= b.opts.MaxDocuments || doc.size() > b.opts.MaxSourceBytes-total {
@@ -132,6 +133,7 @@ func (b *Builder) Add(facts ...Facts) error {
 	b.sourceBytes = total
 	for p := range staged {
 		delete(b.failures, p)
+		delete(excluded, p)
 	}
 	for p, d := range excluded {
 		b.failures[p] = d

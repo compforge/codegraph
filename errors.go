@@ -20,14 +20,14 @@ var (
 	ErrReadOnly = graphstore.ErrReadOnly
 )
 
-// BuildBudgetError describes an addition rejected during graph publication.
+// BuildBudgetError describes work rejected by an analysis, selection or publication limit.
 // It matches ErrBuildBudget via errors.Is; errors.As exposes the budget details.
-// Other build stages may wrap ErrBuildBudget without these details.
-// +spec=Structured publication budget errors preserve the ErrBuildBudget category through wrapping.
+// Material admission and extraction may wrap ErrBuildBudget without these details.
+// +spec=Structured build budget errors preserve the ErrBuildBudget category through wrapping.
 type BuildBudgetError struct {
-	// Stage identifies the publication phase, such as source-use or directory.
+	// Stage identifies the phase, such as analysis, selection, source-use or directory.
 	Stage string
-	// Resource names the exhausted Options field: MaxNodes, MaxRelations or MaxEvidence.
+	// Resource names the exhausted limit, such as Evidence, SelectionSteps or MaxNodes.
 	Resource string
 	// Used is the quantity before the rejected addition; Adding is its size.
 	Used, Adding int

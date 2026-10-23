@@ -125,7 +125,7 @@ func (a *Analyzer) Analyze(ctx context.Context, scope analysis.BuildScope) (*ana
 		}
 		edges, gaps, err := b.Resolver.Resolve(ctx, index, a.Limits.Evidence-index.EvidenceCount)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, a.contributionError(index, err)
 		}
 		for _, e := range edges {
 			index.Add(e)

@@ -349,6 +349,8 @@ type BuildReport struct {
 }
 
 // Stage reports distinguish semantic work from the public object count.
+// MaterialReport counts current document outcomes; scope and policy rejections are excluded.
+// +spec=Submitted equals Accepted plus Excluded plus Failed.
 type MaterialReport struct{ Submitted, Accepted, Excluded, Failed int }
 type AnalysisReport struct {
 	Entities, Uses, Relations, Evidence int
