@@ -242,8 +242,8 @@ before / after 应使用不同 Builder；同路径不同内容会产生 ErrSnaps
 - 提交上下文取消会使对应构建失败；取消 Wait 仅结束本次等待，不取消后台构建。
 - 单文件解析失败保留 Document 与诊断，其他文件的可用事实仍可发布。
 - 预算失败、快照冲突及构建取消阻止整个失败批次发布；查询错误不返回部分行。
-- Options 为材料、事实、时间和查询结果提供有限预算；MaxEvidence 与 MaxRelations 分别限制证据及关系发生数。
-- 用 `errors.Is(err, ErrBuildBudget)` 判断构建预算失败。目录结构和源码使用节点发布阶段返回 `*BuildBudgetError`，可用 `errors.As` 读取 `Stage`、`Resource`（对应 Options 字段）、`Used`、`Adding` 和 `Limit`，无需解析错误文本；其他阶段可能只提供错误类别。
+- Options 为材料、分析、发布及查询分别提供有限预算；MaxEvidence 与 MaxRelations 分别限制公开证据及关系发生数。
+- 用 `errors.Is(err, ErrBuildBudget)` 判断构建预算失败。分析、实体选择、目录结构和源码使用节点发布阶段返回 `*BuildBudgetError`，可用 `errors.As` 读取 `Stage`、`Resource`（对应发布额度或 Analysis 中的资源）、`Used`、`Adding` 和 `Limit`，无需解析错误文本；其他阶段可能只提供错误类别。
 - ExtractionOptions.Concurrency 限制共享 Extractor 的提取并发；Builder 的材料提交接口使用 Options.BuildConcurrency。
 
 配置字段及默认值见 [Options](../graph.go)。材料接纳与内存所有权见 [Document 契约](document.md)。
@@ -360,3 +360,30 @@ Go 从声明文档注释提取 marker；Python 与 JS/TS 从声明前置注释�
 
 CodeGraph 不给整个局部图作业务可用性判定。是否补料、传播影响或扩大检查范围由消费者决定。
 判断语言能力时同时阅读 [语言能力](language-support.md) 与本次报告，不能只看诊断总数。
+
+
+## v0.16 构建预算迁移
+
+v0.16 将 MaxNodes / MaxRelations / MaxEvidence 限定为实际发布的节点、关系和证据数量。
+AnalysisAdmission 在装配前选择实体，省略的 Reference 不再消耗发布额度；语言绑定仍处理完整事实。
+需要继续限制生产侧工作量的调用方应显式配置 Options.Analysis，不能把 MaxNodes 当作分析规模上限。
+
+```go
+opts := codegraph.Options{
+    Admission: codegraph.AnalysisAdmission(),
+    MaxNodes: 250000, MaxRelations: 1000000,
+    Analysis: codegraph.AnalysisLimits{
+        Entities: 250000, Uses: 1000000,
+        Relations: 1000000, Evidence: 2000000,
+        SelectionSteps: 10000000,
+    },
+}
+```
+
+示例中的 Analysis 数值也是零值配置的默认额度；负值无效。Entities 计内部实体，Uses 计调用、
+引用及类型使用记录，Relations / Evidence 计内部关系及证据。语言阶段的候选展开复用剩余证据
+额度；SelectionSteps 计选择与 bridge 传播的工作量。所有额度耗尽都阻止本轮发布，旧 Graph 保持不变。
+
+BuildReport.Materials / Analysis / Selection / Publication 区分材料、分析规模、选择理由与公开对象。
+Duration 是本次执行的实测耗时；比较两次构建的语义一致性时排除耗时，继续比较节点、关系、证据、
+诊断及规模计数。查询仍由 GoGraph / Cypher 执行，既有查询额度保持独立。

@@ -7,7 +7,7 @@ import (
 
 type ModuleDialect interface {
 	Enrich(*Facts, *gts.Tree, gts.FactSet)
-	Lexical(*Facts, *gts.Tree, []gts.SignatureFact) *analysis.Lexicon
+	Lexical(*Facts, *gts.Tree, []gts.SignatureFact) *analysis.SymbolTable
 	Parameters(*gts.Node, *gts.Language, []gts.SignatureFact) (names []*gts.Node, expressions []ParameterExpression, handled bool)
 	Self(*Facts, *gts.Tree, int, string, []gts.SignatureFact) bool
 	Bases(*gts.Node, *gts.Language, func(*gts.Node, string))
@@ -15,7 +15,7 @@ type ModuleDialect interface {
 }
 type ModuleExtractor struct {
 	Dialect    ModuleDialect
-	lexical    *analysis.Lexicon
+	lexical    *analysis.SymbolTable
 	signatures []gts.SignatureFact
 }
 

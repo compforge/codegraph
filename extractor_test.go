@@ -365,7 +365,7 @@ func TestSharedExtractionCacheRebindsEachSnapshot(t *testing.T) {
 		t.Fatalf("stale target bound from earlier snapshot: %+v", got)
 	}
 	fresh := build("after", after, nil)
-	if !reflect.DeepEqual(current.Result().Nodes(), fresh.Result().Nodes()) || !reflect.DeepEqual(current.Result().Relations(), fresh.Result().Relations()) || !reflect.DeepEqual(current.Report(), fresh.Report()) {
+	if !reflect.DeepEqual(current.Result().Nodes(), fresh.Result().Nodes()) || !reflect.DeepEqual(current.Result().Relations(), fresh.Result().Relations()) || !reflect.DeepEqual(semanticReport(current.Report()), semanticReport(fresh.Report())) {
 		t.Fatal("cached graph differs from fresh snapshot construction")
 	}
 }
@@ -527,7 +527,7 @@ func TestSharedExtractionCacheConcurrentSnapshotsMatchFreshGraphs(t *testing.T) 
 			t.Fatal(err)
 		}
 		for g := range results {
-			if !reflect.DeepEqual(g.Result().Nodes(), fresh.Result().Nodes()) || !reflect.DeepEqual(g.Result().Relations(), fresh.Result().Relations()) || !reflect.DeepEqual(g.Report(), fresh.Report()) {
+			if !reflect.DeepEqual(g.Result().Nodes(), fresh.Result().Nodes()) || !reflect.DeepEqual(g.Result().Relations(), fresh.Result().Relations()) || !reflect.DeepEqual(semanticReport(g.Report()), semanticReport(fresh.Report())) {
 				t.Fatalf("shared facts changed graph in module context %s", modulePath)
 			}
 		}

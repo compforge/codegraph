@@ -18,22 +18,24 @@ type Binding struct {
 	Hints    []CallTarget
 }
 
-// Lexicon is detached, immutable after extraction, and shared by every use pass.
-type Lexicon struct {
+// SymbolTable is detached, immutable after extraction, and shared by every use pass.
+// +spec=Bindings without declaration targets still shadow outer names; snapshot binding results never enter this table.
+// +link=component://docs/language-pipeline.md
+type SymbolTable struct {
 	Scopes   []Scope
 	Bindings []Binding
 	names    map[int]map[string][]int
 	syntax   map[Span]bool
 }
 
-func NewLexicon(size int) *Lexicon {
-	return &Lexicon{Scopes: []Scope{{Span: Span{End: size}, Parent: -1, Kind: "module"}}, names: map[int]map[string][]int{}, syntax: map[Span]bool{}}
+func NewSymbolTable(size int) *SymbolTable {
+	return &SymbolTable{Scopes: []Scope{{Span: Span{End: size}, Parent: -1, Kind: "module"}}, names: map[int]map[string][]int{}, syntax: map[Span]bool{}}
 }
-func (l *Lexicon) AddScope(span Span, parent int, kind string) int {
+func (l *SymbolTable) AddScope(span Span, parent int, kind string) int {
 	l.Scopes = append(l.Scopes, Scope{span, parent, kind})
 	return len(l.Scopes) - 1
 }
-func (l *Lexicon) Add(b Binding) {
+func (l *SymbolTable) Add(b Binding) {
 	if l.names[b.Scope] == nil {
 		l.names[b.Scope] = map[string][]int{}
 	}
@@ -47,9 +49,9 @@ func (l *Lexicon) Add(b Binding) {
 	l.Bindings = append(l.Bindings, b)
 	l.MarkSyntax(b.NameSite)
 }
-func (l *Lexicon) MarkSyntax(span Span)    { l.syntax[span] = true }
-func (l *Lexicon) IsSyntax(span Span) bool { return l.syntax[span] }
-func (l *Lexicon) ScopeAt(span Span) int {
+func (l *SymbolTable) MarkSyntax(span Span)    { l.syntax[span] = true }
+func (l *SymbolTable) IsSyntax(span Span) bool { return l.syntax[span] }
+func (l *SymbolTable) ScopeAt(span Span) int {
 	best := 0
 	for i, s := range l.Scopes {
 		b := l.Scopes[best]
@@ -59,7 +61,7 @@ func (l *Lexicon) ScopeAt(span Span) int {
 	}
 	return best
 }
-func (l *Lexicon) Lookup(name string, use Span) []Binding {
+func (l *SymbolTable) Lookup(name string, use Span) []Binding {
 	for scope := l.ScopeAt(use); scope >= 0; scope = l.Scopes[scope].Parent {
 		ids := l.names[scope][name]
 		if len(ids) == 0 {

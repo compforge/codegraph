@@ -128,6 +128,30 @@ Graph 是一次成功构建的节点、关系和诊断读模型。Builder 补充
 包级 Build 和 Builder.Build 返回相同的不可变结果；逐批补料由 Builder 的材料提交接口负责。
 Graph 类型只提供查询，不持有生产会话，也不返回解析材料。
 
+### 用解释器理解对象模型与辅助结构
+
+Python Interpreter 中最适合类比的部分是编译过程：`source → bytecode / CodeObject`，
+对应 CodeGraph 的 `source → Graph（Node + Relation）`。两者都先理解源码，再生成供下游消费的表示。
+Graph 在这个类比中对应编译产物；FunctionObject 则属于函数的运行时对象，不能与 CodeObject 混用。
+
+CPython 编译过程中使用 AST、符号表、编译单元、指令序列、基本块和临时标签；这些辅助结构
+不要求与最终字节码指令一一对应。CodeGraph 同样通过 Facts、Scope、Binding、内部实体引用和
+关系证据完成分析，再按策略生成公开节点。例如一次调用先以内部使用记录参与绑定，最终可以生成
+带位置与证据的 calls 关系；需要逐次引用导航时才另外发布 Reference 节点。
+
+Builder 为本轮创建 compilation，由 Analyzer 完成语义分析，entitySelector 选择实体，
+graphAssembler 按发布策略生成公共值，最后由 Builder 发布。SymbolTable
+随 Facts 保存单文件作用域和名字绑定；跨文件解析结果属于本轮分析。各对象管理自己的状态，复用已有索引。
+这些对象优先复用 gotreesitter 的语法事实和 GoGraph graph / Cypher 的图能力，仅承接必要的语义
+分析、策略与发布衔接。上游已覆盖的能力不重复实现，具体边界见 [上游复用约束](admission.md#上游复用是前置约束)。
+具体 CPython 源码依据、阶段输入输出和生命周期见 [编译式构图方案](language-pipeline.md#编译式构图更新方案)。
+CodeGraph 保留静态候选与覆盖缺口，不执行输入程序，也不需要引入字节码或虚拟机。
+
+依赖桥接节点（dependency bridge）也是选择策略赋予实体的角色：入图后仍使用 Variable、Field 等
+原有 NodeKind，通过原始 Relation 连接核心节点，不新增 Bridge 节点类别或把节点折叠为关系属性。
+生产侧的辅助结构不成为消费侧的第二套查询模型。如何从内部语义结果直接生成选定图、分别约束
+分析与发布规模，见 [图生成与预算更新方案](admission.md#图生成与预算更新方案)。
+
 ### 生产与消费边界
 
 生产侧从 Document 提取 Facts，探索依赖并向 Builder 提供解析上下文。Outline 是这一过程中的

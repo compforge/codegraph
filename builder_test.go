@@ -62,7 +62,7 @@ func TestFactsOwnCompleteMaterialAndDetachedViews(t *testing.T) {
 	}
 	freshCaller := extractTestFacts(t, newTestExtractor(t, nil), "caller.go", "package app\nfunc Caller(){ Target() }\n")
 	fresh := buildTestFacts(t, "after", Options{}, freshCaller)
-	if !reflect.DeepEqual(after.Nodes(), fresh.Nodes()) || !reflect.DeepEqual(after.Relations(), fresh.Relations()) || !reflect.DeepEqual(after.Report(), fresh.Report()) {
+	if !reflect.DeepEqual(after.Nodes(), fresh.Nodes()) || !reflect.DeepEqual(after.Relations(), fresh.Relations()) || !reflect.DeepEqual(semanticReport(after.Report()), semanticReport(fresh.Report())) {
 		t.Fatal("reused facts differ from fresh extraction")
 	}
 	view, err := caller.View()

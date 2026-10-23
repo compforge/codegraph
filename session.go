@@ -385,6 +385,9 @@ func (g *session) Extract(ctx context.Context, document Document) (Facts, error)
 	if err := document.validate(); err != nil {
 		return Facts{}, err
 	}
+	if g.excludedMaterial(document) != "" {
+		return projectFacts(documentFacts(document))
+	}
 	if document.size() > g.opts.MaxDocumentBytes {
 		return Facts{}, fmt.Errorf("%w: file %s exceeds byte limit", ErrBuildBudget, document.Path)
 	}
@@ -454,6 +457,11 @@ func (g *session) stageDocuments(ctx context.Context, documents []Document, stag
 			}
 			if !g.allowed(name) {
 				issue("out_of_scope", "file is outside allowed scope")
+				next++
+				continue
+			}
+			if reason := g.excludedMaterial(document); reason != "" {
+				issue("excluded_material", reason)
 				next++
 				continue
 			}

@@ -109,7 +109,7 @@ func (x *Index) addModuleItems(f Facts) {
 		if item.NameSpan.End > item.NameSpan.Start {
 			e.NameLocation = &SourceLocation{Path: f.Path, Span: item.NameSpan}
 		}
-		x.Entities[item.Ref] = e
+		x.registerEntity(e)
 		x.Add(Edge{Source: item.Ref, Target: SourceRef(f.Path, item.Owner), Kind: "occurs_in", Confidence: Exact, Basis: "source_module_item", Path: f.Path, Span: item.Span})
 	}
 }

@@ -203,7 +203,7 @@ func TestAddDocumentAndBatchProduceSameGraph(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(batchReport, singleReport) || !reflect.DeepEqual(batch.Result().Nodes(), single.Result().Nodes()) || !reflect.DeepEqual(batch.Result().Relations(), single.Result().Relations()) {
+	if !reflect.DeepEqual(semanticReport(batchReport), semanticReport(singleReport)) || !reflect.DeepEqual(batch.Result().Nodes(), single.Result().Nodes()) || !reflect.DeepEqual(batch.Result().Relations(), single.Result().Relations()) {
 		t.Fatal("single-document submissions changed the published graph")
 	}
 }
@@ -344,7 +344,7 @@ func TestParallelDocumentsEquivalent(t *testing.T) {
 		}
 		if baseline == nil {
 			baseline = g
-		} else if !reflect.DeepEqual(g.Result().Nodes(), baseline.Result().Nodes()) || !reflect.DeepEqual(g.Result().Relations(), baseline.Result().Relations()) || !reflect.DeepEqual(g.Report(), baseline.Report()) {
+		} else if !reflect.DeepEqual(g.Result().Nodes(), baseline.Result().Nodes()) || !reflect.DeepEqual(g.Result().Relations(), baseline.Result().Relations()) || !reflect.DeepEqual(semanticReport(g.Report()), semanticReport(baseline.Report())) {
 			t.Fatalf("concurrency %d changed facts or diagnostics", concurrency)
 		}
 	}

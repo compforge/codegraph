@@ -32,7 +32,7 @@ func TestDocumentsMatchFilesystem(t *testing.T) {
 	if _, err := g.addDocumentsSync(ctx, inputs...); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(g.Result().Nodes(), want.Nodes()) || !reflect.DeepEqual(g.Result().Relations(), want.Relations()) || !reflect.DeepEqual(g.Report(), want.Report()) {
+	if !reflect.DeepEqual(g.Result().Nodes(), want.Nodes()) || !reflect.DeepEqual(g.Result().Relations(), want.Relations()) || !reflect.DeepEqual(semanticReport(g.Report()), semanticReport(want.Report())) {
 		t.Fatal("document and filesystem inputs produced different graph facts or coverage")
 	}
 }

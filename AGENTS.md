@@ -21,6 +21,8 @@ document.go、document_node.go、facts.go # 输入材料、类型化 Document �
 directory.go、tags.go                   # Directory 路径结构与开放 Tag 分类规则
 extractor.go                           # 生产侧有界提取、任务与缓存
 builder.go、graph.go                    # 接纳、构图发布及只读查询结果
+compilation.go、build_limits.go          # 单轮构建协调、独立分析额度及失败原子性
+selection.go、assembly.go                # 内部实体选择与按需公共图装配
 namespaces.go、namespace_index.go       # 从图派生带证据的 namespace 祖先与共同归属
 references.go                          # 将源码使用位置及其候选目标发布为图事实
 session.go、builder_documents.go        # Builder 的异步材料提交与构建调度
