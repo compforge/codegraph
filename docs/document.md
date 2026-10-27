@@ -36,7 +36,7 @@ Document 和子 Directory 通过 `in_directory` 指向直接父 Directory。它�
 语言 Package、Module 等节点由适配器组织，namespace 查询继续使用语义关系。
 Directory 不具有源码 Location，其路径可通过 Node.Path 或 Cypher 的 path 属性查询。
 
-`Tag` 是以 string 为底层类型的开放枚举，内置 ManifestTag、LockfileTag、GeneratedTag、TestFixtureTag、
+`Tag` 是以 string 为底层类型的开放枚举，内置 ManifestTag、LockfileTag、VersionTag、GeneratedTag、TestFixtureTag、
 TestTag、DependencyTag、BuildOutputTag、CacheTag、MinifiedTag、ToolingTag、ConfigTag，以及 SourceTag、DocumentationTag、ResourceTag，也允许调用方定义新值。
 CodeGraph 负责执行分类规则并在节点上保存标签；如何分类、标签在业务中意味着什么，以及如何处理已标记材料，由调用方决定。
 `TagRule{Name, Pattern, Languages}` 按规范化路径应用 Go 正则；规则可以匹配 Document 和 Directory。
@@ -53,6 +53,10 @@ CodeGraph 负责执行分类规则并在节点上保存标签；如何分类、�
 `Pipfile.lock` / `pdm.lock` / `pylock.toml` / `pylock.<name>.toml`、Node 包管理器锁文件、
 `Cargo.lock`、`Gemfile.lock` 和 `composer.lock`。规则匹配完整文件名，不将任意 `.lock` 文件视为依赖锁文件；
 锁文件不自动带 manifest 标签，也不改变解析或准入策略。
+`VersionTag`（`version`）匹配任意目录下完整文件名 `VERSION`，不匹配 `VERSION.txt` 或 `MY_VERSION`。
+它描述版本标记文件的角色，不解析或验证版本内容，也不意味着该文件没有构建依赖。
+Markdown 已按格式带 documentation 标签，包括普通 `.md` 文件；读取完整材料分类应使用
+`DocumentTags`，仅调用 `Match` 只能取得路径规则标签。
 `TestTag`（`test`）表达测试文件的命名约定：Go 的 `*_test.go`、Python 的 `test_*.py` / `*_test.py`，
 以及 JavaScript / TypeScript 的 `*.test.*`、`*.spec.*` 和 `__tests__/` 下的源码文件。
 ECMAScript 使用同一 `Language(path)` 识别结果，包括 `.mts` / `.cts` 和上游别名，不另维护一份后缀白名单。
