@@ -95,7 +95,8 @@ cache、minified、tooling 和 test_fixture 材料。开发元数据包括 .git�
 .gitignore、.dockerignore、.env / .env.* 等常见配置带 config 标签，保留为 Document 上下文，不做符号解析。
 普通隐藏目录不因此全部排除。
 Markdown/RST 使用 documentation 标签；HTML/CSS、JSON/TOML 等使用 resource 标签；代码格式使用 source。
-这些格式标签与路径标签累加，未知格式不强行归类；Language 与 Gitlink 仍各自保存语法格式和子模块引用。
+这些格式标签与路径标签累加；没有任何标签的 Document 以 unknown 兜底，Directory 不追加该标签。
+消费者可将 unknown 用于统计或显式排除；它不表示解析失败。Language 与 Gitlink 仍各自保存语法格式和子模块引用。
 
 Builder.Extract、AddDocument 与 AddDocuments 在解析前应用同一材料规则，命中排除时不会查询或污染原始
 提取缓存。调用方可通过同一 TagMatcher 的 ExcludedBy 在文档预算之前排除材料。
