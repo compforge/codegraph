@@ -124,8 +124,8 @@ func TestDocumentMaterialTags(t *testing.T) {
 		{cg.Document{Path: "README.md"}, []cg.Tag{cg.DocumentationTag}},
 		{cg.Document{Path: "settings.json"}, []cg.Tag{cg.ResourceTag}},
 		{cg.Document{Path: "logo.png"}, []cg.Tag{cg.ResourceTag}},
-		{cg.Document{Path: "unknown.xyz"}, nil},
-		{cg.Document{Path: "submodule.go", Gitlink: strings.Repeat("a", 40)}, nil},
+		{cg.Document{Path: "unknown.xyz"}, []cg.Tag{cg.UnknownTag}},
+		{cg.Document{Path: "submodule.go", Gitlink: strings.Repeat("a", 40)}, []cg.Tag{cg.UnknownTag}},
 	} {
 		if got := m.DocumentTags(tc.document); !reflect.DeepEqual(got, tc.want) {
 			t.Fatalf("%s: got %v want %v", tc.document.Path, got, tc.want)
@@ -328,7 +328,7 @@ func TestVersionAndDocumentationTags(t *testing.T) {
 				if got := matcher.Match(doc.Path); !reflect.DeepEqual(got, tc.want) {
 					t.Errorf("version path tags: %s: %v", doc.Path, got)
 				}
-				if got := disabled.DocumentTags(doc); len(got) != 0 {
+				if got := disabled.DocumentTags(doc); !reflect.DeepEqual(got, []cg.Tag{cg.UnknownTag}) {
 					t.Errorf("disabled version rule: %s: %v", doc.Path, got)
 				}
 			} else if got := disabled.DocumentTags(doc); !reflect.DeepEqual(got, []cg.Tag{cg.DocumentationTag}) {
@@ -350,6 +350,68 @@ func TestVersionAndDocumentationTags(t *testing.T) {
 		node, ok := graph.Node(cg.DocumentID(doc.Path))
 		if !ok || !reflect.DeepEqual(node.Tags, matcher.DocumentTags(doc)) {
 			t.Errorf("graph tags for %s: %v", doc.Path, node.Tags)
+		}
+	}
+}
+
+// +case:id=unknown_document_tags,desc=`Unclassified documents receive unknown after format and path rules`,expect=`Custom classification replaces fallback, graph tags agree, and unknown exclusion does not exclude ordinary directories`
+func TestUnknownDocumentTags(t *testing.T) {
+	matcher, err := cg.NewTagMatcher(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	custom, err := cg.NewTagMatcher([]cg.TagRule{{Name: "schema", Pattern: `\.cg-unrecognized$`}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	documents := []cg.Document{
+		{Path: "unclassified", Content: []byte("opaque")},
+		{Path: "nested/input.cg-unrecognized"},
+		{Path: "nested/submodule.go", Gitlink: strings.Repeat("a", 40)},
+	}
+	var zero cg.TagMatcher
+	for _, doc := range documents {
+		if got := matcher.DocumentTags(doc); !reflect.DeepEqual(got, []cg.Tag{cg.UnknownTag}) {
+			t.Errorf("%s: %v", doc.Path, got)
+		}
+		if got := zero.DocumentTags(doc); !reflect.DeepEqual(got, []cg.Tag{cg.UnknownTag}) {
+			t.Errorf("zero matcher: %s: %v", doc.Path, got)
+		}
+		if got := matcher.Match(doc.Path); got != nil {
+			t.Errorf("path matcher invented tags for %s: %v", doc.Path, got)
+		}
+	}
+	if got := custom.DocumentTags(documents[1]); !reflect.DeepEqual(got, []cg.Tag{"schema"}) {
+		t.Fatal("custom rule did not replace fallback", got)
+	}
+	if got := matcher.DocumentTags(cg.Document{Path: "fixtures/input.cg-unrecognized"}); !reflect.DeepEqual(got, []cg.Tag{cg.TestFixtureTag}) {
+		t.Fatal("known path tag gained unknown", got)
+	}
+	if got := matcher.DocumentTags(cg.Document{Path: "broken.go", Content: []byte("not Go syntax")}); !reflect.DeepEqual(got, []cg.Tag{cg.SourceTag}) {
+		t.Fatal("classification must not depend on parsing", got)
+	}
+	for _, excluded := range [][]cg.Tag{nil, {cg.UnknownTag}} {
+		inputs := append(slices.Clone(documents), cg.Document{Path: "nested/main.go", Content: []byte("package main\n")})
+		graph, _, err := cg.Build(context.Background(), "unknown-tags", inputs, cg.Options{Admission: &cg.AdmissionPolicy{ExcludedTags: excluded}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, doc := range inputs {
+			node, ok := graph.Node(cg.DocumentID(doc.Path))
+			want := matcher.DocumentTags(doc)
+			if len(excluded) > 0 && slices.Contains(want, cg.UnknownTag) {
+				if ok {
+					t.Errorf("unknown document admitted: %s", doc.Path)
+				}
+				continue
+			}
+			if !ok || !reflect.DeepEqual(node.Tags, want) {
+				t.Errorf("graph tags for %s: %v", doc.Path, node.Tags)
+			}
+		}
+		dir, ok := graph.Node(cg.DirectoryID("nested"))
+		if !ok || len(dir.Tags) != 0 {
+			t.Fatal("directory must not receive unknown fallback", dir)
 		}
 	}
 }

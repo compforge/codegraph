@@ -16,6 +16,7 @@ import (
 type Tag string
 
 const (
+	UnknownTag       Tag = "unknown"
 	SourceTag        Tag = "source"
 	DocumentationTag Tag = "documentation"
 	VersionTag       Tag = "version"
@@ -128,8 +129,12 @@ func (m *TagMatcher) Match(path string) []Tag {
 }
 
 // DocumentTags combines format classification with direct path tags without parsing
-// content. Gitlinks remain opaque and receive only path tags, even at source paths.
-// Empty TagRules disables path rules, not format classification.
+// content. Gitlinks remain opaque and skip format classification, even at source paths.
+// Empty TagRules disables path rules, not format classification or the unknown fallback.
+// +spec=Documents with no format or direct path tags receive UnknownTag; Match and Directory tags have no fallback.
+// +why=Consumers can count unclassified materials using the same tag vocabulary as classified documents.
+// +link=component://docs/document.md
+// +case=unknown_document_tags
 func (m *TagMatcher) DocumentTags(d Document) []Tag {
 	tags := m.Match(d.Path)
 	if d.Gitlink == "" {
@@ -137,6 +142,9 @@ func (m *TagMatcher) DocumentTags(d Document) []Tag {
 			tags = append(tags, tag)
 			slices.Sort(tags)
 		}
+	}
+	if len(tags) == 0 {
+		return []Tag{UnknownTag}
 	}
 	return tags
 }

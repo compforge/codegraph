@@ -17,9 +17,9 @@ Document、Directory 在图中分别使用 `Document`、`Directory` NodeKind，�
 保存调用方提供的子模块 commit；gitlink 保持不透明，不因路径类似源码就被标为 source。
 
 Document 的标签由格式分类和路径规则累加：已识别代码格式带 source，Markdown/RST 带 documentation，
-已识别数据、清单、样式及图片等资源格式带 resource。未知格式不强行归类；分类不依赖解析成功。
+已识别数据、清单、样式及图片等资源格式带 resource。格式和直接路径规则都没有标签时，Document 使用 UnknownTag（unknown）；分类不依赖解析成功。
 manifest、generated、dependency、tooling 等角色通过可配置路径规则追加，同一材料可以有多个标签。
-Directory 没有文件格式分类，仅应用路径规则。祖先标签不复制到子节点，但准入检查会检查祖先目录。
+Directory 没有文件格式分类，仅应用路径规则，也不追加 unknown 兜底。祖先标签不复制到子节点，但准入检查会检查祖先目录。
 
 输入 Document 与图中的 DocumentNode 职责不同：前者提供材料，后者组合 Node，作为同一图节点的
 类型化查询结果。`g.Document(path)`、`g.Node(DocumentID(path))` 和 Cypher 读取相同事实，
@@ -36,7 +36,7 @@ Document 和子 Directory 通过 `in_directory` 指向直接父 Directory。它�
 语言 Package、Module 等节点由适配器组织，namespace 查询继续使用语义关系。
 Directory 不具有源码 Location，其路径可通过 Node.Path 或 Cypher 的 path 属性查询。
 
-`Tag` 是以 string 为底层类型的开放枚举，内置 ManifestTag、LockfileTag、VersionTag、GeneratedTag、TestFixtureTag、
+`Tag` 是以 string 为底层类型的开放枚举，内置 UnknownTag、ManifestTag、LockfileTag、VersionTag、GeneratedTag、TestFixtureTag、
 TestTag、DependencyTag、BuildOutputTag、CacheTag、MinifiedTag、ToolingTag、ConfigTag，以及 SourceTag、DocumentationTag、ResourceTag，也允许调用方定义新值。
 CodeGraph 负责执行分类规则并在节点上保存标签；如何分类、标签在业务中意味着什么，以及如何处理已标记材料，由调用方决定。
 `TagRule{Name, Pattern, Languages}` 按规范化路径应用 Go 正则；规则可以匹配 Document 和 Directory。
@@ -87,6 +87,8 @@ tags := matcher.Match("tests/input.pb.go")
 匹配器创建后固定，可以并发复用；调用方后续修改规则或返回的标签不会影响它。
 `Match` 接收规范化的快照相对路径，使用 `/` 分隔、目录无末尾斜杠、根目录为 `.`。
 `DocumentTags(Document)` 在直接路径匹配上补入格式标签，不需要 Content 或解析树。
+若最终标签为空则返回 `[unknown]`，包括没有路径分类的 gitlink；禁用路径规则和零值 matcher 仍保留这一兜底。
+一旦格式或路径规则提供标签，就不自动追加 unknown。它只表示当前分类未识别，不表示解析失败或影响分析不完整。
 `ExcludedBy(Document, excludedTags)` 检查材料标签及每一级祖先目录，返回命中的排除标签。
 Builder 与消费者在材料预算之前共用这两个入口；Directory 节点使用 `Match`。
 
