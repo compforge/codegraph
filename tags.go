@@ -18,6 +18,7 @@ type Tag string
 const (
 	SourceTag        Tag = "source"
 	DocumentationTag Tag = "documentation"
+	VersionTag       Tag = "version"
 	ResourceTag      Tag = "resource"
 	ToolingTag       Tag = "tooling"
 	ConfigTag        Tag = "config"
@@ -51,6 +52,7 @@ type TagRule struct {
 func BuiltinTagRules() []TagRule {
 	return []TagRule{
 		{Name: ManifestTag, Pattern: `(^|/)(go\.mod|go\.work|pyproject\.toml|package\.json)$`},
+		{Name: VersionTag, Pattern: `(^|/)VERSION$`},
 		{Name: LockfileTag, Pattern: `(^|/)(go\.sum|go\.work\.sum|uv\.lock|poetry\.lock|Pipfile\.lock|pdm\.lock|pylock(\.[^/]+)?\.toml|package-lock\.json|npm-shrinkwrap\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?|Cargo\.lock|Gemfile\.lock|composer\.lock)$`},
 		{Name: GeneratedTag, Pattern: `\.(generated\.[^/]+|gen\.go|pb\.go)$`},
 		{Name: GeneratedTag, Pattern: `(^|/)kitex_gen(/|$)`},

@@ -298,3 +298,58 @@ func TestGoModuleAndWorkspaceDocumentTags(t *testing.T) {
 		}
 	}
 }
+
+// +case:id=version_and_documentation_tags,desc=`Version files and Markdown have distinct material tags`,expect=`Root and nested graph Documents agree with the matcher; disabling path rules retains Markdown format tags`
+func TestVersionAndDocumentationTags(t *testing.T) {
+	matcher, err := cg.NewTagMatcher(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	disabled, err := cg.NewTagMatcher([]cg.TagRule{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var documents []cg.Document
+	for _, prefix := range []string{"", "nested/"} {
+		for _, tc := range []struct {
+			name, content string
+			want          []cg.Tag
+		}{
+			{"VERSION", "1.2.3\n", []cg.Tag{cg.VersionTag}},
+			{"README.md", "# Readme\n", []cg.Tag{cg.DocumentationTag}},
+			{"notes.md", "# Notes\n", []cg.Tag{cg.DocumentationTag}},
+			{"AGENTS.md", "# Instructions\n", []cg.Tag{cg.DocumentationTag, cg.ToolingTag}},
+		} {
+			doc := cg.Document{Path: prefix + tc.name, Content: []byte(tc.content)}
+			if got := matcher.DocumentTags(doc); !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("%s: got %v want %v", doc.Path, got, tc.want)
+			}
+			if tc.name == "VERSION" {
+				if got := matcher.Match(doc.Path); !reflect.DeepEqual(got, tc.want) {
+					t.Errorf("version path tags: %s: %v", doc.Path, got)
+				}
+				if got := disabled.DocumentTags(doc); len(got) != 0 {
+					t.Errorf("disabled version rule: %s: %v", doc.Path, got)
+				}
+			} else if got := disabled.DocumentTags(doc); !reflect.DeepEqual(got, []cg.Tag{cg.DocumentationTag}) {
+				t.Errorf("disabled path rules lost documentation format: %s: %v", doc.Path, got)
+			}
+			documents = append(documents, doc)
+		}
+	}
+	for _, name := range []string{"version", "MY_VERSION", "VERSION.txt", "VERSION.bak", "VERSION/source.go"} {
+		if slices.Contains(matcher.DocumentTags(cg.Document{Path: name}), cg.VersionTag) {
+			t.Errorf("unrelated version path %s", name)
+		}
+	}
+	graph, _, err := cg.Build(context.Background(), "version-documents", documents, cg.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, doc := range documents {
+		node, ok := graph.Node(cg.DocumentID(doc.Path))
+		if !ok || !reflect.DeepEqual(node.Tags, matcher.DocumentTags(doc)) {
+			t.Errorf("graph tags for %s: %v", doc.Path, node.Tags)
+		}
+	}
+}
