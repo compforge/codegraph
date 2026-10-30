@@ -24,6 +24,7 @@ type Facts struct {
 	Calls         []FactCall
 	References    []FactReference
 	TypeRelations []FactTypeRelation
+	ResourceReads []FactResourceRead
 	Issues        []Diagnostic
 	// Exports maps explicit public names to local declarations or imported bindings.
 	// Cross-module re-exports are recorded on Imports.Bindings.
@@ -125,6 +126,14 @@ type FactExport struct {
 	TypeOnly     bool
 }
 
+// FactResourceRead supports producer-side discovery without opening the target.
+type FactResourceRead struct {
+	ResourceReference
+	Name, Receiver string
+	Location       Location
+	Owner          int
+}
+
 type FactCall struct {
 	Name, Receiver string
 	Location       Location
@@ -187,6 +196,9 @@ func projectFacts(f analysis.Facts) (Facts, error) {
 			item.NameLocation = locationPtr(f, e.NameSpan)
 		}
 		out.ExportItems = append(out.ExportItems, item)
+	}
+	for _, r := range f.ResourceReads {
+		out.ResourceReads = append(out.ResourceReads, FactResourceRead{ResourceReference: ResourceReference{Expression: r.Expression, Path: r.Path}, Name: r.Name, Receiver: r.Receiver, Location: location(f, r.Span), Owner: r.Owner})
 	}
 	for _, c := range f.Calls {
 		targets := make([]FactCallTarget, 0, len(c.Targets))

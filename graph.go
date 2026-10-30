@@ -231,6 +231,10 @@ func (g *Graph) materialize(ctx context.Context, nodes map[string]Node, relation
 			props["receiver"] = n.Receiver
 			props["referenceKind"] = string(n.ReferenceKind)
 		}
+		if n.Resource != nil {
+			props["resourcePath"] = n.Resource.Path
+			props["resourceExpression"] = n.Resource.Expression
+		}
 		if n.Binding != nil {
 			props["specifier"] = n.Binding.Specifier
 			props["importedName"] = n.Binding.ImportedName

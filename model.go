@@ -87,6 +87,8 @@ type Node struct {
 	ReferenceKind ReferenceKind `json:"referenceKind,omitempty"`
 	// Binding is present on source import/export items, independently of resolution.
 	Binding *ModuleBinding `json:"binding,omitempty"`
+	// Resource is present on reads occurrences, including unresolved reads.
+	Resource *ResourceReference `json:"resource,omitempty"`
 	// Receiver is the extractor's lexical receiver spelling on a source-use
 	// node, not a resolved type or qualified target name.
 	Receiver string    `json:"receiver,omitempty"`
@@ -107,6 +109,10 @@ type Node struct {
 func cloneNode(n Node) Node {
 	n.Tags = append([]Tag(nil), n.Tags...)
 	n.Manifest = cloneManifest(n.Manifest)
+	if n.Resource != nil {
+		r := *n.Resource
+		n.Resource = &r
+	}
 	if n.Binding != nil {
 		b := *n.Binding
 		n.Binding = &b
@@ -135,11 +141,19 @@ func declarationKind(kind string) (NodeKind, error) {
 	return "", fmt.Errorf("unsupported declaration kind %q", kind)
 }
 
-// ReferenceKind is the source syntax role, independent of whether a target exists.
+// ResourceReference preserves the argument spelling and a proven snapshot-relative
+// path. Empty Path means the expression or its base is not statically known.
+type ResourceReference struct {
+	Expression string `json:"expression"`
+	Path       string `json:"path,omitempty"`
+}
+
+// ReferenceKind is the source-use role, independent of whether a target exists.
 // Its vocabulary is separate from the relations established by static analysis.
 type ReferenceKind string
 
 const (
+	ReadReference      ReferenceKind = "reads"
 	CallReference      ReferenceKind = "calls"
 	SymbolReference    ReferenceKind = "references"
 	BaseReference      ReferenceKind = "extends"
@@ -173,10 +187,12 @@ const (
 	// document. Top-level declarations are enclosed by the Document itself.
 	Encloses RelationKind = "encloses"
 	// Contains records semantic membership, including cross-file owners.
-	Contains   RelationKind = "contains"
-	Declares   RelationKind = "declares"
-	Imports    RelationKind = "imports"
-	Calls      RelationKind = "calls"
+	Contains RelationKind = "contains"
+	Declares RelationKind = "declares"
+	Imports  RelationKind = "imports"
+	Calls    RelationKind = "calls"
+	// Reads connects a read occurrence or its lexical owner to a supplied Document.
+	Reads      RelationKind = "reads"
 	References RelationKind = "references"
 	Extends    RelationKind = "extends"
 	Implements RelationKind = "implements"

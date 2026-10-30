@@ -102,6 +102,14 @@ type TypeRelation struct {
 	Span
 }
 
+// ResourceRead retains a recognized file read independently of target availability.
+// Path is snapshot-relative only when the language proves its base.
+type ResourceRead struct {
+	Name, Receiver, Expression, Path string
+	Span
+	Owner int
+}
+
 type Facts struct {
 	Path, Package, Language string
 	Gitlink                 string
@@ -115,6 +123,7 @@ type Facts struct {
 	Calls                   []Call
 	References              []Reference
 	TypeRelations           []TypeRelation
+	ResourceReads           []ResourceRead
 	Issues                  []Issue
 	// Exports maps a public alias to its local name for explicit export
 	// aliases; extraction records them for producer-side module resolution.
