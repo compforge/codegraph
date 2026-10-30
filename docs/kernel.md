@@ -64,7 +64,7 @@ NodeKind 与 RelationKind 是代码到图的映射词汇，定义模型能保留
 | 可调用声明 | `Function`、`Method`、`Constructor` | 保留声明身份及其语言类别 |
 | 数据成员与其他声明 | `Field`、`Property`、`Variable`、`Constant`、`Macro` | 按源码声明类别区分，归属另由关系表达 |
 | 模块绑定项 | `Import`、`Export` | 一项源码绑定或导入/导出规则；多名称语句按项保留，不等同于目标实体 |
-| 源码使用 | `Reference` | 一次使用的源码身份；referenceKind 为 calls、references、extends、implements、decorates 或 reads |
+| 源码使用 | `Reference` | 一次使用的源码身份；referenceKind 为 calls、references、extends、implements 或 decorates |
 
 关系分类同时定义方向和含义，不能仅凭端点相同就合并：
 
@@ -82,7 +82,7 @@ NodeKind 与 RelationKind 是代码到图的映射词汇，定义模型能保留
 | 使用目标 | `Reference ─references→ 直接目标或 Import` | 当前材料与证据支持的绑定，允许没有目标或多个候选 |
 | 名称别名 | `Import / Export ─aliases→ Export / Import / 声明 / 组织` | 保留直接绑定与转导出链；不只保存最终声明 |
 | 公开绑定 | `Module / Namespace ─exports→ Export` | 哪个组织公开了该源码项 |
-| 文件读取 | `Reference / 所属声明或 Document ─reads→ Document` | 已识别文件读取；资源表达式与已知路径保留在 Reference.Resource，目标未提供时不虚构端点 |
+| 文件引用 | `Reference / 所属声明或 Document ─references→ Document` | 基于显式资源语义建立的文件关联；Resource 保留表达式与路径，不推断读写行为 |
 | 修饰应用 | `Reference ─decorates→ 被修饰声明` | 此处应用了修饰；修饰器定义通过 references 单独连接 |
 
 分类是否合理，用以下标准判断：
@@ -246,7 +246,7 @@ confidence 不是概率，exact 也不承诺运行时行为或完整编译器类
 
 `payment.charge(order)` 这次调用存在于源码中，与能否找出 charge 的声明是两件事。
 Reference 统一表达源码使用，referenceKind 表示其语法角色：calls 保存调用表达式，references 保存
-标识符引用，extends / implements 保存类型使用角色，decorates 保存修饰应用，reads 保存文件读取。名称、接收者线索和位置随节点提供；receiver 是词法线索，不是已解析类型或限定名。
+标识符引用，extends / implements 保存类型使用角色，decorates 保存修饰应用。文件引用沿用 references，Resource 属性保留路径信息。名称、接收者线索和位置随节点提供；receiver 是词法线索，不是已解析类型或限定名。
 Reference 通过 occurs_in 指向最内层已保留声明，没有声明包围时指向 Document。
 调用表达式和其中的名称引用可以各有节点，因为它们表示不同的源码事实；referenceKind 参与身份，
 同位置的不同使用角色也不会合并。Reference 在找到目标后仍保留，不以 Unresolved 命名永久身份。
@@ -258,9 +258,10 @@ Reference 通过 occurs_in 指向最内层已保留声明，没有声明包围�
 声明间的 calls / references、extends / implements 保留已有语义关系，复用同一语言绑定规则与证据。
 引用位置与声明依赖是不同查询粒度：统计声明依赖时排除 source.kind = 'Reference'，避免重复计数。
 
-读取使用的 `Resource.Expression` 保留参数原文，`Resource.Path` 保留可证明的快照相对路径。
-目标未提供时 occurrence 仍存在；补料后通过 reads 连接 Document，所属声明的 reads 使用相同证据。
-路径解析及库 API 识别属于语言适配器，材料获取和影响传播由消费者负责。
+资源引用的 `Resource.Expression` 保留路径表达式，`Resource.Path` 保留可证明的快照相对路径。
+目标未提供时 occurrence 仍存在；补料后通过 references 连接 Document，所属声明使用相同证据。
+语言适配器提供调用绑定与参数事实；独立语义适配包或调用方声明 API 路径语义，核心按显式规则
+生成关系。核心不内置平台 API 名称。详见 [资源引用](resource-references.md)。
 
 Import / Export 保存每项的名称、位置和 ModuleBinding：specifier、importedName、localName、
 exportedName、form、typeOnly。属性描述该源码项；aliases 表达它连接谁。specifier 不是已解析路径，

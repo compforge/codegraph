@@ -27,6 +27,11 @@ type compilation struct {
 
 func (c *compilation) Run(ctx context.Context) (map[string]Node, map[string]Relation, BuildReport, error) {
 	report := BuildReport{Snapshot: c.snapshot, Documents: sortedFiles(c.files), Diagnostics: c.diagnostics}
+	files, err := applyResourceRules(ctx, c.files, c.opts.ResourceReferences)
+	if err != nil {
+		return nil, nil, report, err
+	}
+	c.files = files
 	report.Materials.Submitted = len(c.files) + len(c.failures) + len(c.diagnostics)
 	report.Materials.Accepted = len(c.files)
 	report.Materials.Excluded = len(c.diagnostics)
@@ -52,7 +57,7 @@ func (c *compilation) Run(ctx context.Context) (map[string]Node, map[string]Rela
 	}
 	for _, p := range report.Documents {
 		f := c.files[p]
-		uses := len(f.Calls) + len(f.References) + len(f.TypeRelations) + len(f.ResourceReads)
+		uses := len(f.Calls) + len(f.References) + len(f.TypeRelations) + len(f.ResourceReferences)
 		if uses > c.opts.Analysis.Uses-report.Analysis.Uses {
 			return nil, nil, report, &BuildBudgetError{Stage: "analysis", Resource: "Uses", Used: report.Analysis.Uses, Adding: uses, Limit: c.opts.Analysis.Uses}
 		}
@@ -66,6 +71,7 @@ func (c *compilation) Run(ctx context.Context) (map[string]Node, map[string]Rela
 	analyzer := pipeline.Analyzer{Limits: analysis.Limits{Entities: c.opts.Analysis.Entities, Relations: c.opts.Analysis.Relations, Evidence: c.opts.Analysis.Evidence}, Lookup: language.Lookup}
 	started := time.Now()
 	index, issues, err := analyzer.Analyze(ctx, scope)
+
 	report.Analysis.Duration = time.Since(started)
 	if err != nil {
 		var limit *analysis.LimitError

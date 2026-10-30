@@ -102,10 +102,30 @@ type TypeRelation struct {
 	Span
 }
 
-// ResourceRead retains a recognized file read independently of target availability.
-// Path is snapshot-relative only when the language proves its base.
-type ResourceRead struct {
-	Name, Receiver, Expression, Path string
+// Callable is a lexical imported identity or an unshadowed global.
+type Callable struct{ Module, Name string }
+
+// Invocation keeps detached argument syntax and lexical identity, not API effects.
+type Invocation struct {
+	Name, Receiver string
+	Target         *Callable
+	Constructor    bool
+	Arguments      []Argument
+	Span
+	Owner int
+}
+
+type Argument struct {
+	Spread    bool
+	Text      string
+	Literal   *string
+	ModuleURL bool
+	Span
+}
+
+// ResourceReference is derived per build from explicit API semantics.
+type ResourceReference struct {
+	Name, Receiver, Expression, Path, Basis string
 	Span
 	Owner int
 }
@@ -123,7 +143,8 @@ type Facts struct {
 	Calls                   []Call
 	References              []Reference
 	TypeRelations           []TypeRelation
-	ResourceReads           []ResourceRead
+	ResourceReferences      []ResourceReference
+	Invocations             []Invocation
 	Issues                  []Issue
 	// Exports maps a public alias to its local name for explicit export
 	// aliases; extraction records them for producer-side module resolution.

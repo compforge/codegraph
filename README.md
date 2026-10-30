@@ -15,7 +15,7 @@ Code tools often start from a change or a symbol and need to find code worth exa
 - **Calls and references:** Who calls this function? Which declarations reference this type?
 - **Structure and dependencies:** What members belong to a type? Which modules does a file import?
   Which types declare inheritance or implementation relationships?
-- **File reads:** Which supplied files does a static Node.js read use? Which resource paths still need materials? See [resource queries](docs/usage.md#查询文件读取).
+- **File references:** Which expressions refer to supplied files under explicitly configured API semantics? See [resource references](docs/resource-references.md).
 - **Evidence:** Where does a connection occur in the source? Is its target established or only a candidate?
   Which locations remain unresolved?
 

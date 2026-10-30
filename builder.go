@@ -51,6 +51,10 @@ func NewBuilder(snapshot string, opts Options) (*Builder, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := validateResourceRules(opts.ResourceReferences, opts.Analysis.Evidence); err != nil {
+		return nil, err
+	}
+	opts.ResourceReferences = append([]ResourceReferenceRule(nil), opts.ResourceReferences...)
 	opts.Admission = cloneAdmission(opts.Admission)
 	opts.TagRules = nil // Only the detached compiled rules are used after construction.
 	opts.ResolutionContext = ResolutionContext{}
@@ -208,6 +212,8 @@ type Options struct {
 	// Nil selects BuiltinTagRules; an explicit empty slice disables all tags.
 	TagRules          []TagRule
 	ResolutionContext ResolutionContext
+	// ResourceReferences supplies explicit API semantics; nil enables none.
+	ResourceReferences []ResourceReferenceRule
 	// ExtractionCache optionally shares raw facts across snapshots; graph budgets
 	// and relationship binding still apply independently to each Graph.
 	ExtractionCache *ExtractionCache

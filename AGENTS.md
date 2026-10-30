@@ -23,6 +23,7 @@ extractor.go                           # 生产侧有界提取、任务与缓存
 builder.go、graph.go                    # 接纳、构图发布及只读查询结果
 compilation.go、build_limits.go          # 单轮构建协调、独立分析额度及失败原子性
 selection.go、assembly.go                # 内部实体选择与按需公共图装配
+resource_semantics.go、semantics/       # 通用资源引用机制与显式启用的平台语义包
 namespaces.go、namespace_index.go       # 从图派生带证据的 namespace 祖先与共同归属
 references.go                          # 将源码使用位置及其候选目标发布为图事实
 session.go、builder_documents.go        # Builder 的异步材料提交与构建调度
@@ -49,12 +50,14 @@ docs/kernel.md                          # 稳定模型、主流程与设计依�
 2. Reference 以 referenceKind 区分源码使用；Import / Export 保留源码绑定项，references 连接直接目标，aliases 保留名称链，decorates 从修饰应用指向被修饰声明。它们独立于目标绑定存在；局部图保留候选与缺口，不虚构外部目标。关系身份保留端点、种类及发生位置；独立 Evidence 取最高档，单条证据的必要推导链取最低档，不将证据强度解释为业务影响概率。源码使用与绑定模型见内核设计。
 3. 同一 Graph 只容纳同一快照。Extractor 拥有解析与缓存；Builder 拥有构图、预算及原子发布，Graph 是只读结果；补入 Document 后重新组织与绑定，最新结果可修订既有节点、关系和证据，旧结果不变。语言实现通过阶段接口提供事实、关系与诊断，不获取材料或直接操作图存储。
 4. NodeKind / RelationKind 表达图中实体与关系；Document 与 Directory 的物料分类统一使用开放式 Tags，不另设材料 Kind。Document 的格式标签与 TagRule 路径标签累加，祖先标签不复制到子节点；Admission 消费标签决定解析与图准入。Language 表达 grammar，Gitlink 保存子模块引用；清单语义由格式适配器提取，工程 Component 由消费者判定。消费侧视图只读取 Node + Relation；缺少信息时补足图表达，不回读 Facts 或解析树。Facts 服务生产侧的依赖探索、解析与构图；声明、签名与调用参数优先消费 gotreesitter，适配器只补其能力缺口并拥有绑定与关系推导；Outline 在提取内部复用 gotreesitter，转换为声明和覆盖诊断后释放。AST 与引擎对象不穿透公共 API。新增语言能力同步更新注册声明及契约测试，grammar 可用不等于语义完整。
-5. 执行失败由 error 表达；局部诊断不否定无关事实。根包测试验证公共契约，内部机制测试随所属包维护；跨阶段语言回归放在 tests/semantics，真实语料验证语义覆盖，消费者验证自身策略与执行行为。
-6. 验证入口为 `make lint test build`，测试启用 race detector；`make eval` 按语言评测符号、关系与 namespace 组织结构；工具准备和语料命令见 [评测执行入口](docs/corpus.md#执行与证据)。
-7. `VERSION` 格式为 X.Y.Z，任何代码文件变更（含测试、增删及重命名）须在同一提交 bump，默认递增 patch；纯文档变更无需 bump。
+5. 语言适配器只提取语法与绑定事实；库/平台 API 的资源语义由独立 semantics 包或调用方显式提供，不在语言适配器或核心写 API 名称特判。资源关联复用 references，不推断文件读写效果。
+6. 执行失败由 error 表达；局部诊断不否定无关事实。根包测试验证公共契约，内部机制测试随所属包维护；跨阶段语言回归放在 tests/semantics，真实语料验证语义覆盖，消费者验证自身策略与执行行为。
+7. 验证入口为 `make lint test build`，测试启用 race detector；`make eval` 按语言评测符号、关系与 namespace 组织结构；工具准备和语料命令见 [评测执行入口](docs/corpus.md#执行与证据)。
+8. `VERSION` 格式为 X.Y.Z，任何代码文件变更（含测试、增删及重命名）须在同一提交 bump，默认递增 patch；纯文档变更无需 bump。
 
 ## References
 
+- [资源引用](docs/resource-references.md) — 通用引用关系、显式 API 语义与平台适配边界。
 - [使用指南](docs/usage.md) — 构建、补料、源码导航、Cypher 与诊断读取。
 - [内核设计](docs/kernel.md) — 核心模型、主流程与责任边界。
 - [分析准入](docs/admission.md) — 材料分类、节点投影与解析事实边界。

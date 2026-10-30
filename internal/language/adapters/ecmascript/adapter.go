@@ -16,7 +16,7 @@ func (Adapter) Extract(ctx context.Context, f Facts, tree *gts.Tree, entry gramm
 	f, extracted, err := (syntax.ModuleExtractor{Dialect: Dialect{}}).Extract(ctx, f, tree, entry)
 	if err == nil {
 		bindNamespaceUses(&f, tree)
-		err = extractResourceReads(ctx, &f, tree, extracted)
+		err = extractInvocations(ctx, &f, tree, extracted)
 	}
 	return f, err
 }
@@ -35,10 +35,5 @@ func (Adapter) ExportName(f Facts, name string) (string, bool) {
 }
 func (Adapter) NestedImport(imp analysis.Import) bool { return false }
 func (a Adapter) Bind(ctx context.Context, s analysis.BuildScope, index *analysis.Index, limit int) (analysis.BindResult, error) {
-	result, err := (module.Binder{Policy: a}).Bind(ctx, s, index, limit)
-	if err != nil {
-		return result, err
-	}
-	err = bindResourceReads(ctx, s, index, &result)
-	return result, err
+	return (module.Binder{Policy: a}).Bind(ctx, s, index, limit)
 }

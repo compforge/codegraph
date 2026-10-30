@@ -24,7 +24,7 @@ type Facts struct {
 	Calls         []FactCall
 	References    []FactReference
 	TypeRelations []FactTypeRelation
-	ResourceReads []FactResourceRead
+	Invocations   []FactInvocation
 	Issues        []Diagnostic
 	// Exports maps explicit public names to local declarations or imported bindings.
 	// Cross-module re-exports are recorded on Imports.Bindings.
@@ -126,12 +126,26 @@ type FactExport struct {
 	TypeOnly     bool
 }
 
-// FactResourceRead supports producer-side discovery without opening the target.
-type FactResourceRead struct {
-	ResourceReference
+// Callable identifies an imported member, or an unshadowed global when Module is empty.
+type Callable struct{ Module, Name string }
+
+// FactInvocation exposes detached, shallow arguments for producer-side exploration.
+// Target is absent when lexical binding cannot establish API identity.
+type FactInvocation struct {
 	Name, Receiver string
+	Target         *Callable
+	Constructor    bool
+	Arguments      []FactArgument
 	Location       Location
 	Owner          int
+}
+
+type FactArgument struct {
+	Spread    bool
+	Text      string
+	Literal   *string
+	ModuleURL bool
+	Location  Location
 }
 
 type FactCall struct {
@@ -197,8 +211,20 @@ func projectFacts(f analysis.Facts) (Facts, error) {
 		}
 		out.ExportItems = append(out.ExportItems, item)
 	}
-	for _, r := range f.ResourceReads {
-		out.ResourceReads = append(out.ResourceReads, FactResourceRead{ResourceReference: ResourceReference{Expression: r.Expression, Path: r.Path}, Name: r.Name, Receiver: r.Receiver, Location: location(f, r.Span), Owner: r.Owner})
+	for _, call := range f.Invocations {
+		item := FactInvocation{Name: call.Name, Receiver: call.Receiver, Constructor: call.Constructor, Location: location(f, call.Span), Owner: call.Owner}
+		if call.Target != nil {
+			item.Target = &Callable{Module: call.Target.Module, Name: call.Target.Name}
+		}
+		for _, arg := range call.Arguments {
+			value := FactArgument{Spread: arg.Spread, Text: arg.Text, ModuleURL: arg.ModuleURL, Location: location(f, arg.Span)}
+			if arg.Literal != nil {
+				literal := *arg.Literal
+				value.Literal = &literal
+			}
+			item.Arguments = append(item.Arguments, value)
+		}
+		out.Invocations = append(out.Invocations, item)
 	}
 	for _, c := range f.Calls {
 		targets := make([]FactCallTarget, 0, len(c.Targets))
