@@ -52,7 +52,7 @@ Capabilities.References 声明可提取角色，SourceItems 声明 Import / Expo
 |---|---|---|
 | Go | calls、references、extends | Import 保存显式别名及未解析路径；隐式本地名依赖已加载包名；无独立 Export 语法节点 |
 | Python | calls、references、extends、decorates | Import 保留每项名称和 alias；decorator 应用连接已保留声明；不以 Export 伪造隐式公开名称或动态 `__all__` |
-| JS / TS / TSX | calls、references、extends、decorates；TS / TSX 另有 implements | Import / Export 保留具名、default、namespace、通配、侧效应项及 typeOnly；支持嵌套具名 namespace 的显式导出 |
+| JS / TS / TSX | reads、calls、references、extends、decorates；TS / TSX 另有 implements | Import / Export 保留具名、default、namespace、通配、侧效应项及 typeOnly；支持嵌套具名 namespace 的显式导出 |
 | 其他 grammar | 未提供 | 声明支持不自动获得源码使用、导入项或修饰应用能力 |
 
 动态基类表达式保留角色与原文，不求值；未解析基类/接口的角色不依赖目标是否入图。
@@ -196,6 +196,30 @@ this、显式类型、局部实例初始化及显式导入的类可提供候选�
 具名基类和显式接口关系形成 extends / implements；唯一语法绑定为 exact，多个目标保持 scoped。
 继承方法查找复用已绑定类型关系，运行时分派仍未证明。
 独立编译器参照与未评估范围见 [TypeScript 仓库评测](typescript-corpus.md)。
+
+### 文件读取
+
+JS / TS / TSX 识别通过 ESM 从 `node:fs` / `fs` 导入的 `readFileSync`，
+支持具名别名、namespace 与 default 导入，并遵守参数、局部变量和类型导入的遮蔽规则。
+普通字符串、自定义同名函数和其他模块中的同名 API 不产生资源读取事实。
+
+当前解析 `readFileSync(new URL("./template.html", import.meta.url))` 的静态路径：
+`URL` 可以是未被遮蔽的 Node 全局或从 `node:url` / `url` 导入的具名绑定。
+使用 gotreesitter 的调用参数事实，支持无转义的单/双引号相对路径及 `.` / `..` 归一化，
+结果必须位于逻辑快照内。不执行代码，不访问宿主文件系统，不推断工作目录。
+裸字符串路径、变量、模板插值、JS 转义、URL 编码/查询/片段、目录 URL、绝对 URL 和越出快照的路径
+保留为未解析读取；CommonJS、API 重赋值/运行时修改和 `fileURLToPath` 包装尚不解析。
+
+读取产生 `Reference(referenceKind=reads)`，`Resource.Expression` 保存首参数原文，
+`Resource.Path` 保存可证明的快照相对路径；路径未知时为空。
+目标尚未提供时保留 occurrence 和 `resource_not_loaded` 诊断，未知路径使用
+`unresolved_resource`。只有目标为已接纳的普通 Document 时才建立 `reads` 关系。
+后续补入 Document 会绑定同一个 occurrence，旧图保持不变。
+
+完整图同时发布 occurrence 和所属声明/Document 到资源的 `reads`；后者使用同一绑定证据。
+`AnalysisAdmission` 不发布 Reference，但保留语义读取边及必要的局部初始化桥接节点。
+`Facts.ResourceReads` 提供生产侧补料线索；图消费者读取 `Node.Resource` 与 `Reads`，
+Cypher 属性为 `resourcePath` / `resourceExpression`。提取到读取不证明运行时必然执行或成功。
 
 ## Manifest 格式
 

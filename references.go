@@ -24,13 +24,13 @@ func (a *graphAssembler) publishReferences(ctx context.Context) error {
 	bindings := map[referenceKey][]analysis.Edge{}
 	for _, e := range a.index.Edges {
 		switch RelationKind(e.Kind) {
-		case Calls, References, Extends, Implements, Decorates:
+		case Calls, References, Extends, Implements, Decorates, Reads:
 			key := referenceKey{e.Source, RelationKind(e.Kind), e.Path, e.Span.Start, e.Span.End}
 			bindings[key] = append(bindings[key], e)
 		}
 	}
 	addRelation := a.addRelation
-	addReference := func(f analysis.Facts, kind RelationKind, name, receiver string, span analysis.Span, owner int, direct analysis.Ref, decorated int) error {
+	addReference := func(f analysis.Facts, kind RelationKind, name, receiver string, span analysis.Span, owner int, direct analysis.Ref, decorated int, resource *ResourceReference) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -47,7 +47,7 @@ func (a *graphAssembler) publishReferences(ctx context.Context) error {
 			return fmt.Errorf("unpublished source-use owner: %s at %d", f.Path, span.Start)
 		}
 		loc := location(f, span)
-		if err := a.addNode(Node{ID: id, Kind: Reference, ReferenceKind: ReferenceKind(kind), Name: name, Receiver: receiver, Language: f.Language, Location: &loc}); err != nil {
+		if err := a.addNode(Node{ID: id, Kind: Reference, ReferenceKind: ReferenceKind(kind), Name: name, Receiver: receiver, Resource: resource, Language: f.Language, Location: &loc}); err != nil {
 			return err
 		}
 		a.references++
@@ -71,6 +71,9 @@ func (a *graphAssembler) publishReferences(ctx context.Context) error {
 			relation := a.relation(binding)
 			relation.ID = ""
 			relation.Source, relation.Kind = id, References
+			if kind == Reads {
+				relation.Kind = Reads
+			}
 			if err := addRelation(relation); err != nil {
 				return err
 			}
@@ -79,8 +82,14 @@ func (a *graphAssembler) publishReferences(ctx context.Context) error {
 	}
 	for _, path := range sortedFiles(files) {
 		f := files[path]
+		for _, r := range f.ResourceReads {
+			resource := &ResourceReference{Expression: r.Expression, Path: r.Path}
+			if err := addReference(f, Reads, r.Name, r.Receiver, r.Span, r.Owner, analysis.Ref{}, -1, resource); err != nil {
+				return err
+			}
+		}
 		for _, call := range f.Calls {
-			if err := addReference(f, Calls, call.Name, call.Receiver, call.Span, analysis.EnclosingDeclaration(f, call.Span), directImport(a.index, f, call.Name, call.Receiver, call.Span, call.Imported), -1); err != nil {
+			if err := addReference(f, Calls, call.Name, call.Receiver, call.Span, analysis.EnclosingDeclaration(f, call.Span), directImport(a.index, f, call.Name, call.Receiver, call.Span, call.Imported), -1, nil); err != nil {
 				return err
 			}
 		}
@@ -93,12 +102,12 @@ func (a *graphAssembler) publishReferences(ctx context.Context) error {
 			if kind == Decorates {
 				decorated = ref.Decorated
 			}
-			if err := addReference(f, kind, ref.Name, ref.Receiver, ref.Span, ref.Owner, directImport(a.index, f, ref.Name, ref.Receiver, ref.Span, !ref.Bound), decorated); err != nil {
+			if err := addReference(f, kind, ref.Name, ref.Receiver, ref.Span, ref.Owner, directImport(a.index, f, ref.Name, ref.Receiver, ref.Span, !ref.Bound), decorated, nil); err != nil {
 				return err
 			}
 		}
 		for _, hint := range f.TypeRelations {
-			if err := addReference(f, RelationKind(hint.Kind), hint.Name, hint.Module, hint.Span, hint.Owner, directImport(a.index, f, hint.Name, hint.Module, hint.Span, !hint.Blocked), -1); err != nil {
+			if err := addReference(f, RelationKind(hint.Kind), hint.Name, hint.Module, hint.Span, hint.Owner, directImport(a.index, f, hint.Name, hint.Module, hint.Span, !hint.Blocked), -1, nil); err != nil {
 				return err
 			}
 		}

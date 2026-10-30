@@ -387,3 +387,23 @@ opts := codegraph.Options{
 BuildReport.Materials / Analysis / Selection / Publication 区分材料、分析规模、选择理由与公开对象。
 Duration 是本次执行的实测耗时；比较两次构建的语义一致性时排除耗时，继续比较节点、关系、证据、
 诊断及规模计数。查询仍由 GoGraph / Cypher 执行，既有查询额度保持独立。
+
+## 查询文件读取
+
+```ts
+import { readFileSync as read } from "node:fs";
+function render() {
+  return read(new URL("./template.html", import.meta.url), "utf8");
+}
+```
+
+向 Builder 提供 `src/view.ts` 与 `src/template.html`，可以查询读取位置和资源：
+
+```cypher
+MATCH (use:Reference {referenceKind:'reads'})-[:reads]->(file:Document)
+RETURN use.resourceExpression, use.resourcePath, file.path
+```
+
+在资源未提供的局部图中，可先查询 `Reference` 的 `resourcePath`，由调用方获取材料并
+`AddDocuments` / `Wait`。未知表达式的 `resourcePath` 为空；CodeGraph 不自行读取文件。
+精简图可查询声明到 Document 的 `reads`；支持范围见 [语言能力](language-support.md#文件读取)。

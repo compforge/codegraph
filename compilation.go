@@ -52,7 +52,7 @@ func (c *compilation) Run(ctx context.Context) (map[string]Node, map[string]Rela
 	}
 	for _, p := range report.Documents {
 		f := c.files[p]
-		uses := len(f.Calls) + len(f.References) + len(f.TypeRelations)
+		uses := len(f.Calls) + len(f.References) + len(f.TypeRelations) + len(f.ResourceReads)
 		if uses > c.opts.Analysis.Uses-report.Analysis.Uses {
 			return nil, nil, report, &BuildBudgetError{Stage: "analysis", Resource: "Uses", Used: report.Analysis.Uses, Adding: uses, Limit: c.opts.Analysis.Uses}
 		}
