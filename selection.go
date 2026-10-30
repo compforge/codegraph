@@ -103,13 +103,13 @@ func (s *entitySelector) bridges(ctx context.Context) error {
 			candidates[id] = true
 		}
 	}
-	// A resource Document is a dependency endpoint for a local read initializer.
+	// A resource Document is a dependency endpoint for a local resource initializer.
 	// Other document context remains outside dependency bridge admission.
 	for _, edge := range s.index.Edges {
 		if err := s.step(ctx); err != nil {
 			return err
 		}
-		if edge.Kind == string(Reads) {
+		if edge.Kind == string(References) && edge.Target.IsDocument() {
 			if _, kept := s.selected[edge.Target]; kept {
 				anchors[edge.Target] = true
 			}
@@ -124,7 +124,7 @@ func (s *entitySelector) bridges(ctx context.Context) error {
 			continue
 		}
 		switch RelationKind(r.Kind) {
-		case Calls, References, Aliases, Extends, Implements, Reads:
+		case Calls, References, Aliases, Extends, Implements:
 		case Encloses, Contains:
 			if !anchors[r.Source] || !candidates[r.Target] {
 				continue

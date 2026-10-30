@@ -37,6 +37,9 @@ Binder 与 Resolver 将输入索引视为只读，其关系结果由 Core 登记
 Python/ECMAScript 的 dialect 在单文件提取中登记脱离 AST 的 SymbolTable，后续引用、调用和
 接收者类型线索共享其查找结果；语言实现负责声明位置、父级跳转、参数和块等规则。
 
+显式资源语义先从通用调用参数事实产生本轮路径引用；所有语言关系解析后，Analyzer 将其绑定到
+已接纳的 Document，再将 Index 交给选择/发布阶段。规则不进入提取缓存，也不修改已发布的 Index。
+
 所有阶段贡献进入 `Index.Add`：按 Source/Target/Kind/源码位置登记 occurrence，合并、去重、排序
 Evidence，并派生 confidence。Organizer 的 document 根发布为 in_namespace，根可为源码声明
 或合成实体；路径的组织语义留在语言适配器。Namespace 的成员与源码贡献由同一登记结果投影。

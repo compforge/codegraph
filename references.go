@@ -24,7 +24,7 @@ func (a *graphAssembler) publishReferences(ctx context.Context) error {
 	bindings := map[referenceKey][]analysis.Edge{}
 	for _, e := range a.index.Edges {
 		switch RelationKind(e.Kind) {
-		case Calls, References, Extends, Implements, Decorates, Reads:
+		case Calls, References, Extends, Implements, Decorates:
 			key := referenceKey{e.Source, RelationKind(e.Kind), e.Path, e.Span.Start, e.Span.End}
 			bindings[key] = append(bindings[key], e)
 		}
@@ -36,7 +36,11 @@ func (a *graphAssembler) publishReferences(ctx context.Context) error {
 		}
 		// Source identity depends on this occurrence, never on available targets
 		// or precision, so supplementing documents does not rename existing uses.
-		id := "node:" + identity(f.Path, Reference, kind, span.Start, span.End, name, receiver)
+		role := string(kind)
+		if resource != nil {
+			role = "resource"
+		}
+		id := "node:" + identity(f.Path, Reference, role, span.Start, span.End, name, receiver)
 		if _, exists := nodes[id]; exists {
 			return nil
 		}
@@ -66,14 +70,14 @@ func (a *graphAssembler) publishReferences(ctx context.Context) error {
 		}
 		key := referenceKey{ownerRef, kind, f.Path, span.Start, span.End}
 		for _, binding := range bindings[key] {
+			if resource != nil && !binding.Target.IsDocument() {
+				continue
+			}
 			// Derive both graph views from the same resolver output. This is a
 			// projection of evidence, never an independent name-based resolution.
 			relation := a.relation(binding)
 			relation.ID = ""
 			relation.Source, relation.Kind = id, References
-			if kind == Reads {
-				relation.Kind = Reads
-			}
 			if err := addRelation(relation); err != nil {
 				return err
 			}
@@ -82,9 +86,9 @@ func (a *graphAssembler) publishReferences(ctx context.Context) error {
 	}
 	for _, path := range sortedFiles(files) {
 		f := files[path]
-		for _, r := range f.ResourceReads {
+		for _, r := range f.ResourceReferences {
 			resource := &ResourceReference{Expression: r.Expression, Path: r.Path}
-			if err := addReference(f, Reads, r.Name, r.Receiver, r.Span, r.Owner, analysis.Ref{}, -1, resource); err != nil {
+			if err := addReference(f, References, r.Name, r.Receiver, r.Span, r.Owner, analysis.Ref{}, -1, resource); err != nil {
 				return err
 			}
 		}

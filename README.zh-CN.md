@@ -109,7 +109,7 @@ import 和源码使用节点不发布。
 进行独立参照评测。评分表分别呈现符号、调用／引用目标和 namespace 组织结构，保留缺失与未评估项。
 环境准备、指标口径和证据入口见[真实仓库评测](docs/corpus.md)。
 
-Node.js 静态文件读取保留资源引用，并通过 `reads` 绑定已提供的 Document；支持范围与补料示例见[文件读取查询](docs/usage.md#查询文件读取)。
+通过显式 API 语义规则，路径表达式可沿 `references` 关联文件 Document；Node.js 规则由独立适配包提供。见[资源引用](docs/resource-references.md)。
 
 ## 深入使用
 

@@ -388,22 +388,27 @@ BuildReport.Materials / Analysis / Selection / Publication 区分材料、分析
 Duration 是本次执行的实测耗时；比较两次构建的语义一致性时排除耗时，继续比较节点、关系、证据、
 诊断及规模计数。查询仍由 GoGraph / Cypher 执行，既有查询额度保持独立。
 
-## 查询文件读取
+## 查询文件引用
 
-```ts
-import { readFileSync as read } from "node:fs";
-function render() {
-  return read(new URL("./template.html", import.meta.url), "utf8");
-}
+显式启用独立的 Node.js 路径语义：
+
+```go
+import (
+    cg "github.com/compforge/codegraph"
+    "github.com/compforge/codegraph/semantics/nodejs"
+)
+
+opts := cg.Options{ResourceReferences: nodejs.ResourceReferences()}
 ```
 
-向 Builder 提供 `src/view.ts` 与 `src/template.html`，可以查询读取位置和资源：
+对 `new URL("./template.html", import.meta.url)`，提供 `src/view.ts` 与
+`src/template.html` 后，可查询表达式到文件的关联，无需识别外层消费函数：
 
 ```cypher
-MATCH (use:Reference {referenceKind:'reads'})-[:reads]->(file:Document)
+MATCH (use:Reference)-[:references]->(file:Document)
 RETURN use.resourceExpression, use.resourcePath, file.path
 ```
 
-在资源未提供的局部图中，可先查询 `Reference` 的 `resourcePath`，由调用方获取材料并
-`AddDocuments` / `Wait`。未知表达式的 `resourcePath` 为空；CodeGraph 不自行读取文件。
-精简图可查询声明到 Document 的 `reads`；支持范围见 [语言能力](language-support.md#文件读取)。
+目标未提供时，查询 Reference 的 `resourcePath`，由调用方获取材料并 `AddDocuments` / `Wait`。
+未知路径为空；CodeGraph 不自行读取文件。精简图保留声明到文件的 references。
+规则、支持范围和自定义 API 示例见 [资源引用](resource-references.md)。

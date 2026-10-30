@@ -135,6 +135,11 @@ func (a *Analyzer) Analyze(ctx context.Context, scope analysis.BuildScope) (*ana
 	if err := check(); err != nil {
 		return nil, nil, err
 	}
+	resourceIssues, err := index.BindResourceReferences(ctx, scope.Names)
+	if err != nil {
+		return nil, nil, err
+	}
+	issues = append(issues, resourceIssues...)
 	return index, append(issues, index.Conflicts()...), nil
 }
 

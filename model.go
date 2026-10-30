@@ -87,7 +87,7 @@ type Node struct {
 	ReferenceKind ReferenceKind `json:"referenceKind,omitempty"`
 	// Binding is present on source import/export items, independently of resolution.
 	Binding *ModuleBinding `json:"binding,omitempty"`
-	// Resource is present on reads occurrences, including unresolved reads.
+	// Resource is present on file reference occurrences, including unresolved paths.
 	Resource *ResourceReference `json:"resource,omitempty"`
 	// Receiver is the extractor's lexical receiver spelling on a source-use
 	// node, not a resolved type or qualified target name.
@@ -153,7 +153,6 @@ type ResourceReference struct {
 type ReferenceKind string
 
 const (
-	ReadReference      ReferenceKind = "reads"
 	CallReference      ReferenceKind = "calls"
 	SymbolReference    ReferenceKind = "references"
 	BaseReference      ReferenceKind = "extends"
@@ -187,12 +186,10 @@ const (
 	// document. Top-level declarations are enclosed by the Document itself.
 	Encloses RelationKind = "encloses"
 	// Contains records semantic membership, including cross-file owners.
-	Contains RelationKind = "contains"
-	Declares RelationKind = "declares"
-	Imports  RelationKind = "imports"
-	Calls    RelationKind = "calls"
-	// Reads connects a read occurrence or its lexical owner to a supplied Document.
-	Reads      RelationKind = "reads"
+	Contains   RelationKind = "contains"
+	Declares   RelationKind = "declares"
+	Imports    RelationKind = "imports"
+	Calls      RelationKind = "calls"
 	References RelationKind = "references"
 	Extends    RelationKind = "extends"
 	Implements RelationKind = "implements"
