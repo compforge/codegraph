@@ -50,12 +50,20 @@ type TagRule struct {
 // Callers may append custom rules or supply a replacement through Options.TagRules.
 // Tags describe path conventions; consumers decide whether to exclude material.
 // +spec=Test tags use naming conventions and shared language recognition, not a separate extension list or proof of execution.
+// +spec=Generated tags recognize explicit output naming conventions without reading content or requiring parser support.
+// +link=component://docs/document.md
+// +case=generated_document_tags
 func BuiltinTagRules() []TagRule {
 	return []TagRule{
 		{Name: ManifestTag, Pattern: `(^|/)(go\.mod|go\.work|pyproject\.toml|package\.json)$`},
 		{Name: VersionTag, Pattern: `(^|/)VERSION$`},
 		{Name: LockfileTag, Pattern: `(^|/)(go\.sum|go\.work\.sum|uv\.lock|poetry\.lock|Pipfile\.lock|pdm\.lock|pylock(\.[^/]+)?\.toml|package-lock\.json|npm-shrinkwrap\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?|Cargo\.lock|Gemfile\.lock|composer\.lock)$`},
-		{Name: GeneratedTag, Pattern: `\.(generated\.[^/]+|gen\.go|pb\.go)$`},
+		{Name: GeneratedTag, Pattern: `\.generated\.[^/]+$`},
+		{Name: GeneratedTag, Pattern: `\.(gen\.go|pb(\.gw)?\.go)$`},
+		{Name: GeneratedTag, Pattern: `_pb2(_grpc)?\.pyi?$`},
+		{Name: GeneratedTag, Pattern: `\.(pb\.(cc|h)|pb-c\.(c|h))$`},
+		// Source maps need no grammar; a bare .map or declaration file is ambiguous.
+		{Name: GeneratedTag, Pattern: `\.(js|jsx|mjs|cjs|css|d\.(ts|mts|cts))\.map$`},
 		{Name: GeneratedTag, Pattern: `(^|/)kitex_gen(/|$)`},
 		{Name: TestTag, Pattern: `(^|/)[^/]*_test\.go$`},
 		{Name: TestTag, Pattern: `(^|/)(test_[^/]*|[^/]*_test)\.py$`},
