@@ -5,20 +5,23 @@ import (
 	"fmt"
 	"path"
 	"sort"
+
+	"github.com/compforge/codegraph/pkg"
 )
 
 // Entity describes one graph endpoint. Identity provenance is independent of
 // its concrete kind and of its role as a symbol or namespace.
 type Entity struct {
-	Entrypoint                          bool
-	Binding                             *ModuleBinding
-	Ref                                 Ref
-	Kind, Name, QualifiedName, Language string
-	Location                            *SourceLocation
-	NameLocation                        *SourceLocation
-	SignatureLocation                   *SourceLocation
-	Comments                            []Comment
-	Documentation                       []Documentation
+	Entrypoint                    bool
+	Binding                       *ModuleBinding
+	Ref                           Ref
+	Kind                          pkg.NodeKind
+	Name, QualifiedName, Language string
+	Location                      *SourceLocation
+	NameLocation                  *SourceLocation
+	SignatureLocation             *SourceLocation
+	Comments                      []Comment
+	Documentation                 []Documentation
 }
 type SourceLocation struct {
 	Path string
@@ -63,6 +66,7 @@ type Index struct {
 	EvidenceCount int
 	members       map[Ref]map[string][]Ref
 	contributions map[Ref][]int
+	callSites     map[Ref][]Edge
 }
 
 func NewIndex(files map[string]Facts) *Index {
@@ -88,6 +92,11 @@ func (x *Index) Add(e Edge) {
 	}
 	e = x.Edges[len(x.Edges)-1]
 	switch e.Kind {
+	case "calls":
+		if x.callSites == nil {
+			x.callSites = map[Ref][]Edge{}
+		}
+		x.callSites[e.Source] = append(x.callSites[e.Source], e)
 	case "declares":
 		x.contributions[e.Target] = append(x.contributions[e.Target], len(x.Edges)-1)
 	case "contains":

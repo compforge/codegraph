@@ -244,7 +244,7 @@ func TestDuplicateOutlineCandidatesAreNotGaps(t *testing.T) {
 func withoutReferenceDiagnostics(diagnostics []Diagnostic) []Diagnostic {
 	out := make([]Diagnostic, 0, len(diagnostics))
 	for _, d := range diagnostics {
-		if d.Relation != References {
+		if d.Code != "unresolved_reference" {
 			out = append(out, d)
 		}
 	}

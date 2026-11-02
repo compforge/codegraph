@@ -14,6 +14,9 @@ func resolveReferences(ctx context.Context, files map[string]analysis.Facts, nam
 	for _, name := range names {
 		f := files[name]
 		for _, r := range f.References {
+			if !r.Candidate(f) {
+				continue
+			}
 			if err := ctx.Err(); err != nil {
 				return nil, nil, err
 			}
@@ -31,10 +34,10 @@ func resolveReferences(ctx context.Context, files map[string]analysis.Facts, nam
 						if len(edges) >= limit {
 							return nil, nil, ErrEdgeLimit
 						}
-						edges = append(edges, Edge{Source: analysis.SourceRef(name, r.Owner), Target: target, Kind: "references", Confidence: "scoped", Basis: "composite_field", Path: name, Span: r.Span})
+						edges = append(edges, Edge{Source: analysis.SourceRef(name, r.Owner), Target: target, Kind: "writes", Confidence: "scoped", Basis: "composite_field", Path: name, Span: r.Span})
 					}
 					if len(targets) == 0 {
-						issues = append(issues, Gap{Path: name, Code: "unresolved_reference", Reference: r.Name, Relation: "references", Span: r.Span})
+						issues = append(issues, Gap{Path: name, Code: "unresolved_reference", Reference: r.Name, Relation: string(r.UseKind()), Span: r.Span})
 					}
 					continue
 				}
@@ -45,10 +48,10 @@ func resolveReferences(ctx context.Context, files map[string]analysis.Facts, nam
 					return nil, nil, err
 				}
 				for _, target := range found {
-					edges = append(edges, Edge{Source: analysis.SourceRef(name, r.Owner), Target: target, Kind: "references", Confidence: "scoped", Basis: "receiver_type", Path: name, Span: r.Span})
+					edges = append(edges, Edge{Source: analysis.SourceRef(name, r.Owner), Target: target, Kind: r.UseKind(), Confidence: "scoped", Basis: "receiver_type", Path: name, Span: r.Span})
 				}
 				if len(found) == 0 {
-					issues = append(issues, Gap{Path: name, Code: "unresolved_reference", Reference: r.Name, Relation: "references", Span: r.Span})
+					issues = append(issues, Gap{Path: name, Code: "unresolved_reference", Reference: r.Name, Relation: string(r.UseKind()), Span: r.Span})
 				}
 				continue
 			}
@@ -99,7 +102,7 @@ func resolveReferences(ctx context.Context, files map[string]analysis.Facts, nam
 				if len(edges) >= limit {
 					return nil, nil, ErrEdgeLimit
 				}
-				edges = append(edges, Edge{Source: analysis.SourceRef(name, r.Owner), Target: target, Kind: "references", Confidence: confidence, Basis: basis, Path: name, Span: r.Span})
+				edges = append(edges, Edge{Source: analysis.SourceRef(name, r.Owner), Target: target, Kind: r.UseKind(), Confidence: confidence, Basis: basis, Path: name, Span: r.Span})
 			}
 			// Imported module identifiers are not declaration references themselves.
 			moduleName := false
@@ -115,7 +118,7 @@ func resolveReferences(ctx context.Context, files map[string]analysis.Facts, nam
 				}
 			}
 			if len(targets) == 0 && !r.Bound && !moduleName {
-				issues = append(issues, Gap{Path: name, Code: "unresolved_reference", Reference: r.Name, Relation: "references", Span: r.Span})
+				issues = append(issues, Gap{Path: name, Code: "unresolved_reference", Reference: r.Name, Relation: string(r.UseKind()), Span: r.Span})
 			}
 		}
 	}

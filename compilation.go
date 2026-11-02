@@ -57,7 +57,17 @@ func (c *compilation) Run(ctx context.Context) (map[string]Node, map[string]Rela
 	}
 	for _, p := range report.Documents {
 		f := c.files[p]
-		uses := len(f.Calls) + len(f.References) + len(f.TypeRelations) + len(f.ResourceReferences)
+		raw := len(f.Calls) + len(f.References) + len(f.TypeRelations) + len(f.ResourceReferences)
+		if raw > c.opts.Analysis.RawUses-report.Analysis.RawUses {
+			return nil, nil, report, &BuildBudgetError{Stage: "analysis", Resource: "RawUses", Used: report.Analysis.RawUses, Adding: raw, Limit: c.opts.Analysis.RawUses}
+		}
+		report.Analysis.RawUses += raw
+		uses := len(f.Calls) + len(f.TypeRelations) + len(f.ResourceReferences)
+		for _, ref := range f.References {
+			if ref.Candidate(f) {
+				uses++
+			}
+		}
 		if uses > c.opts.Analysis.Uses-report.Analysis.Uses {
 			return nil, nil, report, &BuildBudgetError{Stage: "analysis", Resource: "Uses", Used: report.Analysis.Uses, Adding: uses, Limit: c.opts.Analysis.Uses}
 		}
@@ -97,7 +107,20 @@ func (c *compilation) Run(ctx context.Context) (map[string]Node, map[string]Rela
 	report.Analysis.Relations = len(index.Edges)
 	report.Analysis.Evidence = index.EvidenceCount
 	for _, i := range issues {
-		report.Diagnostics = append(report.Diagnostics, Diagnostic{Code: i.Code, Message: i.Reference, Subject: RelationsSubject, Relation: RelationKind(i.Relation), Location: location(c.files[i.Path], i.Span)})
+		kind := RelationKind(i.Relation)
+		if !kind.IsPublic() {
+			switch kind {
+			case analysis.CallTargetUse:
+				kind = Calls
+			case analysis.NameUse, analysis.CompositeKeyUse:
+				kind = Reads
+			case analysis.ReadWriteUse:
+				kind = Writes
+			default:
+				kind = ""
+			}
+		}
+		report.Diagnostics = append(report.Diagnostics, Diagnostic{Code: i.Code, Message: i.Reference, Subject: RelationsSubject, Relation: kind, Location: location(c.files[i.Path], i.Span)})
 	}
 	selector := entitySelector{index: index, policy: c.opts.Admission, limit: c.opts.Analysis.SelectionSteps}
 	started = time.Now()

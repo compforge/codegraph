@@ -15,7 +15,7 @@ func assetOptions() Options { return Options{ResourceReferences: assetRules()} }
 func resourceUses(g *Graph) []Node {
 	var uses []Node
 	for _, n := range g.Nodes() {
-		if n.Kind == Reference && n.Resource != nil {
+		if n.Kind == ResourceUse && n.Resource != nil {
 			uses = append(uses, n)
 		}
 	}
@@ -43,14 +43,14 @@ func TestResourceReferenceCustomAPI(t *testing.T) {
 					t.Fatalf("uses=%+v report=%+v", uses, g.Report())
 				}
 				use := uses[0]
-				if use.ReferenceKind != SymbolReference || use.Resource.Path != "src/template.html" || use.Resource.Expression != "'./template.html'" {
+				if use.ReferenceKind != ReferenceKind(UsesResource) || use.Resource.Path != "src/template.html" || use.Resource.Expression != "'./template.html'" {
 					t.Fatal(use)
 				}
 				if !strings.HasPrefix(source[use.Location.StartByte:use.Location.EndByte], tc.call+"(") {
 					t.Fatal(use)
 				}
 				for _, id := range []string{use.ID, g.Find("src/view."+ext, Function, "render")[0].ID} {
-					edges := g.RelationsFrom(id, References)
+					edges := g.RelationsFrom(id, BindsTo, UsesResource)
 					found := slices.ContainsFunc(edges, func(r Relation) bool {
 						return r.Target == DocumentID("src/template.html") && r.Confidence == Exact && len(r.Evidence) == 1 && r.Evidence[0].Basis == "asset_kit_path"
 					})
@@ -58,7 +58,7 @@ func TestResourceReferenceCustomAPI(t *testing.T) {
 						t.Fatal(edges)
 					}
 				}
-				rows := query(t, g, `MATCH (r:Reference)-[:references]->(d:Document) RETURN r.resourcePath AS path, d.path AS target`, nil)
+				rows := query(t, g, `MATCH (r:ResourceUse)-[:binds_to]->(d:Document) RETURN r.resourcePath AS path, d.path AS target`, nil)
 				if len(rows) != 1 || rows[0]["path"] != "src/template.html" || rows[0]["target"] != "src/template.html" {
 					t.Fatal(rows)
 				}
@@ -109,7 +109,7 @@ func TestResourceReferenceUnknownPathsAndBindings(t *testing.T) {
 				if use.Resource.Path != tc.target {
 					t.Fatal(use)
 				}
-				if tc.target == "" && (len(g.RelationsFrom(use.ID, References)) != 0 || !slices.ContainsFunc(report.Diagnostics, func(d Diagnostic) bool { return d.Code == "unresolved_resource" })) {
+				if tc.target == "" && (len(g.RelationsFrom(use.ID, BindsTo)) != 0 || !slices.ContainsFunc(report.Diagnostics, func(d Diagnostic) bool { return d.Code == "unresolved_resource" })) {
 					t.Fatal("lost gap or invented target", report)
 				}
 			}
@@ -133,10 +133,10 @@ func TestResourceReferenceSupplement(t *testing.T) {
 	}
 	before := b.Result()
 	uses := resourceUses(before)
-	if len(uses) != 1 || uses[0].Resource.Path != "template.html" || len(before.RelationsFrom(uses[0].ID, References)) != 0 {
+	if len(uses) != 1 || uses[0].Resource.Path != "template.html" || len(before.RelationsFrom(uses[0].ID, BindsTo)) != 0 {
 		t.Fatal(uses)
 	}
-	if !slices.ContainsFunc(report.Diagnostics, func(d Diagnostic) bool { return d.Code == "resource_not_loaded" && d.Relation == References }) {
+	if !slices.ContainsFunc(report.Diagnostics, func(d Diagnostic) bool { return d.Code == "resource_not_loaded" && d.Relation == UsesResource }) {
 		t.Fatal(report.Diagnostics)
 	}
 	if _, ok := before.Node(DocumentID("template.html")); ok {
@@ -151,7 +151,7 @@ func TestResourceReferenceSupplement(t *testing.T) {
 	}
 	after := b.Result()
 	updated := resourceUses(after)
-	if len(updated) != 1 || updated[0].ID != uses[0].ID || len(after.RelationsFrom(updated[0].ID, References)) != 1 || len(before.RelationsFrom(uses[0].ID, References)) != 0 {
+	if len(updated) != 1 || updated[0].ID != uses[0].ID || len(after.RelationsFrom(updated[0].ID, BindsTo)) != 1 || len(before.RelationsFrom(uses[0].ID, BindsTo)) != 0 {
 		t.Fatal(updated)
 	}
 	if slices.ContainsFunc(report.Diagnostics, func(d Diagnostic) bool { return d.Code == "resource_not_loaded" }) {
@@ -217,7 +217,7 @@ func TestResourceReferenceAdmissionAndBudgets(t *testing.T) {
 		t.Fatal("Reference leaked through admission")
 	}
 	values := g.Find("src/view.ts", Variable, "render.content")
-	if len(values) != 1 || !slices.ContainsFunc(g.RelationsFrom(values[0].ID, References), func(r Relation) bool { return r.Target == DocumentID("src/template.html") }) {
+	if len(values) != 1 || !slices.ContainsFunc(g.RelationsFrom(values[0].ID, UsesResource), func(r Relation) bool { return r.Target == DocumentID("src/template.html") }) {
 		t.Fatal("lost bridge", g.Nodes())
 	}
 	full, report, err := Build(context.Background(), "full", docs, assetOptions())

@@ -104,8 +104,8 @@ func assertPythonParserGraph(t *testing.T, g *codegraph.Graph, source, callee, c
 	if got := source[calls[0].Location.StartByte:calls[0].Location.EndByte]; got != callText {
 		t.Fatalf("call span = %q, want %q", got, callText)
 	}
-	refs := g.RelationsFrom(entry.ID, codegraph.References)
-	if len(refs) != 2 {
+	refs := g.RelationsFrom(entry.ID, codegraph.Reads)
+	if len(refs) != 1 {
 		t.Fatalf("entry references = %+v", refs)
 	}
 	counts := map[string]int{}
@@ -122,7 +122,7 @@ func assertPythonParserGraph(t *testing.T, g *codegraph.Graph, source, callee, c
 			t.Fatalf("reference span = %q, want %q", got, name)
 		}
 	}
-	if counts[sink.ID] != 1 || counts[target.ID] != 1 {
+	if counts[sink.ID] != 0 || counts[target.ID] != 1 {
 		t.Fatalf("reference targets = %v", counts)
 	}
 }

@@ -19,10 +19,10 @@ func (index *Index) BindResourceReferences(ctx context.Context, names []string) 
 				if ref.Path != "" {
 					code, detail = "resource_not_loaded", "resource target is not a supplied file Document: "+ref.Path
 				}
-				issues = append(issues, Gap{Code: code, Reference: detail, Relation: "references", Path: f.Path, Span: ref.Span})
+				issues = append(issues, Gap{Code: code, Reference: detail, Relation: "uses_resource", Path: f.Path, Span: ref.Span})
 				continue
 			}
-			index.Add(Edge{Source: SourceRef(f.Path, ref.Owner), Target: target, Kind: "references", Path: f.Path, Span: ref.Span, Confidence: Exact, Basis: ref.Basis})
+			index.Add(Edge{Source: SourceRef(f.Path, ref.Owner), Target: target, Kind: "uses_resource", Path: f.Path, Span: ref.Span, Confidence: Exact, Basis: ref.Basis})
 			if err := index.Err(); err != nil {
 				return nil, err
 			}

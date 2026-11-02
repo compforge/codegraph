@@ -117,7 +117,7 @@ Builder.Extract、AddDocument 与 AddDocuments 在解析前应用同一材料规
 
 `GlobalVariablesOnly` 使用生产侧词法绑定和声明归属，将局部及类型内部的数据声明排除在初始选择之外，
 包含匿名函数内部和块级变量。上游 signature 明确识别的函数值声明仍可保留其原有 Variable 类别。
-Import、Export、Reference 在预设图中不发布，但完整参与前面的解析与绑定。
+Import、Export、occurrence 在预设图中不发布，但完整参与前面的解析与绑定。
 局部 Variable / Constant 及 Field / Property 默认不作为核心节点，只有符合 bridge 规则时补入。
 
 ### Dependency bridge 规则
@@ -131,7 +131,7 @@ Bridge 表示实体在当前节点选择策略中的连接角色，不是新的 
 
 1. 是未入选的局部 Variable / Constant 或 Field / Property；import binding 和源码使用位置不作为候选。
 2. 在允许的方向上，从一个核心节点可达，并能到达另一个不同的核心节点；搜索遇到核心节点即停止。
-3. 语义步骤使用既有 calls、references、aliases、extends、implements、decorates。encloses / contains
+3. 语义步骤使用calls、reads、writes、uses_type、captures、uses_resource、aliases、extends、implements、decorates。encloses / contains
    只允许从核心声明进入其实现节点，不能单独触发补入，也不反向遍历或借目录连接无关代码。
 
 例如 `function handle() { const local = run(); }` 的已有关系为：
@@ -197,7 +197,7 @@ CPython 只提供职责与生命周期的参照，不能据此扩张为自建语
 
 ### 问题与选择
 
-如果先构造完整公共图、检查预算再执行准入，少量节点的分析图也可能在未准备发布的 Reference
+如果先构造完整公共图、检查预算再执行准入，少量节点的分析图也可能在未准备发布的 occurrence
 上触限。因此选择发生在装配前，内部分析与公共对象分别计量。减少发布节点不等于减少绑定成本。
 
 考虑三种调整：
@@ -249,9 +249,9 @@ Build / session → compilation
   外部 Extractor 提交的 Facts 也经过相同接纳规则；材料排除应在接纳预算扣减前完成。
 - 语义分析保留正确绑定所需的局部声明、别名、作用域和引用位置。节点策略不提前删除这些事实。
 - 节点选择基于绑定后的内部实体与关系，沿用上文 core / bridge 规则，然后生成公共值与查询存储。
-  分析模式不物化未入选的 Reference / Import / Export；完整模式仍可发布这些节点。
+  分析模式不物化未入选的 occurrence / Import / Export；完整模式仍可发布这些节点。
 - 关系保留原始端点、身份、位置、confidence 和 Evidence。缺少目标保留覆盖诊断；需要逐次读取
-  未解析使用时，消费者选择包含 Reference 的策略。不能把未发布解释为没有引用或没有影响。
+  未解析使用时，消费者选择包含具体 occurrence Kind 的策略。不能把未发布解释为没有引用或没有影响。
 
 外部发布行为保持既有契约：AddDocument 可以提前完成解析，并通过私有 session 协调构建；
 Build 显式执行构建，Wait 等待既有任务。内部为每次构建固定材料集合，使同步和异步路径进入同一套
@@ -276,7 +276,7 @@ Build 显式执行构建，Wait 等待既有任务。内部为每次构建固定
 
 BuildReport 的 Nodes / Relations 继续描述实际发布图。Materials 报告提交、接纳、排除及解析失败材料数量；
 Analysis 报告实体、使用、关系及证据规模，Selection 报告 core / bridges / context 和搜索工作量，
-Publication 报告生成的 Reference 数，各工作阶段分别报告耗时。完整模式中的
+Publication 报告生成的 occurrence 数，各工作阶段分别报告耗时。完整模式中的
 源码使用与绑定项单独归类，避免将其误计为 bridges。策略排除、解析或绑定缺口、预算失败分别表达；
 错误包含阶段、资源单位、used、adding、limit，日志不输出源码和凭据。
 
@@ -304,7 +304,7 @@ repocli impact 显式采用分析粒度，材料范围仍由其仓库捕获策�
 | 对象边界 | 选择不修改 Index / SymbolTable；selection 只描述实体及理由；使用节点和路径结构由 assembler 按策略生成；发布图不借用可变分析状态 |
 | 符号表 | 既有语言的嵌套作用域、同名遮蔽、查找父级及无声明目标绑定保持等价；复用 Facts 和补料不改写单文件表或泄漏跨构建绑定 |
 | 结果等价 | 固定语料中，完整模式与重构前的节点、关系、身份、位置、证据和诊断一致；分析模式与原准入策略结果一致 |
-| 使用位置语义 | 同名不同位置的使用不合并；未解析使用保留既有诊断，完整模式保留其 Reference；decorates、aliases 等关系保持既有表达 |
+| 使用位置语义 | 同名不同位置的使用不合并；未解析使用保留既有诊断，完整模式保留其 occurrence；decorates、aliases 等关系保持既有表达 |
 | bridge 选择 | 覆盖多步路径、循环、无另一核心终点、自返路径、字段、局部变量与函数值；保留原始边，不合成直接 calls |
 | 有界构建 | 大量引用而少量发布节点时不消耗发布节点额度；分析、bridge 搜索、发布各自触限都明确失败，上一份 Graph 不变 |
 | 补料与确定性 | 乱序、分批和一次性提交在相同最终材料下结果一致；补料修订绑定，旧 Graph 不变；失败材料仍保留 Document 身份 |
@@ -335,8 +335,10 @@ AnalysisAdmission、500000 节点和 1000000 关系额度，独立进程顺序�
 
 六次运行的节点、关系和诊断序列 SHA-256 均为
 `1230832977712646063602d4a2afd73ce59c228d14342427837e99371c1d706d`。
-将发布节点额度改为 10000 时，旧实现触限，新实现仍发布相同的 9163 个节点且不生成 Reference。
+将发布节点额度改为 10000 时，旧实现触限，新实现仍发布相同的 9163 个节点且不生成 occurrence。
 新实现分析了 25185 个内部实体、114981 条使用记录及 111442 条关系。
 
 累计分配覆盖 Build；峰值 RSS 通过 macOS time -l 记录，包含输入加载及结果摘要计算。
 这些数值只描述该固定语料和本机测量，不是跨机器性能承诺；图语义仍由独立参照与回归验证。
+
+Kind 的公开与中间边界、RawUses / Uses 口径见 [Kind 与 lowering](semantic-kinds.md)。

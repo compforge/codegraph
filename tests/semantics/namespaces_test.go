@@ -90,7 +90,7 @@ func TestNamespacePythonNestingAndReload(t *testing.T) {
 	if len(rows) != 1 || rows[0]["m"].(codegraph.Node).ID != before.ID {
 		t.Fatal(rows)
 	}
-	if len(query(t, g.Result(), `MATCH (:Function {name:'run'})-[:references]->(m:Module {id:$id}) RETURN m`, map[string]any{"id": before.ID})) != 1 {
+	if len(query(t, g.Result(), `MATCH (:Function {name:'run'})-[:reads]->(m:Module {id:$id}) RETURN m`, map[string]any{"id": before.ID})) != 1 {
 		t.Fatal("module references must target modules")
 	}
 	if len(query(t, g.Result(), `MATCH (:Package {name:'app'})-[:contains]->(:Class {name:'User'}) RETURN 1`, nil)) != 0 {

@@ -9,29 +9,28 @@ import (
 	"strings"
 
 	"github.com/compforge/codegraph/internal/language"
+	"github.com/compforge/codegraph/pkg"
 )
 
-// Tag is an open classification vocabulary. Applications may define additional
-// values without registration; tags do not select parsers or exclusion policy.
-type Tag string
+type Tag = pkg.Tag
 
 const (
-	UnknownTag       Tag = "unknown"
-	SourceTag        Tag = "source"
-	DocumentationTag Tag = "documentation"
-	VersionTag       Tag = "version"
-	ResourceTag      Tag = "resource"
-	ToolingTag       Tag = "tooling"
-	ConfigTag        Tag = "config"
-	ManifestTag      Tag = "manifest"
-	LockfileTag      Tag = "lockfile"
-	GeneratedTag     Tag = "generated"
-	TestTag          Tag = "test"
-	TestFixtureTag   Tag = "test_fixture"
-	DependencyTag    Tag = "dependency"
-	BuildOutputTag   Tag = "build_output"
-	CacheTag         Tag = "cache"
-	MinifiedTag      Tag = "minified"
+	UnknownTag       = pkg.UnknownTag
+	SourceTag        = pkg.SourceTag
+	DocumentationTag = pkg.DocumentationTag
+	VersionTag       = pkg.VersionTag
+	ResourceTag      = pkg.ResourceTag
+	ToolingTag       = pkg.ToolingTag
+	ConfigTag        = pkg.ConfigTag
+	ManifestTag      = pkg.ManifestTag
+	LockfileTag      = pkg.LockfileTag
+	GeneratedTag     = pkg.GeneratedTag
+	TestTag          = pkg.TestTag
+	TestFixtureTag   = pkg.TestFixtureTag
+	DependencyTag    = pkg.DependencyTag
+	BuildOutputTag   = pkg.BuildOutputTag
+	CacheTag         = pkg.CacheTag
+	MinifiedTag      = pkg.MinifiedTag
 )
 
 // TagRule assigns Name to each Document or Directory whose snapshot-relative

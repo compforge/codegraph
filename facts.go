@@ -242,7 +242,7 @@ func projectFacts(f analysis.Facts) (Facts, error) {
 	}
 	for _, r := range f.References {
 		kind, decorated := SymbolReference, -1
-		if r.Kind != "" {
+		if r.Kind.IsPublic() {
 			kind = ReferenceKind(r.Kind)
 		}
 		if kind == DecoratorReference {

@@ -73,7 +73,7 @@ func TestUpstreamPythonDeclarationBindings(t *testing.T) {
 		if node.NameLocation == nil || source[node.NameLocation.StartByte:node.NameLocation.EndByte] != node.Name {
 			t.Fatal(node)
 		}
-		if name != "Settings.enabled" && len(g.RelationsTo(node.ID, codegraph.References)) != 2 {
+		if name != "Settings.enabled" && len(g.RelationsTo(node.ID, codegraph.Reads, codegraph.BindsTo)) != 2 {
 			t.Fatal("binding lost", node)
 		}
 	}
@@ -101,7 +101,7 @@ func Entry(box Box) { _ = box.Base.Name }
 	if source[field.Location.StartByte:field.Location.EndByte] != "*actual.Base" || field.Signature != "*actual.Base" {
 		t.Fatal(field)
 	}
-	rows := query(t, g, `MATCH (:Function {name:'Entry'})-[r:references]->(:Field {name:'Name'}) RETURN r`, nil)
+	rows := query(t, g, `MATCH (:Function {name:'Entry'})-[r:reads]->(:Field {name:'Name'}) RETURN r`, nil)
 	if len(rows) != 1 {
 		t.Fatal("embedded field type evidence lost", rows, g.Report())
 	}
@@ -181,7 +181,7 @@ func TestUpstreamUnboundParameterShadowing(t *testing.T) {
 			t.Fatal(err)
 		}
 		target := g.Find(path, codegraph.Function, "target")[0]
-		if edges := g.RelationsTo(target.ID, codegraph.References); len(edges) != 0 {
+		if edges := g.RelationsTo(target.ID, codegraph.Reads); len(edges) != 0 {
 			t.Fatal(path, "unbound parameter leaked", edges)
 		}
 	}

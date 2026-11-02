@@ -3,6 +3,8 @@ package analysis
 import (
 	"fmt"
 	"strings"
+
+	"github.com/compforge/codegraph/pkg"
 )
 
 // ModuleBinding contains source spelling only; resolution lives in edges.
@@ -19,7 +21,8 @@ type ExportItem struct {
 
 type ModuleItem struct {
 	Ref            Ref
-	Kind, Name     string
+	Kind           pkg.NodeKind
+	Name           string
 	Span, NameSpan Span
 	Binding        ModuleBinding
 	// Import and BindingIndex address producer records; -1 means a local export.

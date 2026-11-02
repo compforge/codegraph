@@ -155,7 +155,7 @@ func TestModuleDeclarationsAndMarkers(t *testing.T) {
 			}
 			got := map[string]NodeKind{}
 			for _, n := range g.Nodes() {
-				if n.Kind != DocumentNodeKind && n.Kind != Reference && n.Kind != Import && n.Kind != Export && n.Location != nil {
+				if n.Kind != DocumentNodeKind && !n.Kind.IsOccurrence() && n.Kind != Import && n.Kind != Export && n.Location != nil {
 					got[n.QualifiedName] = n.Kind
 				}
 				if n.QualifiedName == tc.marked && (len(n.Markers) != 1 || n.Markers[0].Kind != Rule) {
@@ -228,11 +228,11 @@ func TestLanguageDiscoveryAndCapabilities(t *testing.T) {
 			}
 			continue
 		}
-		relations := []RelationKind{OccursIn, Aliases, Declares, Contains, Encloses, Imports, Calls, References, Extends}
+		relations := []RelationKind{OccursIn, BindsTo, Aliases, Declares, Contains, Encloses, Imports, Calls, Reads, Writes, UsesType, Captures, Extends}
 		if cap.Language == "python" {
-			relations = append([]RelationKind{OccursIn, Aliases, Decorates}, relations[2:]...)
+			relations = append([]RelationKind{OccursIn, BindsTo, Aliases, Decorates}, relations[3:]...)
 		} else if cap.Language != "go" {
-			relations = append([]RelationKind{OccursIn, Aliases, Exports, Decorates}, relations[2:]...)
+			relations = append([]RelationKind{OccursIn, BindsTo, Aliases, Exports, Decorates}, relations[3:]...)
 		}
 		if cap.Language == "go" || cap.Language == "typescript" || cap.Language == "tsx" {
 			relations = append(relations, Implements)

@@ -2,6 +2,7 @@ package codegraph
 
 import (
 	"context"
+	"fmt"
 	"path"
 
 	"github.com/compforge/codegraph/internal/analysis"
@@ -38,6 +39,9 @@ func newGraphAssembler(index *analysis.Index, selected selection, opts Options, 
 	return a
 }
 func (a *graphAssembler) addNode(n Node) error {
+	if !n.Kind.IsPublic() {
+		return fmt.Errorf("cannot publish internal node kind %q", n.Kind)
+	}
 	if _, exists := a.nodes[n.ID]; !exists && len(a.nodes) >= a.opts.MaxNodes {
 		return &BuildBudgetError{Stage: a.stage, Resource: "MaxNodes", Used: len(a.nodes), Adding: 1, Limit: a.opts.MaxNodes}
 	}
@@ -45,6 +49,9 @@ func (a *graphAssembler) addNode(n Node) error {
 	return nil
 }
 func (a *graphAssembler) addRelation(r Relation) error {
+	if !r.Kind.IsPublic() {
+		return fmt.Errorf("cannot publish internal relation kind %q", r.Kind)
+	}
 	if _, ok := a.nodes[r.Source]; !ok {
 		return nil
 	}
@@ -133,7 +140,7 @@ func (a *graphAssembler) Assemble(ctx context.Context, selected selection, failu
 			return err
 		}
 		// Decorator occurrences own the public decorates relation, as in the full graph.
-		if e.Kind == string(Decorates) {
+		if e.Kind == Decorates {
 			continue
 		}
 		if _, ok := selected[e.Source]; !ok {
@@ -149,8 +156,5 @@ func (a *graphAssembler) Assemble(ctx context.Context, selected selection, failu
 	if err := a.publishDocumentStructure(ctx, failures); err != nil {
 		return err
 	}
-	if permits(a.opts.Admission, Reference) {
-		return a.publishReferences(ctx)
-	}
-	return nil
+	return a.publishReferences(ctx)
 }

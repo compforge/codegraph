@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/compforge/codegraph/internal/analysis"
+	"github.com/compforge/codegraph/pkg"
 )
 
 func resolveTypeRelations(ctx context.Context, files map[string]analysis.Facts, names []string, module string, namespaces *NamespaceIndex, limit int) ([]Edge, []Issue, error) {
@@ -70,7 +71,7 @@ func resolveTypeRelations(ctx context.Context, files map[string]analysis.Facts, 
 				issues = append(issues, Issue{Path: p, Code: "unresolved_type_relation", Reference: hint.Name, Relation: hint.Kind, Span: hint.Span})
 			}
 			for _, target := range eligible {
-				if err := add(Edge{Source: analysis.SourceRef(p, hint.Owner), Target: target.Ref, Kind: hint.Kind, Confidence: target.Confidence, Basis: hint.Basis, Path: p, Span: hint.Span}); err != nil {
+				if err := add(Edge{Source: analysis.SourceRef(p, hint.Owner), Target: target.Ref, Kind: pkg.RelationKind(hint.Kind), Confidence: target.Confidence, Basis: hint.Basis, Path: p, Span: hint.Span}); err != nil {
 					return nil, nil, err
 				}
 			}

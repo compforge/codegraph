@@ -54,7 +54,7 @@ func use() int { return first + second }`, codegraph.Constant, 1},
 					t.Fatalf("%s: declarations=%v", name, nodes)
 				}
 				// Check both the declaration-level edges and source-use edges consumed by graph clients.
-				rows := query(t, g, `MATCH (source)-[r:references]->(target) WHERE target.id = $id RETURN source,r`, map[string]any{"id": nodes[0].ID})
+				rows := query(t, g, `MATCH (source)-[r:reads|binds_to]->(target) WHERE target.id = $id RETURN source,r`, map[string]any{"id": nodes[0].ID})
 				counts := map[codegraph.NodeKind]int{}
 				for _, row := range rows {
 					source, edge := row["source"].(codegraph.Node), row["r"].(codegraph.Relation)
@@ -63,7 +63,7 @@ func use() int { return first + second }`, codegraph.Constant, 1},
 						t.Fatalf("wrong reference: %+v", row)
 					}
 				}
-				if counts[codegraph.Function] != tc.uses || counts[codegraph.Reference] != tc.uses || len(counts) != 2 {
+				if counts[codegraph.Function] != tc.uses || counts[codegraph.ReadSite] != tc.uses || len(counts) != 2 {
 					t.Fatalf("%s: incoming references=%v, want %d in each view", name, counts, tc.uses)
 				}
 			}
@@ -91,10 +91,10 @@ func parameter(first string) { _ = first }
 		t.Fatal(err)
 	}
 	for _, node := range g.Nodes() {
-		if node.Kind != codegraph.Reference || (node.Name != "first" && node.Name != "second") {
+		if !node.Kind.IsOccurrence() || (node.Name != "first" && node.Name != "second") {
 			continue
 		}
-		edges := g.RelationsFrom(node.ID, codegraph.References)
+		edges := g.RelationsFrom(node.ID, codegraph.BindsTo)
 		if node.Location.StartByte > strings.Index(source, "func parameter") {
 			if len(edges) != 0 {
 				t.Fatalf("parameter leaked to outer declaration: %+v", edges)

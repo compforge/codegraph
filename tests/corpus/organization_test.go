@@ -2,8 +2,9 @@ package corpus_test
 
 import (
 	"encoding/json"
-	cg "github.com/compforge/codegraph"
 	"sort"
+
+	cg "github.com/compforge/codegraph"
 )
 
 func semanticKey(r semanticRelation) string { b, _ := json.Marshal(r); return string(b) }
@@ -138,7 +139,7 @@ func compareSemanticRelations(e *evaluation, o *oracle, a observed, nodeKeys map
 	organizationNodes := map[string]bool{}
 	sourceItems := map[string]bool{}
 	for _, n := range a.Nodes {
-		if n.Kind == cg.Reference || n.Kind == cg.Import || n.Kind == cg.Export {
+		if n.Kind.IsOccurrence() || n.Kind == cg.Import || n.Kind == cg.Export {
 			sourceItems[n.ID] = true
 		}
 		if n.Location == nil && n.Kind != cg.DirectoryNodeKind {

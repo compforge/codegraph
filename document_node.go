@@ -2,21 +2,10 @@ package codegraph
 
 import (
 	"github.com/compforge/codegraph/internal/analysis"
+	"github.com/compforge/codegraph/pkg"
 )
 
-// ManifestMetadata preserves explicit project declarations. Name is a Go module
-// path or a packaging project name; Python/JS names are not import namespaces.
-// Absent metadata does not imply that a project lacks a dynamically supplied value.
-type ManifestMetadata struct {
-	Format          string    `json:"format"`
-	Name            string    `json:"name,omitempty"`
-	Version         string    `json:"version,omitempty"`
-	Project         bool      `json:"project"`
-	BuildSystem     bool      `json:"buildSystem"`
-	Workspace       bool      `json:"workspace"`
-	NameLocation    *Location `json:"nameLocation,omitempty"`
-	VersionLocation *Location `json:"versionLocation,omitempty"`
-}
+type ManifestMetadata = pkg.ManifestMetadata
 
 // DocumentNode is a typed view of the same Node stored in Graph. Declaration
 // membership and outlines come from relations, never a second object hierarchy.

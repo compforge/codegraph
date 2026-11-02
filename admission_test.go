@@ -2,11 +2,12 @@ package codegraph
 
 import (
 	"context"
-	"github.com/compforge/codegraph/internal/analysis"
 	"reflect"
 	"slices"
 	"sync"
 	"testing"
+
+	"github.com/compforge/codegraph/internal/analysis"
 )
 
 // +case:id=admission_binding,desc=`Imports and local bindings resolve before graph projection`,expect=`Retained callers still reach retained targets`
@@ -38,7 +39,7 @@ func TestAnalysisAdmissionBindings(t *testing.T) {
 			for _, n := range g.Nodes() {
 				selected[n.ID] = true
 				switch n.Kind {
-				case Reference, Import, Export:
+				case CallSite, ReadSite, WriteSite, TypeUse, CaptureSite, ResourceUse, DecoratorUse, Import, Export:
 					t.Fatalf("unwanted node: %+v", n)
 				}
 				if n.Name == tc.caller {
@@ -305,7 +306,7 @@ func TestAdmissionFieldDependency(t *testing.T) {
 		t.Fatal(g.Nodes())
 	}
 	found := false
-	for _, r := range g.RelationsFrom(caller[0].ID, References) {
+	for _, r := range g.RelationsFrom(caller[0].ID, Reads, UsesType) {
 		if r.Target == owner[0].ID {
 			found = true
 		}
@@ -326,7 +327,7 @@ func TestAdmissionDependencyBridges(t *testing.T) {
 	}
 	nodes["field"] = Node{ID: "field", Kind: Field}
 	nodes["doc"] = Node{ID: "doc", Kind: DocumentNodeKind}
-	nodes["ref"] = Node{ID: "ref", Kind: Reference}
+	nodes["ref"] = Node{ID: "ref", Kind: ReadSite}
 	selected := map[string]Node{"a": nodes["a"], "b": nodes["b"], "c": nodes["c"], "doc": nodes["doc"]}
 	local := map[string]bool{"local": true, "next": true, "unused": true, "self": true, "tail": true}
 	relations := map[string]Relation{}
@@ -335,18 +336,18 @@ func TestAdmissionDependencyBridges(t *testing.T) {
 		relations[id] = Relation{ID: id, Source: source, Target: target, Kind: kind, Confidence: Heuristic, Evidence: []Evidence{{Basis: "original", Confidence: Heuristic}}}
 	}
 	add("a", "local", Encloses)
-	add("local", "next", References)
-	add("next", "local", References) // Cycles terminate.
+	add("local", "next", Reads)
+	add("next", "local", Reads) // Cycles terminate.
 	add("next", "b", Calls)
 	add("a", "unused", Encloses)
-	add("unused", "tail", References) // No core destination.
-	add("doc", "tail", Declares)      // Context cannot seed a bridge.
+	add("unused", "tail", Reads) // No core destination.
+	add("doc", "tail", Declares) // Context cannot seed a bridge.
 	add("a", "self", Encloses)
-	add("self", "a", References) // Same core at both ends is insufficient.
-	add("a", "field", References)
-	add("field", "c", References)
-	add("a", "ref", References)
-	add("ref", "b", References) // Use-site occurrences are not candidates.
+	add("self", "a", Reads) // Same core at both ends is insufficient.
+	add("a", "field", Reads)
+	add("field", "c", Reads)
+	add("a", "ref", Reads)
+	add("ref", "b", Reads) // Use-site occurrences are not candidates.
 	original := make(map[string]Relation)
 	for id, r := range relations {
 		original[id] = r
@@ -374,7 +375,7 @@ func admissionReaches(g *Graph, source, target string) bool {
 	for i := 0; i < len(queue); i++ {
 		for _, r := range g.RelationsFrom(queue[i]) {
 			switch r.Kind {
-			case Encloses, Contains, Calls, References:
+			case Encloses, Contains, Calls, Reads:
 			default:
 				continue
 			}
@@ -454,14 +455,14 @@ func selectDependencyBridges(ctx context.Context, nodes map[string]Node, relatio
 	selector := entitySelector{index: index, selected: selection{}, local: map[analysis.Ref]bool{}, limit: 100000}
 	for id, n := range nodes {
 		ref := analysis.SyntheticRef(id)
-		index.RegisterEntities(analysis.Organization{Entities: []analysis.Entity{{Ref: ref, Kind: string(n.Kind)}}})
+		index.RegisterEntities(analysis.Organization{Entities: []analysis.Entity{{Ref: ref, Kind: n.Kind}}})
 		if _, ok := selected[id]; ok {
 			selector.selected[ref] = coreSelection
 		}
 		selector.local[ref] = local[id]
 	}
 	for _, e := range relations {
-		index.Add(analysis.Edge{Source: analysis.SyntheticRef(e.Source), Target: analysis.SyntheticRef(e.Target), Kind: string(e.Kind)})
+		index.Add(analysis.Edge{Source: analysis.SyntheticRef(e.Source), Target: analysis.SyntheticRef(e.Target), Kind: e.Kind})
 	}
 	if err := selector.bridges(ctx); err != nil {
 		return err
