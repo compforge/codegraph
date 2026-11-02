@@ -42,6 +42,22 @@ CodeGraph 负责执行分类规则并在节点上保存标签；如何分类、�
 `TagRule{Name, Pattern, Languages}` 按规范化路径应用 Go 正则；规则可以匹配 Document 和 Directory。
 可选 `Languages` 以现有 `Language(path)` 的 grammar 名称限制匹配，空列表不限制；它只识别路径，不加载 parser。
 内置 `BuiltinTagRules()` 是可替换的默认策略，覆盖清单、常见生成文件、测试素材、依赖、构建输出、缓存、压缩资源、仓库配置及开发工具材料。
+`GeneratedTag`（`generated`）使用明确的生成产物命名约定：
+
+| 范围 | 内置路径规则 |
+| --- | --- |
+| 通用 | `*.generated.*`、`kitex_gen/` 目录及其后代 |
+| Go | `*.gen.go`、`*.pb.go`（包含 `*_grpc.pb.go`）、`*.pb.gw.go` |
+| Python | `*_pb2.py`、`*_pb2.pyi`、`*_pb2_grpc.py`、`*_pb2_grpc.pyi` |
+| C / C++ | `*.pb-c.c`、`*.pb-c.h`、`*.pb.cc`、`*.pb.h`（包含 `*.grpc.pb.cc/h`） |
+| JavaScript / TypeScript / CSS | `*.js.map`、`*.jsx.map`、`*.mjs.map`、`*.cjs.map`、`*.css.map`、`*.d.ts.map`、`*.d.mts.map`、`*.d.cts.map` |
+
+规则只检查路径，不依赖 grammar 或读取文件头；它表达命名约定，不证明文件由某次构建产生。
+普通 `.js`、`.d.ts`、`.pyi` 和含义不明的 `.map` 不因此自动带 generated 标签；其他语言或生成器可追加 TagRule。
+例如 `devloop/dist/hooks/runtime.js.map` 带 `build_output` 和 `generated`；生成源码可以同时带 `source`。
+标签本身不排除材料；显式使用 `AnalysisAdmission()` 时，其已有 generated 排除策略会覆盖这些新增匹配。
+文件头中的生成声明不在路径规则的识别范围内。
+
 其中 `ToolingTag`（`tooling`）匹配 `.git`、`.idea`、`.vscode`、`.codebase`、`.devloop`、`.codex`、
 `.claude`、`.agents`、`.cursor` 路径段，包含嵌套目录及其后代材料。
 `AGENTS.md`、`CLAUDE.md`、`GEMINI.md` 在任意目录下带 tooling 标签，并保留 Markdown 的 documentation 标签。
