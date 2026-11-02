@@ -1,6 +1,6 @@
 # 资源引用
 
-CodeGraph 使用已有的 `references` 表达源码与文件 Document 的关联，不增加读取或写入关系。
+CodeGraph 使用 `uses_resource` 表达源码与文件 Document 的关联，不增加读取或写入关系。
 路径表达式说明“引用哪个文件”；它被怎样使用、是否执行、文件是否存在于运行环境，都不是这条边的结论。
 
 ## 职责与启用
@@ -46,17 +46,17 @@ opts := codegraph.Options{
 
 ## 图与生命周期
 
-完整图发布 `Reference(referenceKind=references)` 和 `Resource` 元数据：
+完整图发布 `ResourceUse(referenceKind=uses_resource)` 和 `Resource` 元数据：
 
 - `Expression`：路径参数原文；spread 使参数位置未知时保留整个调用原文。
 - `Path`：已解析的快照相对路径；无法确定时为空。
 
-目标已提供时，引用位置和所属声明/Document 均通过 `references` 连接目标 Document，
+目标已提供时，引用位置通过 `binds_to`、所属声明/Document 通过 `uses_resource` 连接目标 Document，
 共享语义规则的 `Basis` 和源码位置。发生位置独立于目标绑定，补料不会改变其身份。
 目标尚未提供产生 `resource_not_loaded`；路径未知产生 `unresolved_resource`。
 不存在的目标不会被虚构；后续 `AddDocuments` / `Wait` 绑定同一个引用，旧图保持不变。
 
-`AnalysisAdmission` 不发布 Reference，但保留声明到文件的关系及必要的局部变量桥接。
+`AnalysisAdmission` 不发布 ResourceUse，但保留声明到文件的关系及必要的局部变量桥接。
 是否沿引用传播影响、如何选择测试，由 repocli 等消费者决定。
 
 ## 提取与构建隔离
@@ -64,7 +64,7 @@ opts := codegraph.Options{
 `Facts.Invocations` 是生产侧的通用调用参数/绑定视图，与库规则无关；它不表示资源访问。
 派生资源引用只存在于单次构建，不写回 Facts 或 ExtractionCache。
 同一份提取结果可以用于不同语义配置，规则在 Builder 创建时复制，不能通过修改原切片改变图。
-以前的 `Facts.ResourceReads`、`Reads` / `ReadReference` 已移除；消费者通过图查询资源引用，
+`Reads` 表达值读取，不能用来推断文件 I/O；消费者通过图查询资源引用，
 生产侧通过 Invocations 查看通用参数事实。
 
 验证覆盖自定义 API 与非固定参数位置、Node.js 显式启用、别名/遮蔽、未解析目标和补料、

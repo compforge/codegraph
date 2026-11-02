@@ -1,5 +1,7 @@
 package analysis
 
+import "github.com/compforge/codegraph/pkg"
+
 type Span struct{ Start, End int }
 type Declaration struct {
 	Name, QualifiedName, Kind string
@@ -80,8 +82,9 @@ type Call struct {
 
 // Reference is a lexical identifier use, independently of whether a target exists.
 type Reference struct {
-	// Kind is empty for ordinary references; Decorated identifies a modifier target.
-	Kind           string
+	// Kind is a public operation or an intermediate use kind awaiting lowering.
+	// Empty remains accepted for cached ordinary name uses; Decorated identifies a modifier target.
+	Kind           pkg.RelationKind
 	Decorated      int
 	Name, Receiver string
 	// Extension carries language-owned evidence for this use.

@@ -55,7 +55,7 @@ func TestGoMemberTypePropagation(t *testing.T) {
 			}
 			start := strings.LastIndex(source, tc.expr) + strings.LastIndex(tc.expr, ".") + 1
 			count := 0
-			for _, row := range query(t, g, `MATCH (source)-[r:references]->(target) WHERE source.kind <> 'Reference' RETURN r,target`, nil) {
+			for _, row := range query(t, g, `MATCH (source)-[r:reads]->(target) WHERE source.kind <> 'Reference' RETURN r,target`, nil) {
 				e, n := row["r"].(codegraph.Relation), row["target"].(codegraph.Node)
 				if e.Location.StartByte != start {
 					continue
@@ -107,7 +107,7 @@ func TestGoMemberPropagationDeclarationContext(t *testing.T) {
 	check := func(want int) {
 		t.Helper()
 		count := 0
-		for _, row := range query(t, g.Result(), `MATCH (:Function {name:'Entry'})-[r:references]->(target:Field {name:'Name'}) RETURN r,target`, nil) {
+		for _, row := range query(t, g.Result(), `MATCH (:Function {name:'Entry'})-[r:reads]->(target:Field {name:'Name'}) RETURN r,target`, nil) {
 			count++
 			if row["target"].(codegraph.Node).Location.Path != "end/type.go" {
 				t.Fatalf("used the caller's import namespace: %+v", row)
@@ -156,7 +156,7 @@ func TestGoGenericMethodExpressionAcrossFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows := query(t, g, `MATCH (:Function {name:'Entry'})-[r:references]->(target:Method {name:'Work'}) RETURN r,target`, nil)
+	rows := query(t, g, `MATCH (:Function {name:'Entry'})-[r:reads]->(target:Method {name:'Work'}) RETURN r,target`, nil)
 	if len(rows) != 2 {
 		t.Fatal(rows, g.Report())
 	}

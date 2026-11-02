@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/compforge/codegraph/internal/analysis"
+	"github.com/compforge/codegraph/pkg"
 )
 
 func (Adapter) Organize(ctx context.Context, scope analysis.BuildScope) (analysis.Organization, error) {
@@ -32,7 +33,7 @@ func (Adapter) Organize(ctx context.Context, scope analysis.BuildScope) (analysi
 		key := string(data)
 		unit := units[key]
 		if unit.Kind == "" {
-			unit = analysis.Entity{Ref: analysis.SyntheticRef(key), Kind: kind, Name: name, QualifiedName: qualified, Language: f.Language}
+			unit = analysis.Entity{Ref: analysis.SyntheticRef(key), Kind: pkg.NodeKind(kind), Name: name, QualifiedName: qualified, Language: f.Language}
 		}
 		units[key] = unit
 		roots[p] = key

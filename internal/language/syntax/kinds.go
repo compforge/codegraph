@@ -1,11 +1,11 @@
 package syntax
 
 import (
-	"github.com/compforge/codegraph/internal/analysis"
 	"regexp"
 	"sort"
 	"strings"
 
+	"github.com/compforge/codegraph/internal/analysis"
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
@@ -30,20 +30,20 @@ func DeclarationKinds(entry grammars.LangEntry) []string {
 			}
 		}
 		if concrete := analysis.ConcreteKind(kind); concrete != "" {
-			seen[concrete] = true
+			seen[string(concrete)] = true
 		}
 	}
 
 	for _, match := range definitionCapture.FindAllStringSubmatch(entry.TagsQuery, -1) {
 		if kind := analysis.ConcreteKind(match[1]); kind != "" {
-			seen[kind] = true
+			seen[string(kind)] = true
 		}
 	}
 	// The outliner refines these generic captures using the declaration shape.
 	query := entry.TagsQuery
 	for node, kind := range map[string]string{"enum_declaration": "Enum", "enum_item": "Enum", "record_declaration": "Record", "struct_item": "Struct", "struct_specifier": "Struct"} {
 		if strings.Contains(query, "("+node) {
-			seen[kind] = true
+			seen[string(kind)] = true
 		}
 	}
 	kinds := make([]string, 0, len(seen))

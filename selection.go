@@ -75,7 +75,7 @@ func (s *entitySelector) Select(ctx context.Context) (selection, error) {
 		}
 		reason := coreSelection
 		switch NodeKind(e.Kind) {
-		case DocumentNodeKind, Module, Package, Namespace, Import, Export, Reference:
+		case DocumentNodeKind, Module, Package, Namespace, Import, Export, CallSite, ReadSite, WriteSite, TypeUse, CaptureSite, ResourceUse, DecoratorUse:
 			reason = contextSelection
 		}
 		s.selected[ref] = reason
@@ -95,7 +95,7 @@ func (s *entitySelector) bridges(ctx context.Context) error {
 	for id, n := range s.index.Entities {
 		if _, ok := s.selected[id]; ok {
 			switch NodeKind(n.Kind) {
-			case DocumentNodeKind, DirectoryNodeKind, Module, Package, Namespace, Import, Export, Reference:
+			case DocumentNodeKind, DirectoryNodeKind, Module, Package, Namespace, Import, Export, CallSite, ReadSite, WriteSite, TypeUse, CaptureSite, ResourceUse, DecoratorUse:
 			default:
 				anchors[id] = true
 			}
@@ -109,10 +109,18 @@ func (s *entitySelector) bridges(ctx context.Context) error {
 		if err := s.step(ctx); err != nil {
 			return err
 		}
-		if edge.Kind == string(References) && edge.Target.IsDocument() {
+		if edge.Kind == UsesResource && edge.Target.IsDocument() {
 			if _, kept := s.selected[edge.Target]; kept {
 				anchors[edge.Target] = true
 			}
+		}
+	}
+	for _, edge := range s.index.Edges {
+		if err := s.step(ctx); err != nil {
+			return err
+		}
+		if edge.Kind == Captures && anchors[edge.Source] && candidates[edge.Target] {
+			s.selected[edge.Target] = bridgeSelection
 		}
 	}
 	forward, backward := map[analysis.Ref][]analysis.Ref{}, map[analysis.Ref][]analysis.Ref{}
@@ -124,7 +132,7 @@ func (s *entitySelector) bridges(ctx context.Context) error {
 			continue
 		}
 		switch RelationKind(r.Kind) {
-		case Calls, References, Aliases, Extends, Implements:
+		case Calls, Reads, Writes, UsesType, Captures, UsesResource, Aliases, Extends, Implements:
 		case Encloses, Contains:
 			if !anchors[r.Source] || !candidates[r.Target] {
 				continue

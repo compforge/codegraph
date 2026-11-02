@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/compforge/codegraph/internal/confidence"
+	"github.com/compforge/codegraph/pkg"
 )
 
 type Confidence = confidence.Level
@@ -64,7 +65,8 @@ type Evidence struct {
 type Edge struct {
 	Evidence       []Evidence
 	Source, Target Ref
-	Kind, Basis    string
+	Kind           pkg.RelationKind
+	Basis          string
 	Confidence     Confidence
 	Path           string
 	Span           Span

@@ -1,13 +1,17 @@
 package analysis
 
-import "strings"
+import (
+	"strings"
 
-func ConcreteKind(kind string) string {
+	"github.com/compforge/codegraph/pkg"
+)
+
+func ConcreteKind(kind string) pkg.NodeKind {
 	switch kind {
 	case "function", "method", "struct", "interface", "field", "type", "class",
 		"constructor", "constant", "variable", "module", "enum", "record",
 		"namespace", "property", "trait", "macro", "union":
-		return strings.ToUpper(kind[:1]) + kind[1:]
+		return pkg.NodeKind(strings.ToUpper(kind[:1]) + kind[1:])
 	case "type_alias":
 		return "TypeAlias"
 	}

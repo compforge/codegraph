@@ -25,7 +25,7 @@ func TestModuleSymbolBindings(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, kind := range []string{"calls", "references"} {
+			for _, kind := range []string{"calls"} {
 				rows := query(t, g, `MATCH (:Function {name:'entry'})-[r:`+kind+`]->(:Function {name:'work'}) RETURN r`, nil)
 				if len(rows) != 1 || rows[0]["r"].(codegraph.Relation).Confidence != tc.confidence {
 					t.Fatalf("%s: %v diagnostics=%+v", kind, rows, g.Report())
@@ -169,7 +169,7 @@ func TestExplicitExportOverridesStarAndPreservesNamespace(t *testing.T) {
 	if len(rows) != 1 || rows[0]["target"].(codegraph.Node).Location.Path != "barrel.ts" || rows[0]["r"].(codegraph.Relation).Confidence != codegraph.Exact {
 		t.Fatal(rows)
 	}
-	rows = query(t, g, `MATCH (:Function {name:'entry'})-[:references]->(target:Module)<-[:declares]-(:Document {path:'barrel.ts'}) RETURN target`, nil)
+	rows = query(t, g, `MATCH (:Function {name:'entry'})-[:reads]->(target:Module)<-[:declares]-(:Document {path:'barrel.ts'}) RETURN target`, nil)
 	if len(rows) != 1 || rows[0]["target"].(codegraph.Node).Location != nil {
 		t.Fatal(rows)
 	}

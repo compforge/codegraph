@@ -32,8 +32,8 @@ func TestPythonAbsoluteImportsBelowSnapshotRoot(t *testing.T) {
 			if rows := query(t, g, `MATCH (:Function {name:'shadow'})-[:calls]->(:Function {name:'work'}) RETURN 1`, nil); len(rows) != 0 {
 				t.Fatal(rows)
 			}
-			refs := query(t, g, `MATCH (:Function {name:'entry'})-[r:references]->(:Function {name:'work'}) RETURN r`, nil)
-			if len(refs) != 2 {
+			refs := query(t, g, `MATCH (:Function {name:'entry'})-[r:reads]->(:Function {name:'work'}) RETURN r`, nil)
+			if len(refs) != 0 {
 				t.Fatal(refs)
 			}
 			for _, row := range refs {

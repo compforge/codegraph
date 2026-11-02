@@ -2,7 +2,9 @@ package module
 
 import (
 	"context"
+
 	"github.com/compforge/codegraph/internal/analysis"
+	"github.com/compforge/codegraph/pkg"
 )
 
 // sourceItemEdges uses the same namespace and export policy as terminal binding,
@@ -14,7 +16,7 @@ func sourceItemEdges(ctx context.Context, f analysis.Facts, namespaces *Namespac
 		if len(edges) >= limit {
 			return ErrEdgeLimit
 		}
-		edges = append(edges, Edge{Source: item.Ref, Target: target, Kind: kind, Confidence: c, Basis: basis, Path: f.Path, Span: item.Span})
+		edges = append(edges, Edge{Source: item.Ref, Target: target, Kind: pkg.RelationKind(kind), Confidence: c, Basis: basis, Path: f.Path, Span: item.Span})
 		return nil
 	}
 	for _, item := range analysis.ModuleItems(f) {

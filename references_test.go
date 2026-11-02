@@ -13,7 +13,7 @@ import (
 func sourceReferences(g *Graph, kind RelationKind, name string) []Node {
 	var out []Node
 	for _, n := range g.Nodes() {
-		if n.Kind == Reference && n.ReferenceKind == ReferenceKind(kind) && (name == "" || n.Name == name) {
+		if n.Kind.IsOccurrence() && n.ReferenceKind == ReferenceKind(kind) && (name == "" || n.Name == name) {
 			out = append(out, n)
 		}
 	}
@@ -37,7 +37,7 @@ func TestSourceUsesSurviveMissingTargets(t *testing.T) {
 			if !reflect.DeepEqual(report.Documents, []string{tc.path}) {
 				t.Fatal(report)
 			}
-			for _, kind := range []RelationKind{Calls, References} {
+			for _, kind := range []RelationKind{Calls} {
 				uses := sourceReferences(g, kind, "Work")
 				if len(uses) != 2 || uses[0].ID == uses[1].ID {
 					t.Fatalf("%s: %+v", kind, uses)
@@ -55,7 +55,7 @@ func TestSourceUsesSurviveMissingTargets(t *testing.T) {
 					if !ok || parent.Kind != Function || parent.Name != "entry" {
 						t.Fatal(parent)
 					}
-					if len(g.RelationsFrom(n.ID, References)) != 0 {
+					if len(g.RelationsFrom(n.ID, BindsTo)) != 0 {
 						t.Fatal("invented an external target", n)
 					}
 					if len(g.RelationsTo(n.ID, Declares, Encloses, Contains)) != 0 {
@@ -73,7 +73,7 @@ func TestSourceUsesSurviveMissingTargets(t *testing.T) {
 					}
 				}
 			}
-			rows := query(t, g, "MATCH (use:Reference {referenceKind:'calls'})-[:occurs_in]->(owner) OPTIONAL MATCH (use)-[binding:references]->(target) RETURN use, owner, binding, target", nil)
+			rows := query(t, g, "MATCH (use:CallSite {referenceKind:'calls'})-[:occurs_in]->(owner) OPTIONAL MATCH (use)-[binding:binds_to]->(target) RETURN use, owner, binding, target", nil)
 			if len(rows) != 2 {
 				t.Fatal("unbound sites disappeared from query", rows)
 			}
@@ -83,12 +83,12 @@ func TestSourceUsesSurviveMissingTargets(t *testing.T) {
 				}
 			}
 			for _, n := range g.Find(tc.path, "", "") {
-				if n.Kind == Reference {
+				if n.Kind.IsOccurrence() {
 					t.Fatal("Find includes a non-declaration", n)
 				}
 			}
 			for _, r := range g.Relations() {
-				if r.Kind == Calls || r.Kind == References {
+				if r.Kind == Calls || r.Kind == Reads {
 					t.Fatal("unloaded target was fabricated", r)
 				}
 				if _, ok := g.Node(r.Source); !ok {
@@ -132,11 +132,11 @@ func TestSourceUseOwnershipAndBindingEvidence(t *testing.T) {
 	}
 	seen := map[Confidence]bool{}
 	for _, r := range g.Relations() {
-		if r.Kind != Calls && r.Kind != References {
+		if r.Kind != Calls && r.Kind != Reads {
 			continue
 		}
 		source, _ := g.Node(r.Source)
-		if source.Kind == Reference {
+		if source.Kind.IsOccurrence() {
 			continue
 		}
 		kind := r.Kind
@@ -149,7 +149,7 @@ func TestSourceUseOwnershipAndBindingEvidence(t *testing.T) {
 			if len(owner) != 1 || owner[0].Target != r.Source {
 				continue
 			}
-			for _, binding := range g.RelationsFrom(n.ID, References) {
+			for _, binding := range g.RelationsFrom(n.ID, BindsTo) {
 				if binding.Target != r.Target {
 					continue
 				}
@@ -188,13 +188,13 @@ func TestSourceUsesRebindOnAddedDocuments(t *testing.T) {
 	}
 	first := add("entry.go", "package p\nfunc entry(){ Work() }")
 	uses := sourceReferences(first, Calls, "Work")
-	if len(uses) != 1 || len(first.RelationsFrom(uses[0].ID, References)) != 0 {
+	if len(uses) != 1 || len(first.RelationsFrom(uses[0].ID, BindsTo)) != 0 {
 		t.Fatal(first.Nodes())
 	}
 	id := uses[0].ID
 	second := add("work.go", "package p\nfunc Work(){}")
 	secondNodes, secondEdges := second.Nodes(), second.Relations()
-	bound := second.RelationsFrom(id, References)
+	bound := second.RelationsFrom(id, BindsTo)
 	if len(bound) != 1 || bound[0].Confidence != Exact {
 		t.Fatal(bound)
 	}
@@ -204,7 +204,7 @@ func TestSourceUsesRebindOnAddedDocuments(t *testing.T) {
 	// Static analysis accepts incomplete or conflicting code. A second possible
 	// declaration revises an existing exact binding rather than just appending.
 	third := add("other.go", "package p\nfunc Work(){}")
-	rebound := third.RelationsFrom(id, References)
+	rebound := third.RelationsFrom(id, BindsTo)
 	if len(rebound) != 2 {
 		t.Fatal(rebound)
 	}
@@ -225,7 +225,7 @@ func TestSourceUsesRebindOnAddedDocuments(t *testing.T) {
 	if len(calls) != 2 || calls[0].Confidence != Scoped || calls[1].Confidence != Scoped {
 		t.Fatal(calls)
 	}
-	if len(first.RelationsFrom(id, References)) != 0 || !reflect.DeepEqual(second.Nodes(), secondNodes) || !reflect.DeepEqual(second.Relations(), secondEdges) {
+	if len(first.RelationsFrom(id, BindsTo)) != 0 || !reflect.DeepEqual(second.Nodes(), secondNodes) || !reflect.DeepEqual(second.Relations(), secondEdges) {
 		t.Fatal("supplementation mutated old publications")
 	}
 	// Material order and duplicate submission cannot alter published facts.
@@ -316,7 +316,7 @@ func TestSourceUseCapabilities(t *testing.T) {
 			}
 			continue
 		}
-		if !slices.Contains(c.References, CallReference) || !slices.Contains(c.References, SymbolReference) || !slices.Contains(c.Relations, OccursIn) || !slices.Contains(c.Relations, References) {
+		if !slices.Contains(c.References, CallReference) || !slices.Contains(c.References, ReferenceKind(Reads)) || !slices.Contains(c.Relations, OccursIn) || !slices.Contains(c.Relations, BindsTo) {
 			t.Fatal(c)
 		}
 		if !slices.Contains(c.SourceItems, Import) {
@@ -330,7 +330,7 @@ func TestSourceUseCapabilities(t *testing.T) {
 		}
 	}
 	for _, c := range Capabilities("rust", "java") {
-		if len(c.References) != 0 || slices.Contains(c.Relations, References) {
+		if len(c.References) != 0 || slices.Contains(c.Relations, BindsTo) {
 			t.Fatal("grammar support advertised semantic use extraction", c)
 		}
 	}

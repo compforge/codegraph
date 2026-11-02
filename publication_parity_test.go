@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// +case:id=publication_parity,desc=`Preserve pre-selection node and relation identities across language and admission modes`
+// +case:id=publication_parity,desc=`Pin semantic publication identities across language and admission modes`
 func TestPublicationParity(t *testing.T) {
 	cases := []struct {
 		name string
@@ -21,8 +21,8 @@ func TestPublicationParity(t *testing.T) {
 	policies := []struct {
 		name string
 		p    *AdmissionPolicy
-	}{{"full", nil}, {"analysis", AnalysisAdmission()}, {"references", &AdmissionPolicy{NodeKinds: []NodeKind{Reference}}}, {"directories", &AdmissionPolicy{NodeKinds: []NodeKind{DirectoryNodeKind}}}, {"functions", &AdmissionPolicy{NodeKinds: []NodeKind{Function}}}}
-	expected := map[string]string{"ts/full": "e8b4efa06cddd17e97d27995c08401fea3fc1b87c77a670e1798a2f5e9d92319", "ts/analysis": "47a82290a4bb9666f8bdb9091d6cc46a069f89a85ac64d68bbb7c0ae6d3be3b0", "ts/references": "bde9fa46d6d1b16e7afc77ee3e61b2ad7ef77247582fe1b6d6715e81743fccdc", "ts/directories": "36d3c392e384bb5468a6d200cd6b8f8add40fce25d24f81b6b654c93d6404154", "ts/functions": "73e61e50952832d26e0350eb99b2af3e556e440f4d2d7b3cd9dc30c7a6d4f705", "python/full": "d1ac378b0859cc80375ecff796b86fe49683ed9c0324c180e6c1f0eca5b76e03", "python/analysis": "d1937099f9a578095bf8964807b9c40d0c803e3f9b6b0e839fc169459ca7dd93", "python/references": "c80ab6a73e934526eff771387d9b4a6117b65d8aeb46048fad7086e4d359cfb3", "python/directories": "e265c615034353b63bfd4ee39eb2771cf9898c8fc02a4a0564d2eebcfb5ac321", "python/functions": "f458edf3349ecd531a357ce3125ab64f4228bd0ae93114a610844235b768288d", "go/full": "ca0c8d2a2cee13297f13010f368874955eb80543d6921826702b1ddfd1bcfd9e", "go/analysis": "3a484849ea509f2236e6e026e09afe69aed7a7e237b1983ad40d33a372df9648", "go/references": "d707dd9cb814a41c0ff46e0d25723dcb4507247472b5d64fdf39aae03742ece9", "go/directories": "36d3c392e384bb5468a6d200cd6b8f8add40fce25d24f81b6b654c93d6404154", "go/functions": "49e912bb050c6dfd846d7e90bd0e3cfc50b800898a362f719f273d9cee97c19b"}
+	}{{"full", nil}, {"analysis", AnalysisAdmission()}, {"references", &AdmissionPolicy{NodeKinds: []NodeKind{ReadSite, WriteSite, CallSite, TypeUse, CaptureSite, ResourceUse, DecoratorUse}}}, {"directories", &AdmissionPolicy{NodeKinds: []NodeKind{DirectoryNodeKind}}}, {"functions", &AdmissionPolicy{NodeKinds: []NodeKind{Function}}}}
+	expected := map[string]string{"ts/full": "0dbc0a7a27ba001576b2bd509f65d3ebaf877e03f83e1adf49525f5892378c6e", "ts/analysis": "53f7c80833ec252b847def683dcef79c533827eea614801bd2eb3bfd3104c7b7", "ts/references": "9d17b3bc61994f5b7575f8349808deaf42974c073caf3d9bb62b6961a4b7b05d", "ts/directories": "36d3c392e384bb5468a6d200cd6b8f8add40fce25d24f81b6b654c93d6404154", "ts/functions": "73e61e50952832d26e0350eb99b2af3e556e440f4d2d7b3cd9dc30c7a6d4f705", "python/full": "80e1e894ad5754e0366830ecb67424c9f9bdbe52228f43d7e07356e1ce9c2808", "python/analysis": "8aee8b6b4b844a214fda1be63be9b10a6cc0cc7814415ae562380a7f4d6bd6c9", "python/references": "876bdf602b851459ccc0d0e6671633684e311d210a8c62c8ae54e5f4f3523d60", "python/directories": "36d3c392e384bb5468a6d200cd6b8f8add40fce25d24f81b6b654c93d6404154", "python/functions": "2f1f8ff0175812f12f7b9e693330b6ad80588ba195af0a0dc49494708330200f", "go/full": "c016f7cc2150d73ad35368a33973cd05ee3ef9da9dccd8e0148d77bd22b6f268", "go/analysis": "f6b715bb0543c4a0fcf1630e473ee27e8968fcf041ed7da1091cea8748f4dd3f", "go/references": "6cbaf83ad87d95d6e36ba1a7a842b697dcda7c435a23cecdfe89721ac6c55aab", "go/directories": "36d3c392e384bb5468a6d200cd6b8f8add40fce25d24f81b6b654c93d6404154", "go/functions": "619bbb7dda169f225ffd2ace1b0512d99e584427dc40ca44dfb10ecd89f94fba"}
 	for _, tc := range cases {
 		for _, policy := range policies {
 			t.Run(tc.name+"/"+policy.name, func(t *testing.T) {

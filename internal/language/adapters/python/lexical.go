@@ -16,6 +16,12 @@ func (d Dialect) Lexical(f *Facts, tree *gts.Tree, signatures []gts.SignatureFac
 		}
 		switch n.Type(lang) {
 		case "identifier":
+			if kind == "local" {
+				bindings := l.Lookup(n.Text(f.Source), syntax.NodeSpan(n))
+				if len(bindings) == 1 && bindings[0].Scope == scope && bindings[0].Kind == "local" && bindings[0].Target >= 0 {
+					return
+				}
+			}
 			syntax.AddLexicalBinding(l, f, tree, scope, n, owner, kind)
 			return
 		case "attribute", "subscript":

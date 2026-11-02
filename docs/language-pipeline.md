@@ -117,14 +117,14 @@ CPython 的符号表分析主要处理编译单元内的名字作用域，不替
 | Facts / SymbolTable | 单文件提取结果，脱离 AST，只读，可由有界缓存复用 | 保留必要语义事实，不承诺每条事实都是节点 |
 | BuildScope 与本轮工作状态 | 固定本轮材料、解析上下文、取消与预算；由 Builder 管理 | 不暴露新的公共编译器对象 |
 | Index：Entity / Ref、成员索引、Edge / Evidence | 单次构建的语义中间表示，Organize / Bind / Resolve 分阶段填充 | 使用内部 Ref 表达身份，尚未分配公开 Node / Relation 集合 |
-| 引用绑定记录 | 使用位置、角色、所属实体及带证据的目标候选；归属本轮分析 | 生成关系或可选 Reference 节点的依据 |
+| 引用绑定记录 | 使用位置、角色、所属实体及带证据的目标候选；归属本轮分析 | 生成关系或可选 occurrence 节点的依据 |
 | 选择结果 | 已选实体与选择理由（core、bridge、context）；只在本轮使用 | 决定哪些实体需要物化，不作为新的 NodeKind |
 | 公开值生成与发布缓冲 | Ref 到公开 ID 的映射、Node / Relation 和报告；由本轮 graphAssembler 独占并交还 Builder | 校验完成后交给只读 Graph，失败则丢弃 |
 
 Index 是已有内部分析模型的继续演进，不另建与其竞争的通用 IR。SymbolTable 拥有词法 Scope / Binding，
 Entity / Edge 保存本轮语义结果；不能要求“为了成为内部 Entity，必须最终成为 Node”。
 引用绑定记录可由既有 Facts 和带位置的 Edge 提供，只有缺少明确的使用到候选映射时才补充轻量索引，
-不复制完整语义结果，也不通过已物化的公共 Reference 节点反查解析结果。
+不复制完整语义结果，也不通过已物化的公共 occurrence 节点反查解析结果。
 
 本轮临时编号或数组索引只在分析过程内有效；公开 ID 继续由既有源码身份规则生成，不能依赖
 任务完成顺序、内存地址或遍历先后。同一输入与策略必须生成稳定的身份、证据及报告。
@@ -161,7 +161,7 @@ Index 的生产写入经 analysis 的登记方法计量；语言阶段交回贡�
 `entitySelector` 直接读取内部实体与关系；选择先于公共对象构造。
 `graphAssembler` 收拢节点、关系、使用位置及结构上下文的生成；`publishReferences` 中的登记、
 去重和预算闭包成为它的内部操作。任何 Node / Relation 写入都经过装配对象维护的登记规则，
-selection 只携带选中实体及 core / bridge / context 理由。Reference 是否生成、Directory 如何补齐
+selection 只携带选中实体及 core / bridge / context 理由。occurrence 是否生成、Directory 如何补齐
 由 graphAssembler 读取同一份不可变发布策略决定；策略配置由 compilation 固定，不在阶段之间修改。
 实体上下文指已有语义实体的归属上下文，Directory 等路径结构由装配阶段生成并计入发布预算。
 Index 只服务构建期语义登记与查找；graphAssembler 负责公共模型转换与发布检查，图存储和查询
@@ -229,7 +229,7 @@ Document → 提取 → Facts
    仍参与遮蔽、别名、类型与调用目标分析。各阶段按现有契约交还贡献，由 Core 统一登记证据。
 4. **选择**：语义结果完成后只读，依据 AdmissionPolicy 选 core、context 并搜索 dependency bridges。
    选择结果使用内部 Ref；既不删除分析事实，也不为搜索 bridge 而先创建公共节点。
-5. **生成**：仅为入选实体生成 Node，并生成两端均入选的原始语义关系；Reference 等源码使用节点
+5. **生成**：仅为入选实体生成 Node，并生成两端均入选的原始语义关系；具体 occurrence 等源码使用节点
    由策略单独控制。节点和关系沿用原来的身份、位置、精度及证据规则，不拼接多段边制造调用。
 6. **发布**：校验端点与发布预算，完成可脱离工作状态的结果后替换 Builder.Result。Graph 可继续
    延迟建立查询索引；查询不重新运行绑定，也不回读 Facts 补充语义。
@@ -242,7 +242,7 @@ Select / Emit 分别由 Core 内部的 entitySelector / graphAssembler 承接，
 以 `function handle() { const local = run(); }` 为例，Facts 保留 handle、local、run 的使用位置与作用域；
 绑定确定 run 的目标，语义层保留已有的 `handle ─encloses→ local ─calls→ run` 及证据。
 分析策略若判定 local 连接两个核心实体，就把它选为 bridge，再生成三个节点和两条原始关系。
-若完整策略还要求使用位置，则另外从调用事实生成 Reference；分析策略无需先造这个节点再删除。
+若完整策略还要求使用位置，则另外从调用事实生成 CallSite；分析策略无需先造这个节点再删除。
 
 这里不会因希望图更紧凑就把路径改写为 `handle calls run`。声明归属与调用的组合并不自动证明
 一条新的直接调用；语义派生需要语言规则及证据，与对象生成是不同职责。
@@ -255,8 +255,10 @@ Graph 不保留 AST、Resolver 或可变 Index；源位置所需信息按既有�
 CPython 的清理边界可以借鉴；Go 实现不因此引入手工 arena 分配器或另一套 GC。
 
 分析预算在内部实体、使用记录、候选、关系和证据增长时扣减；发布预算在生成公共对象时扣减。
-两阶段仍各自有界。移除公共 Reference 物化只消除对象生成及索引成本，不能据此免除引用分析预算。
+两阶段仍各自有界。移除公共 occurrence 物化只消除对象生成及索引成本，不能据此免除引用分析预算。
 
 对象落点、实施顺序、兼容迁移和验收统一维护在 [改动计划](admission.md#实施顺序与改动范围)。
 本节定义工作对象与阶段契约，预算单位和结果验证见 [分阶段预算](admission.md#分阶段预算与观测)
 及 [验收要求](admission.md#验收与交付)。
+
+Kind 的公开与中间边界、RawUses / Uses 口径见 [Kind 与 lowering](semantic-kinds.md)。

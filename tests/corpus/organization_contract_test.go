@@ -2,8 +2,9 @@ package corpus_test
 
 import (
 	"context"
-	cg "github.com/compforge/codegraph"
 	"testing"
+
+	cg "github.com/compforge/codegraph"
 )
 
 func TestOrganizationAndOccurrenceOracleRejectsLoss(t *testing.T) {
@@ -70,8 +71,8 @@ func TestOrganizationAndOccurrenceOracleRejectsLoss(t *testing.T) {
 			})
 		}
 	}
-	// Removing one call must not remove its independent reference, nor allow
-	// another occurrence between the same two declarations to satisfy it.
+	// Removing a call also loses its callee binding in the identifier metric;
+	// another occurrence between the same declarations cannot satisfy either.
 	changed := a
 	changed.Relations = append([]cg.Relation(nil), a.Relations...)
 	for i, r := range changed.Relations {
@@ -81,7 +82,7 @@ func TestOrganizationAndOccurrenceOracleRejectsLoss(t *testing.T) {
 		}
 	}
 	bad := evaluate(o, changed)
-	if bad.Measurements["relation_occurrences/calls"].Found != 1 || bad.Measurements["relation_occurrences/calls"].Expected != 2 || bad.Measurements["relation_occurrences/references"].Found != e.Measurements["relation_occurrences/references"].Found {
+	if bad.Measurements["relation_occurrences/calls"].Found != 1 || bad.Measurements["relation_occurrences/calls"].Expected != 2 || bad.Measurements["relation_occurrences/references"].Found != e.Measurements["relation_occurrences/references"].Found-1 {
 		t.Fatal(bad.Measurements)
 	}
 	changed = a

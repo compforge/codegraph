@@ -46,7 +46,7 @@ func TestSourceImportExportChain(t *testing.T) {
 	old := b.Result()
 	imp := sourceItem(t, old, Import, "app.ts", "localFoo")
 	use := sourceReferences(old, Calls, "localFoo")[0]
-	edgeTo(t, old, use, imp, References)
+	edgeTo(t, old, use, imp, BindsTo)
 	if len(old.RelationsFrom(imp.ID, Aliases, Imports)) != 0 {
 		t.Fatal("missing target invented")
 	}
@@ -65,7 +65,7 @@ func TestSourceImportExportChain(t *testing.T) {
 	exported := sourceItem(t, g, Export, "facade.ts", "publicFoo")
 	origin := sourceItem(t, g, Export, "impl.ts", "foo")
 	fn := g.Find("impl.ts", Function, "foo")[0]
-	edgeTo(t, g, use, imp, References)
+	edgeTo(t, g, use, imp, BindsTo)
 	edgeTo(t, g, imp, exported, Aliases)
 	edgeTo(t, g, exported, origin, Aliases)
 	edgeTo(t, g, origin, fn, Aliases)
@@ -74,7 +74,7 @@ func TestSourceImportExportChain(t *testing.T) {
 	if len(old.RelationsFrom(imp.ID, Aliases, Imports)) != 0 {
 		t.Fatal("old publication mutated")
 	}
-	rows := query(t, g, `MATCH (:Reference {referenceKind:'calls'})-[:references]->(i:Import)-[:aliases]->(e:Export)-[:aliases]->(o:Export)-[:aliases]->(f:Function) RETURN i,e,o,f`, nil)
+	rows := query(t, g, `MATCH (:CallSite {referenceKind:'calls'})-[:binds_to]->(i:Import)-[:aliases]->(e:Export)-[:aliases]->(o:Export)-[:aliases]->(f:Function) RETURN i,e,o,f`, nil)
 	if len(rows) != 1 {
 		t.Fatal(rows)
 	}
@@ -149,14 +149,14 @@ func TestSourceTypeAndDecoratorRoles(t *testing.T) {
 				t.Fatalf("modifiers: %+v", mods)
 			}
 			edgeTo(t, g, mods[0], child, Decorates)
-			if len(g.RelationsFrom(mods[0].ID, References)) != 0 {
+			if len(g.RelationsFrom(mods[0].ID, BindsTo)) != 0 {
 				t.Fatal("decorator target invented")
 			}
 			bases := sourceReferences(g, Extends, "Unknown")
 			if len(bases) != 1 {
 				t.Fatal(bases)
 			}
-			if len(g.RelationsFrom(bases[0].ID, References)) != 0 {
+			if len(g.RelationsFrom(bases[0].ID, BindsTo)) != 0 {
 				t.Fatal("base target invented")
 			}
 			if tc.path == "a.ts" && len(sourceReferences(g, Implements, "Missing")) != 1 {
@@ -179,9 +179,9 @@ func TestSourceDecoratorBindingAndDynamicBase(t *testing.T) {
 	if len(mods) != 1 {
 		t.Fatal(mods)
 	}
-	edgeTo(t, g, mods[0], g.Find("a.py", Function, "route")[0], References)
+	edgeTo(t, g, mods[0], g.Find("a.py", Function, "route")[0], BindsTo)
 	uses := sourceReferences(g, Extends, "factory(Base)")
-	if len(uses) != 1 || len(g.RelationsFrom(uses[0].ID, References)) != 0 {
+	if len(uses) != 1 || len(g.RelationsFrom(uses[0].ID, BindsTo)) != 0 {
 		t.Fatal(uses)
 	}
 }
@@ -235,7 +235,7 @@ func TestSourceDecoratorShadowing(t *testing.T) {
 		t.Fatal(err)
 	}
 	refs := sourceReferences(g, Decorates, "route")
-	if len(refs) != 1 || len(g.RelationsFrom(refs[0].ID, References)) != 0 {
+	if len(refs) != 1 || len(g.RelationsFrom(refs[0].ID, BindsTo)) != 0 {
 		t.Fatal(refs)
 	}
 	edgeTo(t, g, refs[0], sourceItem(t, g, Function, "app.py", "child"), Decorates)

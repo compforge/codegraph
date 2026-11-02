@@ -37,7 +37,7 @@ func TestReferenceFactsAndRelations(t *testing.T) {
 	if _, err = g.Wait(ctx); err != nil {
 		t.Fatal(err)
 	}
-	rows := query(t, g.Result(), `MATCH (a:Function {name:'use'})-[r:references]->(b) RETURN r,b`, nil)
+	rows := query(t, g.Result(), `MATCH (a:Function {name:'use'})-[r:reads]->(b) RETURN r,b`, nil)
 	if len(rows) != 3 {
 		t.Fatal(rows)
 	}
@@ -65,7 +65,7 @@ func TestReferenceCandidatesAndUnresolved(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows := query(t, g, `MATCH (:Function {name:'use'})-[r:references]->(b) RETURN r,b`, nil)
+	rows := query(t, g, `MATCH (:Function {name:'use'})-[r:reads]->(b) RETURN r,b`, nil)
 	if len(rows) != 2 {
 		t.Fatal(rows)
 	}
@@ -76,7 +76,7 @@ func TestReferenceCandidatesAndUnresolved(t *testing.T) {
 	}
 	found := false
 	for _, d := range g.Report().Diagnostics {
-		if d.Code == "unresolved_reference" && d.Message == "missing" && d.Relation == codegraph.References {
+		if d.Code == "unresolved_reference" && d.Message == "missing" && d.Relation == codegraph.Reads {
 			found = true
 		}
 	}
@@ -96,7 +96,7 @@ func TestModuleReferenceFacts(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			rows := query(t, g, `MATCH (:Function {name:'use'})-[r:references]->(:Function {name:'target'}) RETURN r`, nil)
+			rows := query(t, g, `MATCH (:Function {name:'use'})-[r:reads]->(:Function {name:'target'}) RETURN r`, nil)
 			if len(rows) != 1 || rows[0]["r"].(codegraph.Relation).Confidence != codegraph.Exact {
 				t.Fatal(rows)
 			}
@@ -115,7 +115,7 @@ func TestReferenceShadowing(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			rows := query(t, g, `MATCH (:Function {name:'use'})-[:references]->(:Function {name:'target'}) RETURN 1`, nil)
+			rows := query(t, g, `MATCH (:Function {name:'use'})-[:reads]->(:Function {name:'target'}) RETURN 1`, nil)
 			if len(rows) != 0 {
 				t.Fatal(rows)
 			}
@@ -132,11 +132,11 @@ func TestReferenceImportedNameAndShadowedReceiver(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows := query(t, g, `MATCH (:Function {name:'use'})-[r:references]->(:Constant {name:'Value'}) RETURN r`, nil)
+	rows := query(t, g, `MATCH (:Function {name:'use'})-[r:reads]->(:Constant {name:'Value'}) RETURN r`, nil)
 	if len(rows) != 1 || rows[0]["r"].(codegraph.Relation).Confidence != codegraph.Scoped || rows[0]["r"].(codegraph.Relation).Evidence[0].Basis != "imported_name" {
 		t.Fatal(rows)
 	}
-	rows = query(t, g, `MATCH (:Function {name:'shadow'})-[:references]->(:Constant {name:'Value'}) RETURN 1`, nil)
+	rows = query(t, g, `MATCH (:Function {name:'shadow'})-[:reads]->(:Constant {name:'Value'}) RETURN 1`, nil)
 	if len(rows) != 0 {
 		t.Fatal(rows)
 	}
@@ -148,7 +148,7 @@ func TestReferencesRebuildAndBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(g.Result().RelationsFrom(g.Result().Find("use.go", codegraph.Function, "use")[0].ID, codegraph.References)) != 0 {
+	if len(g.Result().RelationsFrom(g.Result().Find("use.go", codegraph.Function, "use")[0].ID, codegraph.Reads)) != 0 {
 		t.Fatal(g.Result().Relations())
 	}
 	if err = g.AddDocuments(ctx, codegraph.Document{Path: "value.go", Content: []byte("package app\nconst Value = 1\n")}); err != nil {
@@ -163,7 +163,7 @@ func TestReferencesRebuildAndBudget(t *testing.T) {
 			t.Fatal(report)
 		}
 	}
-	if len(g.Result().RelationsFrom(g.Result().Find("use.go", codegraph.Function, "use")[0].ID, codegraph.References)) != 1 {
+	if len(g.Result().RelationsFrom(g.Result().Find("use.go", codegraph.Function, "use")[0].ID, codegraph.Reads)) != 1 {
 		t.Fatal(g.Result().Relations())
 	}
 	limited, err := codegraph.NewBuilder("budget", codegraph.Options{MaxRelations: 2})

@@ -128,7 +128,7 @@ func (a *Analyzer) Analyze(ctx context.Context, scope analysis.BuildScope) (*ana
 			return nil, nil, a.contributionError(index, err)
 		}
 		for _, e := range edges {
-			index.Add(e)
+			index.Lower(e)
 		}
 		issues = append(issues, gaps...)
 	}

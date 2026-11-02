@@ -1,10 +1,15 @@
 package analysis
 
-import "sort"
+import (
+	"sort"
+
+	"github.com/compforge/codegraph/pkg"
+)
 
 type edgeKey struct {
 	Source, Target Ref
-	Kind, Path     string
+	Kind           pkg.RelationKind
+	Path           string
 	Span           Span
 }
 type proofKey struct {
@@ -91,20 +96,21 @@ func (x *Index) registerEdge(e Edge) bool {
 // Lower-tier alternatives and organization membership are deliberately excluded.
 func (x *Index) Conflicts() []Gap {
 	type site struct {
-		Source     Ref
-		Kind, Path string
-		Span       Span
+		Source Ref
+		Kind   pkg.RelationKind
+		Path   string
+		Span   Span
 	}
 	seen := map[site]Ref{}
 	reported := map[site]bool{}
 	var gaps []Gap
 	for _, e := range x.Edges {
-		if e.Confidence != "exact" || (e.Kind != "calls" && e.Kind != "references") {
+		if e.Confidence != "exact" || (e.Kind != pkg.Calls && e.Kind != pkg.Reads && e.Kind != pkg.Writes && e.Kind != pkg.UsesType) {
 			continue
 		}
 		k := site{e.Source, e.Kind, e.Path, e.Span}
 		if target, ok := seen[k]; ok && target != e.Target && !reported[k] {
-			gaps = append(gaps, Gap{Path: e.Path, Span: e.Span, Code: "conflicting_binding", Reference: "multiple exact targets for one occurrence", Relation: e.Kind})
+			gaps = append(gaps, Gap{Path: e.Path, Span: e.Span, Code: "conflicting_binding", Reference: "multiple exact targets for one occurrence", Relation: string(e.Kind)})
 			reported[k] = true
 		}
 		seen[k] = e.Target

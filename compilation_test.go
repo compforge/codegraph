@@ -29,7 +29,7 @@ func TestPublicationBudgetExcludesUnselectedUses(t *testing.T) {
 		t.Fatalf("unexpected work: %+v", report)
 	}
 	for _, node := range graph.Nodes() {
-		if node.Kind == Reference {
+		if node.Kind.IsOccurrence() {
 			t.Fatal("unselected use was materialized")
 		}
 	}

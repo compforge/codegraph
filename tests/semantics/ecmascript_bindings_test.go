@@ -119,7 +119,7 @@ consume(scoped);
 			if edge.Kind == codegraph.Calls && edge.Confidence == codegraph.Exact {
 				t.Fatalf("shadowed call became exact: %+v", edge)
 			}
-			if edge.Kind == codegraph.References && edge.Confidence == codegraph.Exact && edge.Location.StartByte == outside {
+			if edge.Kind == codegraph.Reads && edge.Confidence == codegraph.Exact && edge.Location.StartByte == outside {
 				t.Fatalf("loop binding leaked outside scope: %+v", edge)
 			}
 		}

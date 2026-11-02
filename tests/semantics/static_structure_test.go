@@ -2,10 +2,11 @@ package semantics_test
 
 import (
 	"context"
-	cg "github.com/compforge/codegraph"
 	"reflect"
 	"strings"
 	"testing"
+
+	cg "github.com/compforge/codegraph"
 )
 
 func TestNamespaceBindingsAndCoverage(t *testing.T) {
@@ -46,14 +47,10 @@ func TestNamespaceBindingsAndCoverage(t *testing.T) {
 				if call.Confidence != cg.Exact {
 					t.Fatal(call)
 				}
-				matched := false
-				for _, r := range g.RelationsFrom(call.Source, cg.References) {
+				for _, r := range g.RelationsFrom(call.Source, cg.Reads) {
 					if r.Target == call.Target && r.Location.StartByte >= call.Location.StartByte && r.Location.EndByte <= call.Location.EndByte {
-						matched = true
+						t.Fatal("callee binding duplicated a semantic dependency", call, r)
 					}
-				}
-				if !matched {
-					t.Fatal("call has no corresponding lexical reference", call)
 				}
 			}
 			if tc.name == "isolated" {

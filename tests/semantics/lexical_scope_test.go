@@ -66,7 +66,7 @@ func TestDestructuringPropertyDoesNotBindLocalName(t *testing.T) {
 	}
 	property := strings.Index(source, "target:")
 	for _, r := range g.Relations() {
-		if r.Kind == codegraph.References && r.Location.StartByte == property {
+		if r.Kind == codegraph.Reads && r.Location.StartByte == property {
 			t.Fatal("property bound as local variable", r)
 		}
 	}

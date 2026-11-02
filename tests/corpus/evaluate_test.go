@@ -17,6 +17,7 @@ type observed struct {
 
 // +spec=`Corpus scoring uses independent source identities and preserves unknown ground truth`
 func evaluate(o *oracle, a observed) evaluation {
+	a = bindingObservation(a)
 	e := evaluation{Measurements: map[string]*measurement{}, Bindings: map[cg.RelationKind]*bindings{}, Unassessed: map[string]int{}, Diagnostics: map[string]int{}, Verdict: "measured"}
 	for _, d := range a.Report.Diagnostics {
 		e.Diagnostics[d.Code]++
@@ -37,7 +38,7 @@ func evaluate(o *oracle, a observed) evaluation {
 			e.Unassessed["module_item/"+string(n.Kind)]++
 			continue
 		}
-		if n.Kind == cg.Reference {
+		if n.Kind.IsOccurrence() {
 			e.Unassessed["occurrence/"+string(n.ReferenceKind)]++
 			continue
 		}
@@ -83,7 +84,7 @@ func evaluate(o *oracle, a observed) evaluation {
 	references, calls, imports := map[string]bool{}, map[string]bool{}, map[string]bool{}
 	for _, f := range a.Facts {
 		for _, r := range f.References {
-			if r.Kind != "" && r.Kind != cg.SymbolReference {
+			if r.Kind == cg.DecoratorReference {
 				e.Unassessed["reference_fact/"+string(r.Kind)]++
 				continue
 			}
@@ -172,7 +173,7 @@ func compareBindings(e *evaluation, kind cg.RelationKind, truth map[string]occur
 	hits, candidates := map[string]bool{}, map[string]map[string]bool{}
 	sourceUses := map[string]bool{}
 	for _, n := range a.Nodes {
-		if n.Kind == cg.Reference {
+		if n.Kind.IsOccurrence() {
 			sourceUses[n.ID] = true
 		}
 	}

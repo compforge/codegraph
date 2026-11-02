@@ -102,29 +102,20 @@ ORDER BY n.startByte, n.id
 
 ## 读取调用与引用位置
 
-Reference 节点保留已识别的源码使用，referenceKind 区分 calls、references、extends、implements 和 decorates，
-即使目标不在本次提供的 Documents 中也能查询。
-例如只加入调用方文件时，仍可读取调用位置和所属声明：
+具体 occurrence Kind 保留源码导航位置，例如 `CallSite`、`ReadSite`、`WriteSite` 和 `TypeUse`。
+目标缺失时仍可查询已识别的发生点：
 
 ```cypher
-MATCH (use:Reference {referenceKind:'calls'})-[:occurs_in]->(owner)
-OPTIONAL MATCH (use)-[binding:references]->(target)
+MATCH (use:CallSite)-[:occurs_in]->(owner)
+OPTIONAL MATCH (use)-[binding:binds_to]->(target)
 RETURN use, owner, binding, target
 ```
 
-没有目标的使用仍会返回，binding 和 target 为 null。查询标识符引用时改用 referenceKind:'references'；
-节点的 name 和 receiver 是提取到的词法线索，Location 指向源码发生范围。
-Go 访问器可通过 `g.RelationsTo(ownerID, codegraph.OccursIn)` 找使用节点，
-再通过 `g.RelationsFrom(useID, codegraph.References)` 读取各候选及其证据。
-`g.Find` 保持声明查询语义；这些使用节点通过 Nodes、Node、关系访问器或 Cypher 查询。
+`g.RelationsFrom(useID, codegraph.BindsTo)` 返回候选目标及其证据；裸导入名先绑定 Import，
+沿 `aliases` 可继续导航。声明依赖查询使用 Calls / Reads / Writes / UsesType / Captures / UsesResource，
+不会把 occurrence 绑定重复计入 Calls。具体词表与迁移说明见 [Kind 与 lowering](semantic-kinds.md)。
 
-符号之间的 calls / references 与使用节点的 references 共用语言绑定规则。裸导入名首先连接 Import，
-再沿 aliases 读取转导出链及最终声明；声明间的派生边直接连接最终目标。
-统计声明依赖时排除 `source.kind = 'Reference'`，不要将两个查询粒度混计。
-补入依赖并等待构建后，`builder.Result()` 中的原使用节点可获得目标；已有目标与证据也会重新计算，
-并非只追加新关系。此前取得的 Graph 保持不变。同一路径源码发生变化时使用新的快照与 Builder。
-
-没有 references 不保证存在 unresolved 诊断，例如语言内建对象或未发布的局部绑定也可能没有目标。
+没有 binds_to 不保证存在 unresolved 诊断，例如语言内建对象或未发布的局部绑定也可能没有目标。
 关系查询为空时，结合材料范围、Capabilities 和局部诊断判断原因。使用节点覆盖已提取的源码结构，
 不保证静态分析识别了所有调用或引用；语法回退适配器目前仍主要提供声明结构。
 
@@ -144,8 +135,8 @@ RETURN i, public
 源码归属。使用 Nodes / Node 或 Cypher 获取这些项；Find 只查询声明。
 
 ```cypher
-MATCH (modifier:Reference {referenceKind:'decorates'})-[:decorates]->(declaration)
-OPTIONAL MATCH (modifier)-[:references]->(definition)
+MATCH (modifier:DecoratorUse)-[:decorates]->(declaration)
+OPTIONAL MATCH (modifier)-[:binds_to]->(definition)
 RETURN modifier, declaration, definition
 ```
 
@@ -302,7 +293,7 @@ Path 的节点顺序表示遍历方向，关系保留存储方向。返回值与
 |---|---|
 | Node | id、kind、name、qualifiedName、language、snapshot；有源码位置时提供 path、line、column、endLine、endColumn、startByte、endByte |
 | 声明名称位置 | nameStartByte、nameEndByte、nameLine、nameColumn、nameEndLine、nameEndColumn；RETURN n 返回 Node.NameLocation |
-| Reference | referenceKind 为 calls / references / extends / implements / decorates；receiver 为词法接收者线索；name 与位置标识本次使用，QualifiedName 不伪装成已绑定目标 |
+| 具体 occurrence Kind | referenceKind 为相应的语义关系名；receiver 为词法接收者线索；name 与位置标识本次使用，QualifiedName 不伪装成已绑定目标 |
 | Import / Export | specifier、importedName、localName、exportedName、form、typeOnly；RETURN n 返回 Node.Binding |
 | Gitlink Document | gitlink，表示父仓固定的子仓 commit |
 | Documentation | documentation 为原文列表，documentationData 为含源码位置的完整结构 JSON；RETURN n 返回 Node.Documentation |
@@ -365,7 +356,7 @@ CodeGraph 不给整个局部图作业务可用性判定。是否补料、传播�
 ## v0.16 构建预算迁移
 
 v0.16 将 MaxNodes / MaxRelations / MaxEvidence 限定为实际发布的节点、关系和证据数量。
-AnalysisAdmission 在装配前选择实体，省略的 Reference 不再消耗发布额度；语言绑定仍处理完整事实。
+AnalysisAdmission 在装配前选择实体，省略的 occurrence 不再消耗发布额度；语言绑定仍处理完整事实。
 需要继续限制生产侧工作量的调用方应显式配置 Options.Analysis，不能把 MaxNodes 当作分析规模上限。
 
 ```go
@@ -373,14 +364,14 @@ opts := codegraph.Options{
     Admission: codegraph.AnalysisAdmission(),
     MaxNodes: 250000, MaxRelations: 1000000,
     Analysis: codegraph.AnalysisLimits{
-        Entities: 250000, Uses: 1000000,
+        Entities: 250000, RawUses: 4000000, Uses: 1000000,
         Relations: 1000000, Evidence: 2000000,
         SelectionSteps: 10000000,
     },
 }
 ```
 
-示例中的 Analysis 数值也是零值配置的默认额度；负值无效。Entities 计内部实体，Uses 计调用、
+示例中的 Analysis 数值也是零值配置的默认额度；负值无效。Entities 计内部实体，RawUses 计所有原始 use，Uses 仅计语义候选；包括调用、
 引用及类型使用记录，Relations / Evidence 计内部关系及证据。语言阶段的候选展开复用剩余证据
 额度；SelectionSteps 计选择与 bridge 传播的工作量。所有额度耗尽都阻止本轮发布，旧 Graph 保持不变。
 
@@ -405,10 +396,10 @@ opts := cg.Options{ResourceReferences: nodejs.ResourceReferences()}
 `src/template.html` 后，可查询表达式到文件的关联，无需识别外层消费函数：
 
 ```cypher
-MATCH (use:Reference)-[:references]->(file:Document)
+MATCH (use:ResourceUse)-[:binds_to]->(file:Document)
 RETURN use.resourceExpression, use.resourcePath, file.path
 ```
 
-目标未提供时，查询 Reference 的 `resourcePath`，由调用方获取材料并 `AddDocuments` / `Wait`。
-未知路径为空；CodeGraph 不自行读取文件。精简图保留声明到文件的 references。
+目标未提供时，查询 ResourceUse 的 `resourcePath`，由调用方获取材料并 `AddDocuments` / `Wait`。
+未知路径为空；CodeGraph 不自行读取文件。精简图保留声明到文件的 uses_resource。
 规则、支持范围和自定义 API 示例见 [资源引用](resource-references.md)。

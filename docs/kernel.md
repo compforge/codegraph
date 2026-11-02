@@ -37,7 +37,7 @@ Graph 是输入代码在给定快照和分析范围内的静态表示。可以�
 | 语言组织结构 | Namespace（逻辑角色）；按语言规则表现为 Package、Module 等节点 |
 | File 或 Git 材料条目 | Document；普通源码、go.mod 等文件以及 gitlink 都有材料身份，按材料种类与分析能力处理 |
 | Class、Interface、Field、Function 等声明 | Symbol（逻辑角色）；节点保留具体语言类别 |
-| 源码中的调用表达式与标识符使用 | Reference；referenceKind 区分调用、引用、基类、接口及修饰使用，目标不在当前图中也有源码身份 |
+| 源码中的调用表达式与标识符使用 | 具体 occurrence Kind；目标不在当前图中也有源码身份 |
 | 导入、导出及转导出项 | Import / Export；保留每项名称、别名、模块说明符与位置 |
 | 源码中的包含、归属、调用、引用等联系 | Relation；不同关系保留各自的语义和来源依据 |
 | 声明、名称或关系发生的文本位置 | Node / Relation 上的源码位置属性 |
@@ -64,7 +64,7 @@ NodeKind 与 RelationKind 是代码到图的映射词汇，定义模型能保留
 | 可调用声明 | `Function`、`Method`、`Constructor` | 保留声明身份及其语言类别 |
 | 数据成员与其他声明 | `Field`、`Property`、`Variable`、`Constant`、`Macro` | 按源码声明类别区分，归属另由关系表达 |
 | 模块绑定项 | `Import`、`Export` | 一项源码绑定或导入/导出规则；多名称语句按项保留，不等同于目标实体 |
-| 源码使用 | `Reference` | 一次使用的源码身份；referenceKind 为 calls、references、extends、implements 或 decorates |
+| 源码使用 | `CallSite / ReadSite / WriteSite / TypeUse / CaptureSite / ResourceUse / DecoratorUse` | 一次语义使用的源码身份 |
 
 关系分类同时定义方向和含义，不能仅凭端点相同就合并：
 
@@ -76,14 +76,14 @@ NodeKind 与 RelationKind 是代码到图的映射词汇，定义模型能保留
 | 文件组织上下文 | `Document ─in_namespace→ 组织根` | 语言确定的 document 组织归属，根可以是源码声明或合成节点 |
 | 语义归属 | `组织 / 类型等所有者 ─contains→ 成员` | 成员可以来自其他文件，与词法嵌套独立 |
 | 导入依赖 | `Document / 声明 / Import / Export ─imports→ 导入目标` | 源码项连接目标模块；Document / 声明还保留模块或声明依赖的派生边 |
-| 调用与引用 | `声明 / Document ─calls / references→ 目标` | 对象之间的使用关系，保留每次发生的位置 |
+| 调用与引用 | `声明 / Document ─calls / reads / writes / uses_type / captures→ 目标` | 对象之间的使用关系，保留每次发生的位置 |
 | 类型契约 | `类型 ─extends / implements→ 类型` | 继承与实现的不同角色 |
-| 使用归属 | `Reference / Import / Export ─occurs_in→ 声明 / Document` | 使用存在于源码中的位置与归属 |
-| 使用目标 | `Reference ─references→ 直接目标或 Import` | 当前材料与证据支持的绑定，允许没有目标或多个候选 |
+| 使用归属 | `Occurrence / Import / Export ─occurs_in→ 声明 / Document` | 使用存在于源码中的位置与归属 |
+| 使用目标 | `Occurrence ─binds_to→ 直接目标或 Import` | 当前材料与证据支持的绑定，允许没有目标或多个候选 |
 | 名称别名 | `Import / Export ─aliases→ Export / Import / 声明 / 组织` | 保留直接绑定与转导出链；不只保存最终声明 |
 | 公开绑定 | `Module / Namespace ─exports→ Export` | 哪个组织公开了该源码项 |
-| 文件引用 | `Reference / 所属声明或 Document ─references→ Document` | 基于显式资源语义建立的文件关联；Resource 保留表达式与路径，不推断读写行为 |
-| 修饰应用 | `Reference ─decorates→ 被修饰声明` | 此处应用了修饰；修饰器定义通过 references 单独连接 |
+| 文件引用 | `所属声明或 Document ─uses_resource→ Document` | 基于显式资源语义建立的文件关联；Resource 保留表达式与路径，不推断读写行为 |
+| 修饰应用 | `DecoratorUse ─decorates→ 被修饰声明` | 此处应用了修饰；修饰器定义通过 binds_to 单独连接 |
 
 分类是否合理，用以下标准判断：
 
@@ -138,7 +138,7 @@ Graph 在这个类比中对应编译产物；FunctionObject 则属于函数的�
 CPython 编译过程中使用 AST、符号表、编译单元、指令序列、基本块和临时标签；这些辅助结构
 不要求与最终字节码指令一一对应。CodeGraph 同样通过 Facts、Scope、Binding、内部实体引用和
 关系证据完成分析，再按策略生成公开节点。例如一次调用先以内部使用记录参与绑定，最终可以生成
-带位置与证据的 calls 关系；需要逐次引用导航时才另外发布 Reference 节点。
+带位置与证据的 calls 关系；需要逐次引用导航时才另外发布具体 occurrence 节点。
 
 Builder 为本轮创建 compilation，由 Analyzer 完成语义分析，entitySelector 选择实体，
 graphAssembler 按发布策略生成公共值，最后由 Builder 发布。SymbolTable
@@ -244,24 +244,25 @@ confidence 不是概率，exact 也不承诺运行时行为或完整编译器类
 
 ### 源码使用与目标绑定
 
-`payment.charge(order)` 这次调用存在于源码中，与能否找出 charge 的声明是两件事。
-Reference 统一表达源码使用，referenceKind 表示其语法角色：calls 保存调用表达式，references 保存
-标识符引用，extends / implements 保存类型使用角色，decorates 保存修饰应用。文件引用沿用 references，Resource 属性保留路径信息。名称、接收者线索和位置随节点提供；receiver 是词法线索，不是已解析类型或限定名。
-Reference 通过 occurs_in 指向最内层已保留声明，没有声明包围时指向 Document。
-调用表达式和其中的名称引用可以各有节点，因为它们表示不同的源码事实；referenceKind 参与身份，
-同位置的不同使用角色也不会合并。Reference 在找到目标后仍保留，不以 Unresolved 命名永久身份。
-统一 Reference / referenceKind 的术语参考 [colbymchenry/codegraph 的引用模型](https://github.com/colbymchenry/codegraph/blob/6560052a6f856855d3f71eee838fd66ccfa4285d/src/types.ts#L338)；
-这里的归属与绑定由图关系表达。
+`payment.charge(order)` 的调用由所属声明到目标的 `Calls` 表达；传递函数值则是 `Reads`。
+`UsesType`、`Writes`、`Captures` 和 `UsesResource` 分别表达类型依赖、存储写入、词法捕获和资源关联。
+复合赋值同时产生 Reads 与 Writes，已由 Calls 表达的 callee 绑定不再重复发布 Reads。
 
-`references` 从使用节点连接直接绑定：裸导入名先连接 Import，其他已解析使用连接目标实体。
-`aliases` 保留 Import → Export → Export / Import → 声明的名称链；沿链查询才能获得最终目标。
-声明间的 calls / references、extends / implements 保留已有语义关系，复用同一语言绑定规则与证据。
-引用位置与声明依赖是不同查询粒度：统计声明依赖时排除 source.kind = 'Reference'，避免重复计数。
+源码导航按需发布 `CallSite`、`ReadSite`、`WriteSite`、`TypeUse`、`CaptureSite`、
+`ResourceUse` 与 `DecoratorUse`。`occurs_in` 指向所属声明或 Document，`binds_to` 指向
+当前材料能够证明的直接目标或 Import。`aliases` 保留 Import → Export → 声明的名称链。
+导航绑定与声明依赖使用相同证据，但使用不同 RelationKind，不混计 Calls。
+名称、接收者线索和位置随发生点提供；receiver 是词法线索。没有目标的可发布发生点仍保留身份。
 
-资源引用的 `Resource.Expression` 保留路径表达式，`Resource.Path` 保留可证明的快照相对路径。
-目标未提供时 occurrence 仍存在；补料后通过 references 连接 Document，所属声明使用相同证据。
-语言适配器提供调用绑定与参数事实；独立语义适配包或调用方声明 API 路径语义，核心按显式规则
-生成关系。核心不内置平台 API 名称。详见 [资源引用](resource-references.md)。
+公共值模型位于 `pkg`，根包提供 type alias。NodeKind / RelationKind 是开放的 string enum，
+internal 可定义同类型的中间 Kind。编译流程为 facts → bind/resolve → lower → select → publish；
+未解析名字、callee 候选和局部遮蔽记录属于分析。Lowering 将它们转换为有明确语义的关系，
+发布边界只接受公共词表，不依据字符串大小写判断可见性。详见 [Kind 与 lowering](semantic-kinds.md)。
+
+资源的 `Resource.Expression` 保留路径表达式，`Resource.Path` 保留可证明的快照相对路径。
+补料后 ResourceUse 通过 `binds_to` 连接 Document，所属声明通过 `uses_resource` 连接同一目标。
+它不证明读取、写入或执行文件。核心不内置平台 API 名称，规则由调用方显式提供。
+详见 [资源引用](resource-references.md)。
 
 Import / Export 保存每项的名称、位置和 ModuleBinding：specifier、importedName、localName、
 exportedName、form、typeOnly。属性描述该源码项；aliases 表达它连接谁。specifier 不是已解析路径，
@@ -269,17 +270,17 @@ exportedName、form、typeOnly。属性描述该源码项；aliases 表达它连
 选取来源的具名 Export 或声明；不会把 `*` 伪装成模块别名。显式导出优先，default 不经通配传播。
 Go 未显式命名的 import 只有获得唯一包身份后才补出 localName，不能从路径末段猜包名。
 
-修饰应用使用 referenceKind = 'decorates' 的 Reference，decorates 指向被修饰声明，references
+修饰应用使用 DecoratorUse，decorates 指向被修饰声明，binds_to
 指向修饰器定义或导入绑定；即使修饰器不在图内，应用关系仍为源码事实。它不自动推导路由或
-handler 等业务角色。extends / implements 使用也保留独立 Reference，动态基类表达式保留
+handler 等业务角色。extends / implements 使用也保留独立 TypeUse，动态基类表达式保留
 源码及角色，但不将表达式中被调用的函数误连成基类。
 
 使用和模块项不是声明，不进入 declares / encloses / contains 构成的声明结构，因而不污染 outline。
-源码存在和目标可绑定相互独立；同一个绑定链中的局部 references 可以是 exact，而跨模块 aliases
+源码存在和目标可绑定相互独立；同一个绑定链中的局部 binds_to 可以是 exact，而跨模块 aliases
 仍是 scoped。每条边保留本环节的证据，消费者不能把局部确定性当作整条链的确定性。
 
 图只组织显式接纳的 Document 及其代码事实，不获取外部源码，也不为缺失目标制造占位符号。
-没有 references / aliases 可能来自材料缺失、动态行为或分析能力限制，结合诊断与语言能力判断。
+没有 binds_to / aliases 可能来自材料缺失、动态行为或分析能力限制，结合诊断与语言能力判断。
 身份取决于源码项而非目标。补入依赖后，同一使用或绑定项可获得新目标，旧边及其精度也可能修订；
 已返回的 Graph 保持不变。提取器演进可以扩大覆盖，未提取到某种结构不等于源码中不存在它。
 

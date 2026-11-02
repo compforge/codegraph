@@ -32,13 +32,13 @@ func TestGoBlankValueDeclarations(t *testing.T) {
 		if node.Name == "_" && (node.Kind == codegraph.Variable || node.Kind == codegraph.Constant) {
 			t.Fatalf("blank binding became a declaration: %+v", node)
 		}
-		if node.Kind != codegraph.Reference {
+		if !node.Kind.IsOccurrence() {
 			nodes[node.Name] = node
 		}
 	}
 	for _, name := range []string{"Contract", "Worker", "kept", "limit"} {
 		target, ok := nodes[name]
-		if !ok || len(g.RelationsTo(target.ID, codegraph.References)) == 0 {
+		if !ok || len(g.RelationsTo(target.ID, codegraph.UsesType, codegraph.Reads)) == 0 {
 			t.Fatalf("lost declaration or reference to %s", name)
 		}
 	}

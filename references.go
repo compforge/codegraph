@@ -19,12 +19,22 @@ type referenceKey struct {
 // publishReferences derives occurrence views directly from semantic evidence.
 // +spec=Unpublished owners and import items do not change occurrence identity or binding.
 func (a *graphAssembler) publishReferences(ctx context.Context) error {
+	wanted := false
+	for _, kind := range []NodeKind{CallSite, ReadSite, WriteSite, TypeUse, CaptureSite, ResourceUse, DecoratorUse} {
+		if permits(a.opts.Admission, kind) {
+			wanted = true
+			break
+		}
+	}
+	if !wanted {
+		return nil
+	}
 	a.stage = "source-use"
 	files, ids, nodes := a.files, a.ids, a.nodes
 	bindings := map[referenceKey][]analysis.Edge{}
 	for _, e := range a.index.Edges {
 		switch RelationKind(e.Kind) {
-		case Calls, References, Extends, Implements, Decorates:
+		case Calls, Reads, Writes, UsesType, Captures, UsesResource, Extends, Implements, Decorates:
 			key := referenceKey{e.Source, RelationKind(e.Kind), e.Path, e.Span.Start, e.Span.End}
 			bindings[key] = append(bindings[key], e)
 		}
@@ -34,13 +44,17 @@ func (a *graphAssembler) publishReferences(ctx context.Context) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+		nodeKind := kind.OccurrenceKind()
+		if nodeKind == "" || !permits(a.opts.Admission, nodeKind) {
+			return nil
+		}
 		// Source identity depends on this occurrence, never on available targets
 		// or precision, so supplementing documents does not rename existing uses.
 		role := string(kind)
 		if resource != nil {
 			role = "resource"
 		}
-		id := "node:" + identity(f.Path, Reference, role, span.Start, span.End, name, receiver)
+		id := "node:" + identity(f.Path, nodeKind, role, span.Start, span.End, name, receiver)
 		if _, exists := nodes[id]; exists {
 			return nil
 		}
@@ -51,7 +65,7 @@ func (a *graphAssembler) publishReferences(ctx context.Context) error {
 			return fmt.Errorf("unpublished source-use owner: %s at %d", f.Path, span.Start)
 		}
 		loc := location(f, span)
-		if err := a.addNode(Node{ID: id, Kind: Reference, ReferenceKind: ReferenceKind(kind), Name: name, Receiver: receiver, Resource: resource, Language: f.Language, Location: &loc}); err != nil {
+		if err := a.addNode(Node{ID: id, Kind: nodeKind, ReferenceKind: ReferenceKind(kind), Name: name, Receiver: receiver, Resource: resource, Language: f.Language, Location: &loc}); err != nil {
 			return err
 		}
 		a.references++
@@ -66,7 +80,7 @@ func (a *graphAssembler) publishReferences(ctx context.Context) error {
 		}
 		if direct != (analysis.Ref{}) {
 			target := ids[direct]
-			return addRelation(Relation{Source: id, Target: target, Kind: References, Location: loc, Confidence: Exact, Evidence: []Evidence{{Basis: "local_import_binding", Confidence: Exact}}})
+			return addRelation(Relation{Source: id, Target: target, Kind: BindsTo, Location: loc, Confidence: Exact, Evidence: []Evidence{{Basis: "local_import_binding", Confidence: Exact}}})
 		}
 		key := referenceKey{ownerRef, kind, f.Path, span.Start, span.End}
 		for _, binding := range bindings[key] {
@@ -77,7 +91,7 @@ func (a *graphAssembler) publishReferences(ctx context.Context) error {
 			// projection of evidence, never an independent name-based resolution.
 			relation := a.relation(binding)
 			relation.ID = ""
-			relation.Source, relation.Kind = id, References
+			relation.Source, relation.Kind = id, BindsTo
 			if err := addRelation(relation); err != nil {
 				return err
 			}
@@ -88,7 +102,7 @@ func (a *graphAssembler) publishReferences(ctx context.Context) error {
 		f := files[path]
 		for _, r := range f.ResourceReferences {
 			resource := &ResourceReference{Expression: r.Expression, Path: r.Path}
-			if err := addReference(f, References, r.Name, r.Receiver, r.Span, r.Owner, analysis.Ref{}, -1, resource); err != nil {
+			if err := addReference(f, UsesResource, r.Name, r.Receiver, r.Span, r.Owner, analysis.Ref{}, -1, resource); err != nil {
 				return err
 			}
 		}
@@ -98,16 +112,38 @@ func (a *graphAssembler) publishReferences(ctx context.Context) error {
 			}
 		}
 		for _, ref := range f.References {
-			kind := References
-			if ref.Kind != "" {
-				kind = RelationKind(ref.Kind)
+			if !ref.Candidate(f) {
+				continue
 			}
-			decorated := -1
-			if kind == Decorates {
-				decorated = ref.Decorated
+			var kinds []RelationKind
+			// A compound assignment or capture can establish several operations
+			// at one token. The index, not a second resolver, owns that decision.
+			for _, kind := range []RelationKind{Reads, Writes, UsesType, Captures, Decorates} {
+				key := referenceKey{analysis.SourceRef(f.Path, ref.Owner), kind, f.Path, ref.Start, ref.End}
+				if len(bindings[key]) > 0 {
+					kinds = append(kinds, kind)
+				}
 			}
-			if err := addReference(f, kind, ref.Name, ref.Receiver, ref.Span, ref.Owner, directImport(a.index, f, ref.Name, ref.Receiver, ref.Span, !ref.Bound), decorated, nil); err != nil {
-				return err
+			if len(kinds) == 0 {
+				switch ref.UseKind() {
+				case analysis.NameUse, analysis.CompositeKeyUse:
+					kinds = []RelationKind{Reads}
+				case analysis.ReadWriteUse:
+					kinds = []RelationKind{Reads, Writes}
+				default:
+					if ref.Kind.IsPublic() {
+						kinds = []RelationKind{ref.Kind}
+					}
+				}
+			}
+			for _, kind := range kinds {
+				decorated := -1
+				if kind == Decorates {
+					decorated = ref.Decorated
+				}
+				if err := addReference(f, kind, ref.Name, ref.Receiver, ref.Span, ref.Owner, directImport(a.index, f, ref.Name, ref.Receiver, ref.Span, !ref.Bound), decorated, nil); err != nil {
+					return err
+				}
 			}
 		}
 		for _, hint := range f.TypeRelations {

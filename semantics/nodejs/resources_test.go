@@ -41,10 +41,10 @@ func TestURLReferencesDoNotDependOnReaderAPIs(t *testing.T) {
 					for _, n := range g.Nodes() {
 						if n.Resource != nil {
 							got++
-							if n.ReferenceKind != cg.SymbolReference || n.Resource.Path != tc.path {
+							if n.ReferenceKind != cg.ReferenceKind(cg.UsesResource) || n.Resource.Path != tc.path {
 								t.Fatal(n)
 							}
-							edges := g.RelationsFrom(n.ID, cg.References)
+							edges := g.RelationsFrom(n.ID, cg.BindsTo)
 							if (tc.path != "" && len(edges) != 1) || (tc.path == "" && len(edges) != 0) {
 								t.Fatal(edges)
 							}

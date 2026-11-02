@@ -35,7 +35,7 @@ func TestNamespaceECMAScriptModules(t *testing.T) {
 	}
 	for _, q := range []string{
 		`MATCH (:Document {path:'src/app.ts'})-[:imports]->(m:Module {id:$id}) RETURN m`,
-		`MATCH (:Function {name:'entry'})-[:references]->(m:Module {id:$id}) RETURN m`,
+		`MATCH (:Function {name:'entry'})-[:reads]->(m:Module {id:$id}) RETURN m`,
 	} {
 		if rows := query(t, g, q, map[string]any{"id": module.ID}); len(rows) != 1 {
 			t.Fatalf("lost module target: %v", rows)
@@ -44,7 +44,7 @@ func TestNamespaceECMAScriptModules(t *testing.T) {
 	if rows := query(t, g, `MATCH (:Document)-[:contains]->() RETURN 1`, nil); len(rows) != 0 {
 		t.Fatal("document membership", rows)
 	}
-	if rows := query(t, g, `MATCH ()-[:references]->(:Document) RETURN 1`, nil); len(rows) != 0 {
+	if rows := query(t, g, `MATCH ()-[:reads]->(:Document) RETURN 1`, nil); len(rows) != 0 {
 		t.Fatal("namespace reference fell back to source material", rows)
 	}
 	if rows := query(t, g, `MATCH (m:Module {qualifiedName:'src/empty'})-[:contains]->() RETURN m`, nil); len(rows) != 0 {
