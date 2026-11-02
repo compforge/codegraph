@@ -50,6 +50,7 @@ type TagRule struct {
 // Callers may append custom rules or supply a replacement through Options.TagRules.
 // Tags describe path conventions; consumers decide whether to exclude material.
 // +spec=Test tags use naming conventions and shared language recognition, not a separate extension list or proof of execution.
+// +why=Consumers extend shared classification instead of replacing tags to express admission or review policy.
 // +spec=Generated tags recognize explicit output naming conventions without reading content or requiring parser support.
 // +link=component://docs/document.md
 // +case=generated_document_tags
@@ -58,23 +59,28 @@ func BuiltinTagRules() []TagRule {
 		{Name: ManifestTag, Pattern: `(^|/)(go\.mod|go\.work|pyproject\.toml|package\.json)$`},
 		{Name: VersionTag, Pattern: `(^|/)VERSION$`},
 		{Name: LockfileTag, Pattern: `(^|/)(go\.sum|go\.work\.sum|uv\.lock|poetry\.lock|Pipfile\.lock|pdm\.lock|pylock(\.[^/]+)?\.toml|package-lock\.json|npm-shrinkwrap\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?|Cargo\.lock|Gemfile\.lock|composer\.lock)$`},
-		{Name: GeneratedTag, Pattern: `\.generated\.[^/]+$`},
-		{Name: GeneratedTag, Pattern: `\.(gen\.go|pb(\.gw)?\.go)$`},
-		{Name: GeneratedTag, Pattern: `_pb2(_grpc)?\.pyi?$`},
-		{Name: GeneratedTag, Pattern: `\.(pb\.(cc|h)|pb-c\.(c|h))$`},
+		{Name: GeneratedTag, Pattern: `(?i)\.generated\.[^/]+$`},
+		{Name: GeneratedTag, Pattern: `(?i)\.(gen\.go|pb(\.gw)?\.go)$`},
+		{Name: GeneratedTag, Pattern: `(?i)_pb2(_grpc)?\.pyi?$`},
+		{Name: GeneratedTag, Pattern: `(?i)\.(pb\.(cc|h)|pb-c\.(c|h))$`},
+		{Name: GeneratedTag, Pattern: `(?i)(\.capnp\.(h|c\+\+|go|ts)|_capnp\.(rs|py))$`},
 		// Source maps need no grammar; a bare .map or declaration file is ambiguous.
-		{Name: GeneratedTag, Pattern: `\.(js|jsx|mjs|cjs|css|d\.(ts|mts|cts))\.map$`},
-		{Name: GeneratedTag, Pattern: `(^|/)kitex_gen(/|$)`},
-		{Name: TestTag, Pattern: `(^|/)[^/]*_test\.go$`},
-		{Name: TestTag, Pattern: `(^|/)(test_[^/]*|[^/]*_test)\.py$`},
+		{Name: GeneratedTag, Pattern: `(?i)\.(js|jsx|mjs|cjs|css|d\.(ts|mts|cts))\.map$`},
+		{Name: GeneratedTag, Pattern: `(?i)(^|/)kitex_gen(/|$)`},
+		{Name: TestTag, Pattern: `(?i)(^|/)[^/]*_test\.(go|rs)$`},
+		{Name: TestTag, Pattern: `(?i)(^|/)(test_[^/]*|[^/]*_test)\.py$`},
 		{Name: TestTag, Pattern: `(^|/)[^/]*\.(test|spec)\.[^/]+$`, Languages: []string{"javascript", "typescript", "tsx"}},
 		{Name: TestTag, Pattern: `(^|/)__tests__/`, Languages: []string{"javascript", "typescript", "tsx"}},
+		{Name: TestTag, Pattern: `(?i)(^|/)[^/]*_spec\.rb$`},
+		{Name: TestTag, Pattern: `(^|/)[^/]*Tests?\.java$|(^|/)src/test/.*\.(java|kt)$`},
+		{Name: TestTag, Pattern: `(?i)\.test\.ets$`},
 		{Name: TestFixtureTag, Pattern: `(^|/)(testdata|fixtures|snapshots|__snapshots__)(/|$)`},
-		{Name: DependencyTag, Pattern: `(^|/)(vendor|node_modules)(/|$)`},
-		{Name: BuildOutputTag, Pattern: `(^|/)(dist|\.next)(/|$)`},
-		{Name: CacheTag, Pattern: `(^|/)(\.cache|__pycache__|\.pytest_cache|\.mypy_cache|\.ruff_cache)(/|$)`},
-		{Name: MinifiedTag, Pattern: `\.min\.(js|css)$`},
-		{Name: ToolingTag, Pattern: `(^|/)(\.git|\.idea|\.vscode|\.codebase|\.devloop|\.codex|\.claude|\.agents|\.cursor)(/|$)`},
+		{Name: DependencyTag, Pattern: `(?i)(^|/)(vendor|node_modules|oh_modules|bower_components|\.pnpm-store|\.bundle|\.venv|venv|site-packages|pods|carthage)(/|$)`},
+		{Name: DependencyTag, Pattern: `(?i)(^|/)\.yarn/(cache|unplugged|releases|sdks)(/|$)|(^|/)\.pnp\.(cjs|loader\.mjs)$|(^|/)[^/]*\.egg-info(/|$)`},
+		{Name: BuildOutputTag, Pattern: `(?i)(^|/)(dist|\.next|\.nuxt|\.svelte-kit|\.astro|\.docusaurus|target|\.build|obj)(/|$)|(^|/)coverage/lcov-report(/|$)`},
+		{Name: CacheTag, Pattern: `(?i)(^|/)(\.cache|__pycache__|\.pytest_cache|\.mypy_cache|\.ruff_cache|\.happypack|\.turbo|\.angular|\.parcel-cache|\.gradle|\.tox|\.dart_tool|\.terraform|\.stack-work)(/|$)`},
+		{Name: MinifiedTag, Pattern: `(?i)\.min\.(js|css)$`},
+		{Name: ToolingTag, Pattern: `(^|/)(\.git|\.svn|\.idea|\.vscode|\.codebase|\.devloop|\.codex|\.claude|\.agents|\.cursor)(/|$)`},
 		{Name: ConfigTag, Pattern: `(^|/)(\.dockerignore|\.gitignore|\.ignore|\.gitattributes|\.editorconfig|\.env(\.[^/]+)?)$`},
 		{Name: ToolingTag, Pattern: `(^|/)(AGENTS|CLAUDE|GEMINI)\.md$`},
 	}
