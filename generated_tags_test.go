@@ -24,6 +24,8 @@ func TestGeneratedDocumentTags(t *testing.T) {
 		t.Fatal(err)
 	}
 	positives := []string{
+		"API.GENERATED.TS", "UPPER.PB.GO", "runtime.JS.MAP",
+		"schema.capnp.h", "schema.capnp.c++", "schema.capnp.go", "schema.capnp.ts", "schema_capnp.rs", "schema_capnp.py",
 		"api.generated.ts", "api.generated.rs", "api.gen.go", "api.pb.go", "api_grpc.pb.go", "api.pb.gw.go",
 		"api_pb2.py", "api_pb2.pyi", "api_pb2_grpc.py", "api_pb2_grpc.pyi",
 		"api.pb.cc", "api.pb.h", "api.grpc.pb.cc", "api.grpc.pb.h", "api.pb-c.c", "api.pb-c.h",
