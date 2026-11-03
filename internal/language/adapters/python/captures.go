@@ -6,11 +6,15 @@ import "github.com/compforge/codegraph/internal/analysis"
 // Ordinary unsupported locals remain binding evidence; a capture needs a stable
 // target so admission can retain its dependency bridge.
 // +spec=Promotion preserves existing declaration indexes and lexical shadowing.
+// +spec=Captured locals from the same assignment remain siblings regardless of reference order.
+// +why=Newly promoted storage is not a lexical container for later promotions.
+// +case=component://tests/semantics/python_capture_parent_test.go
 // +link=component://docs/language-pipeline.md
 func retainCapturedLocals(f *Facts) {
 	if f.Lexical == nil {
 		return
 	}
+	owners := *f // Keep the original declaration slice length while promotions append to f.
 	slots := map[analysis.Span]int{}
 	for i, b := range f.Lexical.Bindings {
 		slots[b.NameSite] = i
@@ -38,7 +42,7 @@ func retainCapturedLocals(f *Facts) {
 		if scope != b.Scope || !crossed {
 			continue
 		}
-		parent := analysis.EnclosingDeclaration(*f, b.Span)
+		parent := analysis.EnclosingDeclaration(owners, b.Span)
 		if parent < 0 {
 			continue
 		}
