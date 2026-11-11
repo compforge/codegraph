@@ -125,4 +125,5 @@ The following guides are in Chinese:
 
 - [Usage guide](docs/usage.md): add materials in batches, reuse analysis results, locate source, query relationships, and derive file outlines from the graph.
 - [Document contract](docs/document.md): material identity, snapshot consistency, and Git submodule boundaries.
-- [Kernel design](docs/kernel.md): analysis stages and responsibilities for contributors and extension authors.
+- [Contributor guide](AGENTS.md): global model, analysis flow, and ownership boundaries.
+- [Graph model and lowering](docs/semantic-kinds.md), [relations and evidence](docs/relations.md): graph vocabulary, source bindings, and evidence contracts.

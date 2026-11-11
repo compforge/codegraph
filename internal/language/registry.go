@@ -2,9 +2,6 @@
 package language
 
 import (
-	"path"
-	"strings"
-
 	"github.com/compforge/codegraph/internal/analysis"
 	"github.com/compforge/codegraph/internal/language/adapters/ecmascript"
 	"github.com/compforge/codegraph/internal/language/adapters/generic"
@@ -15,21 +12,20 @@ import (
 )
 
 type registration struct {
-	name     string
-	suffixes []string
-	adapter  analysis.Adapter
+	name    string
+	adapter analysis.Adapter
 }
 
 // The registry is built once; mutable analysis state belongs to a Build session.
 var registrations = []registration{
-	{"go", nil, analysis.Adapter{Extractor: golang.Adapter{}, Organizer: golang.Adapter{}, Binder: golang.Adapter{}, Describe: golang.Describe}},
-	{"python", []string{".pyi"}, analysis.Adapter{Extractor: python.Adapter{}, Organizer: python.Adapter{}, Binder: python.Adapter{}, Describe: python.Describe}},
-	{"javascript", []string{".mjs", ".cjs", ".jsx"}, ecmascriptAdapter()},
-	{"typescript", []string{".mts", ".cts"}, ecmascriptAdapter()},
-	{"tsx", nil, ecmascriptAdapter()},
-	{"gomod", nil, analysis.Adapter{Extractor: manifest.Adapter{}, Organizer: manifest.Adapter{}, Describe: manifest.Describe}},
-	{"toml", nil, analysis.Adapter{Extractor: generic.Adapter{}, Describe: generic.Describe}},
-	{"json", nil, analysis.Adapter{Extractor: generic.Adapter{}, Describe: generic.Describe}},
+	{"go", analysis.Adapter{Extractor: golang.Adapter{}, Organizer: golang.Adapter{}, Binder: golang.Adapter{}, Describe: golang.Describe}},
+	{"python", analysis.Adapter{Extractor: python.Adapter{}, Organizer: python.Adapter{}, Binder: python.Adapter{}, Describe: python.Describe}},
+	{"javascript", ecmascriptAdapter()},
+	{"typescript", ecmascriptAdapter()},
+	{"tsx", ecmascriptAdapter()},
+	{"gomod", analysis.Adapter{Extractor: manifest.Adapter{}, Organizer: manifest.Adapter{}, Describe: manifest.Describe}},
+	{"toml", analysis.Adapter{Extractor: generic.Adapter{}, Describe: generic.Describe}},
+	{"json", analysis.Adapter{Extractor: generic.Adapter{}, Describe: generic.Describe}},
 }
 
 // Resolution interprets supplied language metadata before cross-document phases.
@@ -56,23 +52,7 @@ func Registered() []string {
 	return names
 }
 
-// Detect keeps grammar availability open to upstream registrations. Suffixes only select known dialect variants.
+// Detect delegates grammar selection and filename aliases to the upstream registry.
 func Detect(name string) *grammars.LangEntry {
-	switch manifest.Format(name) {
-	case "gomod":
-		return grammars.DetectLanguageByName("gomod")
-	case "pyproject":
-		return grammars.DetectLanguageByName("toml")
-	case "package_json":
-		return grammars.DetectLanguageByName("json")
-	}
-	ext := strings.ToLower(path.Ext(name))
-	for _, r := range registrations {
-		for _, suffix := range r.suffixes {
-			if ext == suffix {
-				return grammars.DetectLanguageByName(r.name)
-			}
-		}
-	}
 	return grammars.DetectLanguage(name)
 }

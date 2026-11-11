@@ -15,7 +15,7 @@ require (
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/bits-and-blooms/bitset v1.25.0 // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
-	github.com/odvcencio/gotreesitter v0.57.0 // indirect
+	github.com/odvcencio/gotreesitter v0.57.1-0.20261111023359-660ea2bc0bea // indirect
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect

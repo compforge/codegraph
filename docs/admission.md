@@ -176,8 +176,7 @@ graph, report, err := codegraph.Build(ctx, snapshot, documents, codegraph.Option
 ## 图生成与预算更新方案
 
 以下说明构图职责、预算边界和验证要求；v0.16 的配置迁移见 [使用指南](usage.md#v016-构建预算迁移)。
-核心类比见 [对象模型与辅助结构](kernel.md#用解释器理解对象模型与辅助结构)，
-内部阶段和数据结构见 [编译式构图方案](language-pipeline.md#编译式构图更新方案)。
+对象类比、内部阶段和数据结构见 [编译式构图方案](language-pipeline.md#编译式构图更新方案)。
 
 ### 上游复用是前置约束
 

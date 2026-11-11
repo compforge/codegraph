@@ -36,7 +36,7 @@ Document 可以与类型不同。方法通过 contains 归属接收者类型，�
 Binder 补充跨文件接收者归属。组织与 Class 共用成员查询入口，源码贡献从 declares 读取。
 成员索引和已绑定的 extends 供后续引用与调用解析使用，阶段接口见 [语言构建流程](language-pipeline.md)。
 
-encloses 负责声明的源码嵌套，词法 Scope/Binding 负责可见性与遮蔽，contains 负责成员归属；职责划分见 [内核设计](kernel.md)。
+encloses 负责声明的源码嵌套，词法 Scope/Binding 负责可见性与遮蔽，contains 负责成员归属；词法查找见 [语言构建流程](language-pipeline.md#共享索引)。
 
 Go imports 指向 Package，每条导入语句对一个包只建立一条边。Python imports 指向 Module /
 Package，具名导入另保留最终声明目标；模块名称引用也指向相应组织节点。调用与声明引用仍直接
@@ -77,6 +77,10 @@ Cypher 不提供虚构的 path/line 等源码属性。源码组织通过入向 d
 Document 使用材料路径身份；声明及合成实体统一使用 `node:` 身份前缀，其稳定键分别来自声明位置
 和语言锚点。ID 不承载 Symbol/Namespace 逻辑角色，也不使用图引擎内部数字 ID。
 新组织节点、来源与嵌套边都计入构图预算，失败或取消不会发布半个组织层级。
+
+声明的 Location 保存完整声明范围，NameLocation 保存名称 token 或捕获范围；源码顺序由位置确定。
+Signature 与 SignatureLocation 保存声明头原文及位置，实现体由声明范围定位。签名文本不是类型检查结果，
+兼容性与变更影响由消费者判断。同一快照与输入的身份可复现，跨版本重命名匹配由消费者判断。
 
 ## 语言证据边界
 
