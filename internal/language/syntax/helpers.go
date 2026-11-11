@@ -40,16 +40,17 @@ func validMarker(k string) bool {
 	}
 	return false
 }
+
+// Walk visits the root and its named descendants in source order.
+// Upstream owns traversal; skip anonymous subtrees to preserve named-child semantics.
 func Walk(root *gts.Node, visit func(*gts.Node)) {
-	stack := []*gts.Node{root}
-	for len(stack) > 0 {
-		n := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
-		visit(n)
-		for i := n.NamedChildCount() - 1; i >= 0; i-- {
-			stack = append(stack, n.NamedChild(i))
+	gts.Walk(root, func(n *gts.Node, depth int) gts.WalkAction {
+		if depth > 0 && !n.IsNamed() {
+			return gts.WalkSkipChildren
 		}
-	}
+		visit(n)
+		return gts.WalkContinue
+	})
 }
 func ReferenceOwner(f *Facts, span Span) int {
 	owner, size := -1, len(f.Source)+1

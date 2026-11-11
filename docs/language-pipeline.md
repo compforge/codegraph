@@ -3,13 +3,34 @@
 ## 模型与职责
 
 CodeGraph 从同一快照的 Document 提取事实，由语言规则建立组织与绑定，再发布带源码证据的图。
-核心概念与发布不变量见 [内核设计](kernel.md)，语言覆盖见 [语言能力](language-support.md)。
+全局职责与发布不变量见 [开发约定](../AGENTS.md)，语言覆盖见 [语言能力](language-support.md)。
 
 公共分析层以 Entity 统一登记 Document、源码声明及合成实体，并使用同一条物化路径。
 Ref 表达身份来源，与实体是否组织成员无关。Namespace 是同一 Entity 的成员组织视图，
 Package/Module、显式 Namespace 和 Class 通过相同视图查成员与源码贡献；跨文件接收者归属
 在绑定后补入。继承查找在直接成员之上遍历已绑定的 extends。
 词法作用域、名称遮蔽和导出规则由语言实现解释，不由 contains 自动推导。
+
+## 提取、缓存与快照发布
+
+Document 提供逻辑路径及内容或 gitlink；材料身份、标签与清单契约见 [Document](document.md)。
+Extractor 负责有界解析并产出脱离 AST 的 Facts，包括词法线索、语言证据、候选关系与局部诊断。
+解析的复用单位是 Facts，关系绑定的单位是 Builder 当前接纳的材料集合；Facts 的公开检查视图
+服务生产侧依赖探索，修改该视图不会改变内部构图材料。
+
+Extractor 限制并发、单文件字节和解析时间；共享 Extractor 可统一多个快照的解析容量。
+调用方持有有界 ExtractionCache，缓存身份包含路径、材料类型及内容，容量不足时照常提取。
+显式传递 Facts 不依赖缓存命中；缓存契约见 [源码材料](document.md#源码材料)。
+
+Builder 接纳 Facts 和快照专属 ResolutionContext；后者承载调用方已获得的模块根与导入路径证据，
+其精度限制后续绑定。新增、删除或重命名依赖，以及模块上下文变化，都需要对本轮全部材料重新组织与绑定。
+语言适配器解释显式材料中的清单；文件获取、工程边界与探索范围由调用方负责。
+
+构建成功后才替换 Result；取消和执行失败保留上一次成功结果，生产侧可用 AddFailure 记录单文件解析缺口。
+补料可以修订已有归属、候选目标及证据，已返回的 Graph 保持不变。Graph 只提供查询，
+不持有生产会话或返回解析材料，Cypher 索引在首次查询时建立。
+异步补料由 Builder 按需创建的私有 session 协调；Wait 只等待既有工作，取消等待不会取消构建。
+包级 Build 与 Builder.Build 返回相同的不可变结果；精确 API 契约见 [使用指南](usage.md)。
 
 ## 阶段与数据流
 
@@ -36,6 +57,8 @@ Binder 与 Resolver 将输入索引视为只读，其关系结果由 Core 登记
 `BindResult` 返回关系贡献、诊断及本轮 Resolver。
 Python/ECMAScript 的 dialect 在单文件提取中登记脱离 AST 的 SymbolTable，后续引用、调用和
 接收者类型线索共享其查找结果；语言实现负责声明位置、父级跳转、参数和块等规则。
+普通函数调用复用标识符引用的绑定结果；未提取到词法父级不证明顶层可见。
+未知局部绑定仍需阻止同名回退，未证明的动态行为以局部缺口表达。
 
 显式资源语义先从通用调用参数事实产生本轮路径引用；所有语言关系解析后，Analyzer 将其绑定到
 已接纳的 Document，再将 Index 交给选择/发布阶段。规则不进入提取缓存，也不修改已发布的 Index。
@@ -52,17 +75,32 @@ Evidence，并派生 confidence。Organizer 的 document 根发布为 in_namespa
 具体阶段实现集中在 `language/adapters/`；适配器复用的语法与绑定算法位于 `language/syntax/`、
 `language/module/`，共享组件依赖分析契约，由各适配器提供语言策略。
 新增语言选择需要实现的阶段，并把实际能力和限制放入同一个注册项；Core 的阶段编排不识别具体语言名。
+grammar 识别、清单文件名和扩展名别名由 gotreesitter 注册表统一决定；CodeGraph 注册表只选择语义适配器。
 仅注册 grammar 的语言继续使用通用 outline，报告关系解析覆盖缺口。
 
 Go、Python、ECMAScript 各自拥有语义规则；共享算法由它们显式调用：
 
 - gotreesitter 的 FactProgram 提供声明、结构化签名和调用参数；CodeGraph 将事实投影为图模型，负责词法绑定、类型与关系证据。上游已支持的语法形状不另行实现提取器。
 - 上游默认规则缺少的局部声明范围，通过 FactProgram 的补充规则表达；函数类型、未绑定函数字面量、完整声明头和文档归属等缺口由适配器保留有界补充。
-- 通用 outline 与 marker 提取保持一个实现。
+- 通用 outline 复用上游 Outliner；命名节点遍历通过上游 Walk 执行，适配层只过滤匿名子树。marker 提取保持一个实现。
 - Python 和 JS/TS 共享模块语法遍历，通过 dialect 接口提供词法登记、参数表达式、接收者和基类等差异。
 - 模块绑定共享转导出与候选汇总算法，路径、兼容语言和导出策略由各自实现提供。
 - Go 入口识别复用 gotreesitter 的已有语法树，产生脱离树的声明标记；消费侧只读取图中的标记。
 - Go 的类型形状与传播证据位于 Go 模块，通过强类型的 Extension 携带，不进入公共 Node。
+
+上游复用按输出契约判断，不能只按 API 名称替换：
+
+| 现有适配 | 上游尚缺的事实或契约 |
+| --- | --- |
+| TypeScript/TSX 方法名修正 | 带 private/protected 等修饰的 async generator 方法仍可能以 async 为名；JavaScript 直接使用声明与签名 facts |
+| 局部声明补充规则、匿名函数参数 | 默认规则省略部分局部/namespace 范围，SignatureFact 不覆盖未绑定函数字面量 |
+| JS/TS 构造调用与模块绑定项 | CallRef 不提供 new_expression；FactImports 不提供 ECMAScript import/export 绑定，Python ImportRef 缺少单项名称位置 |
+| 类型关系与词法绑定 | FactHeritage 未覆盖 TS implements/interface extends，也不提供遮蔽、动态基类判定和跨文件绑定 |
+| 声明头与普通文档 | 结构化 SignatureFact 不包含完整声明头；文档归属、marker 和图投影仍由适配器完成 |
+
+升级依赖时用对应语义回归检查缺口是否消失；消失后删除补充逻辑及临时标记。
+解析直接使用 LangEntry.ParseStrict，由上游处理 token source 和 cooperative cancellation；
+CodeGraph 提供仅覆盖解析阶段的 context 预算，释放返回树，并按事实接纳要求拒绝不完整语法树。
 
 注册项不保存跨快照可变状态。Extract 只能在调用期间借用语法树，返回的事实及语言扩展证据必须
 脱离 parser 且只读；Binder 返回的 Resolver 状态属于本轮构建。公共索引始终由当前源码快照重建。

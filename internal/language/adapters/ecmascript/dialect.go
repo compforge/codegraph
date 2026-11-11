@@ -11,7 +11,9 @@ import (
 type Dialect struct{}
 
 func (Dialect) Enrich(f *Facts, tree *gts.Tree, facts gts.FactSet) {
-	captureMethodNames(f, tree)
+	if f.Language == "typescript" || f.Language == "tsx" {
+		repairTypeScriptMethodNames(f, tree)
+	}
 	recordDeclarationCoverage(f, tree)
 	attachDocumentation(f, tree)
 	lang := tree.Language()

@@ -115,4 +115,5 @@ import 和源码使用节点不发布。
 
 - [使用指南](docs/usage.md)：分批补充材料、复用分析结果、源码定位与更多关系查询，以及从图生成文件大纲。
 - [Document 契约](docs/document.md)：材料身份、快照一致性及 Git 子模块边界。
-- [内核设计](docs/kernel.md)：需要扩展或参与开发时，了解分析流程与职责划分。
+- [开发约定](AGENTS.md)：扩展或参与开发时，先了解全局模型、主流程与职责边界。
+- [图模型与 lowering](docs/semantic-kinds.md)、[关系与证据](docs/relations.md)：深入理解图词汇、源码绑定及证据。

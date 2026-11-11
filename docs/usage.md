@@ -1,7 +1,7 @@
 # 使用指南
 
 本篇按材料准备、构建、定位与查询的顺序介绍使用方式。首次 Build 示例见 [README](../README.zh-CN.md)。
-字段和方法的精确契约以源码中的公共 API 注释为准；设计理由见 [内核设计](kernel.md)。
+字段和方法的精确契约以源码中的公共 API 注释为准；全局职责见 [开发约定](../AGENTS.md)，构建机制见 [语言构建流程](language-pipeline.md)。
 
 ## 准备材料
 
@@ -287,6 +287,12 @@ RETURN target, p, [r IN relationships(p) | r.line] AS lines
 Path 的节点顺序表示遍历方向，关系保留存储方向。返回值与底层图隔离，可以由调用方独立使用。
 普通值包括 string、int64、float64、bool、null、list 和 map，其他 Cypher 专有值返回错误。
 
+图存储采用有向多重图，按独立 edge handle 保存每次关系发生；公开查询只读，
+节点、关系与路径还原为 CodeGraph 领域值并返回独立副本。Documentation、Marker 与 Evidence
+同时提供可过滤属性和完整结构投影，由往返契约验证一致性。
+查询预算限制时间、路径深度和结果规模，LIMIT 不能独自限制遍历工作量；预算失败返回 error，
+不能伪装成完整的空结果。Cypher 范围以锁定的依赖及契约测试为准，不承诺完整 Neo4j 兼容。
+
 ### 属性投影
 
 | 对象 | 常用查询属性 |
@@ -324,7 +330,7 @@ RETURN r
 ```
 
 Relation、Path、Subgraph 与 `r.confidence` 都保留同一派生值，`r.evidenceData` 保留完整证据。
-关系发生与依据的区别见 [内核设计](kernel.md)。
+关系发生与依据的区别见 [关系与证据](relations.md#relation-与-evidence)。
 
 ### 意图标记
 
@@ -332,7 +338,7 @@ Relation、Path、Subgraph 与 `r.confidence` 都保留同一派生值，`r.evid
 // +spec=`Calls must preserve source locations`
 // +case:id=parallel,expect=`Preserve both call sites`
 // +rule=`Do not merge relations by endpoints`
-// +link=docs/kernel.md
+// +link=docs/relations.md
 // +doc=`Entry function`
 func Entry() { Work(); Work() }
 ```

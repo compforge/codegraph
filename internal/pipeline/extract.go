@@ -7,7 +7,6 @@ import (
 
 	"github.com/compforge/codegraph/internal/analysis"
 	"github.com/compforge/codegraph/internal/language"
-	gts "github.com/odvcencio/gotreesitter"
 )
 
 func lineStarts(source []byte) []int {
@@ -31,6 +30,9 @@ func DocumentOnly(name string, source []byte) analysis.Facts {
 // Analyze releases the syntax tree before returning detached facts. Language
 // detection is registry-driven; language-specific binding rules never leak into
 // the graph model or the batch publication path.
+//
+// +spec=`Parsing observes caller cancellation and the per-document timeout; incomplete syntax trees are rejected.`
+// +why=`The parse budget ends before fact extraction, which continues under the caller context.`
 func Analyze(ctx context.Context, name string, source []byte, timeout time.Duration) (analysis.Facts, error) {
 	f := analysis.Facts{Path: name, Source: source}
 	f.LineStarts = lineStarts(source)
@@ -42,25 +44,9 @@ func Analyze(ctx context.Context, name string, source []byte, timeout time.Durat
 		return f, fmt.Errorf("no grammar for %s", name)
 	}
 	f.Language = entry.Name
-	if entry.Language == nil {
-		return f, fmt.Errorf("grammar %s has no loader", entry.Name)
-	}
-	lang := entry.Language()
-	if lang == nil {
-		return f, fmt.Errorf("grammar %s is unavailable", entry.Name)
-	}
-	p := gts.NewParser(lang)
-	if deadline, ok := ctx.Deadline(); ok {
-		timeout = min(timeout, time.Until(deadline))
-	}
-	p.SetTimeoutMicros(uint64(max(timeout.Microseconds(), 1)))
-	var tree *gts.Tree
-	var err error
-	if entry.TokenSourceFactory != nil {
-		tree, err = p.ParseWithTokenSourceStrict(source, entry.TokenSourceFactory(source, lang))
-	} else {
-		tree, err = p.ParseStrict(source)
-	}
+	parseCtx, cancel := context.WithTimeout(ctx, timeout)
+	tree, err := entry.ParseStrict(parseCtx, source)
+	cancel()
 	if tree != nil {
 		defer tree.Release()
 	}

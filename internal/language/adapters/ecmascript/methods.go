@@ -8,14 +8,11 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
-// +tmp:text=`v0.56.0 method name fields can select async instead of the generator name; use upstream query captures until signature/declaration rows preserve the actual name`
+// +tmp:text=`TypeScript/TSX modifier methods can still report async as the name; repair with upstream query captures`,until=`Declaration/signature facts pass TestECMAScriptGeneratorAndPrivateDeclarations without repair`
 // +case=TestECMAScriptGeneratorAndPrivateDeclarations
-func captureMethodNames(f *Facts, tree *gts.Tree) {
+func repairTypeScriptMethodNames(f *Facts, tree *gts.Tree) {
 	entry := *grammars.DetectLanguageByName(f.Language)
 	params := "[(formal_parameters) (type_parameters)]"
-	if f.Language == "javascript" {
-		params = "(formal_parameters)"
-	}
 	entry.TagsQuery = "(method_definition [(property_identifier) (private_property_identifier)] @name . (comment)* . " + params + ") @definition.method"
 	methods, err := syntax.Outline(context.Background(), Facts{Language: f.Language, Source: f.Source}, tree, entry)
 	if err != nil {
