@@ -14,7 +14,7 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
-// Document is one source unit or opaque gitlink supplied for graph construction.
+// Document is one source unit, symlink, or opaque gitlink supplied for graph construction.
 // It may come from
 // a filesystem, a Git revision, or memory; it need not exist on disk.
 // Path is a slash-separated, snapshot-relative logical path (fs.ValidPath).
@@ -23,7 +23,8 @@ import (
 // a gitlink instead supplies its pinned commit and has no source locations.
 // Snapshot identity belongs to Graph. Each input is represented by a DocumentNodeKind
 // node whose ID matches this document.
-// +spec=`The same logical path identifies the same source unit across input batches`
+// +spec=`The same logical path identifies the same material across input batches; source, symlink and gitlink payloads are mutually exclusive`
+// +link=component://docs/document.md
 type Document struct {
 	Path    string
 	Content []byte
@@ -31,6 +32,10 @@ type Document struct {
 	// Set it only for Git mode 160000; Content must be empty. The caller reads
 	// Git metadata. CodeGraph neither opens the checkout nor loads its symbols.
 	Gitlink string
+	// Symlink preserves the raw slash-separated link target, relative to the
+	// entry's parent or absolute. It is mutually exclusive with Content and
+	// Gitlink. CodeGraph resolves only within supplied snapshot materials.
+	Symlink string
 }
 
 // Identifiable has a stable identity within one Graph snapshot.
@@ -44,6 +49,15 @@ func (d Document) ID() string { return DocumentID(d.Path) }
 func (d Document) validate() error {
 	if !fs.ValidPath(d.Path) {
 		return fmt.Errorf("invalid source path %q", d.Path)
+	}
+	if d.Symlink != "" {
+		if d.Path == "." || strings.ContainsRune(d.Symlink, 0) {
+			return fmt.Errorf("symlink %s requires an entry path and a non-NUL target", d.Path)
+		}
+		if len(d.Content) != 0 || d.Gitlink != "" {
+			return fmt.Errorf("symlink %s cannot also contain source bytes or a gitlink", d.Path)
+		}
+		return nil
 	}
 	if d.Gitlink == "" {
 		return nil
@@ -64,19 +78,23 @@ func (d Document) validate() error {
 }
 
 func (d Document) same(other Document) bool {
-	return d.Gitlink == other.Gitlink && bytes.Equal(d.Content, other.Content)
+	return d.Symlink == other.Symlink && d.Gitlink == other.Gitlink && bytes.Equal(d.Content, other.Content)
 }
 
 func (d Document) matches(f analysis.Facts) bool {
-	return d.Gitlink == f.Gitlink && bytes.Equal(d.Content, f.Source)
+	return d.Symlink == f.Symlink && d.Gitlink == f.Gitlink && bytes.Equal(d.Content, f.Source)
 }
 
-func (d Document) size() int64 { return int64(len(d.Content) + len(d.Gitlink)) }
+func (d Document) isLink() bool { return d.Gitlink != "" || d.Symlink != "" }
+
+func (d Document) size() int64 { return int64(len(d.Content) + len(d.Gitlink) + len(d.Symlink)) }
 
 func (d Document) digest() [32]byte {
-	// Include the material type/version so a source or a different gitlink at
+	// Include each payload separately so another material type or link target at
 	// the same path can never reuse an extraction from another snapshot.
 	h := sha256.New()
+	h.Write([]byte(d.Symlink))
+	h.Write([]byte{0})
 	h.Write([]byte(d.Gitlink))
 	h.Write([]byte{0})
 	h.Write(d.Content)
@@ -85,8 +103,8 @@ func (d Document) digest() [32]byte {
 	return sum
 }
 
-// A gitlink contributes one entry to the parent snapshot. Descendant materials
-// belong to a different repository snapshot and cannot share that boundary.
+// Links occupy a single entry. Descendants cannot also be supplied under that
+// path: gitlinks own another snapshot; symlink contents belong at the target.
 func validateDocumentBoundaries(documents map[string]Document) error {
 	names := make([]string, 0, len(documents))
 	for p := range documents {
@@ -94,13 +112,13 @@ func validateDocumentBoundaries(documents map[string]Document) error {
 	}
 	sort.Strings(names)
 	for p, d := range documents {
-		if d.Gitlink == "" {
+		if !d.isLink() {
 			continue
 		}
 		prefix := p + "/"
 		i := sort.SearchStrings(names, prefix)
 		if i < len(names) && strings.HasPrefix(names[i], prefix) {
-			return fmt.Errorf("gitlink %s is an opaque boundary; document %s belongs to its child snapshot", p, names[i])
+			return fmt.Errorf("link %s is an entry boundary; document %s cannot be its descendant", p, names[i])
 		}
 	}
 	return nil

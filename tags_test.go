@@ -125,7 +125,7 @@ func TestDocumentMaterialTags(t *testing.T) {
 		{cg.Document{Path: "settings.json"}, []cg.Tag{cg.ResourceTag}},
 		{cg.Document{Path: "logo.png"}, []cg.Tag{cg.ResourceTag}},
 		{cg.Document{Path: "unknown.xyz"}, []cg.Tag{cg.UnknownTag}},
-		{cg.Document{Path: "submodule.go", Gitlink: strings.Repeat("a", 40)}, []cg.Tag{cg.UnknownTag}},
+		{cg.Document{Path: "submodule.go", Gitlink: strings.Repeat("a", 40)}, []cg.Tag{cg.GitlinkTag}},
 	} {
 		if got := m.DocumentTags(tc.document); !reflect.DeepEqual(got, tc.want) {
 			t.Fatalf("%s: got %v want %v", tc.document.Path, got, tc.want)
@@ -367,7 +367,6 @@ func TestUnknownDocumentTags(t *testing.T) {
 	documents := []cg.Document{
 		{Path: "unclassified", Content: []byte("opaque")},
 		{Path: "nested/input.cg-unrecognized"},
-		{Path: "nested/submodule.go", Gitlink: strings.Repeat("a", 40)},
 	}
 	var zero cg.TagMatcher
 	for _, doc := range documents {

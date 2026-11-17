@@ -2,7 +2,7 @@
 
 ## 定位与身份
 
-Document 是调用方提供的一份快照材料，由逻辑路径及文件内容或 gitlink 固定 commit 组成。
+Document 是调用方提供的一份快照材料，由逻辑路径及文件内容、symlink 目标路径或 gitlink 固定 commit 组成。
 它可以来自文件系统、Git revision 或内存；材料获取、仓库发现与依赖枚举由调用方负责。
 CodeGraph 只分析显式提供的材料，使相同输入的结果不受本机 checkout 状态影响。
 
@@ -14,7 +14,8 @@ CodeGraph 只分析显式提供的材料，使相同输入的结果不受本机 
 
 Document、Directory 在图中分别使用 `Document`、`Directory` NodeKind，联系由 RelationKind 表达。
 物料分类统一保存于 Tags，不另设 DocumentKind 或 DirectoryKind。Language 描述 grammar，Gitlink
-保存调用方提供的子模块 commit；gitlink 保持不透明，不因路径类似源码就被标为 source。
+保存调用方提供的子模块 commit，Symlink 保存原始目标路径。两种链接分别带 gitlink / symlink 标签，
+跳过格式分类和语法解析，不因路径类似源码而带 source 标签；直接路径角色标签仍然累加。
 
 Document 的标签由格式分类和路径规则累加：已识别代码格式带 source，Markdown/RST 带 documentation，
 已识别数据、清单、样式及图片等资源格式带 resource。格式和直接路径规则都没有标签时，Document 使用 UnknownTag（unknown）；分类不依赖解析成功。
@@ -37,7 +38,7 @@ Document 和子 Directory 通过 `in_directory` 指向直接父 Directory。它�
 Directory 不具有源码 Location，其路径可通过 Node.Path 或 Cypher 的 path 属性查询。
 
 `Tag` 是以 string 为底层类型的开放枚举，内置 UnknownTag、ManifestTag、LockfileTag、VersionTag、GeneratedTag、TestFixtureTag、
-TestTag、DependencyTag、BuildOutputTag、CacheTag、MinifiedTag、ToolingTag、ConfigTag，以及 SourceTag、DocumentationTag、ResourceTag，也允许调用方定义新值。
+TestTag、DependencyTag、BuildOutputTag、CacheTag、MinifiedTag、ToolingTag、ConfigTag，以及 SourceTag、DocumentationTag、ResourceTag、SymlinkTag、GitlinkTag，也允许调用方定义新值。
 CodeGraph 负责执行分类规则并在节点上保存标签；如何分类、标签在业务中意味着什么，以及如何处理已标记材料，由调用方决定。
 `TagRule{Name, Pattern, Languages}` 按规范化路径应用 Go 正则；规则可以匹配 Document 和 Directory。
 可选 `Languages` 以现有 `Language(path)` 的 grammar 名称限制匹配，空列表不限制；它只识别路径，不加载 parser。
@@ -102,8 +103,9 @@ tags := matcher.Match("tests/input.pb.go")
 `NewTagMatcher` 校验并编译规则，nil、空集合和替换规则的含义与 Builder 一致。
 匹配器创建后固定，可以并发复用；调用方后续修改规则或返回的标签不会影响它。
 `Match` 接收规范化的快照相对路径，使用 `/` 分隔、目录无末尾斜杠、根目录为 `.`。
-`DocumentTags(Document)` 在直接路径匹配上补入格式标签，不需要 Content 或解析树。
-若最终标签为空则返回 `[unknown]`，包括没有路径分类的 gitlink；禁用路径规则和零值 matcher 仍保留这一兜底。
+`DocumentTags(Document)` 在直接路径匹配上补入材料或格式标签，不需要 Content 或解析树。
+若最终标签为空则返回 `[unknown]`；gitlink / symlink 自带材料标签，不使用 unknown 兜底。
+禁用路径规则和零值 matcher 仍保留材料、格式标签及 unknown 兜底。
 一旦格式或路径规则提供标签，就不自动追加 unknown。它只表示当前分类未识别，不表示解析失败或影响分析不完整。
 `ExcludedBy(Document, excludedTags)` 检查材料标签及每一级祖先目录，返回命中的排除标签。
 Builder 与消费者在材料预算之前共用这两个入口；Directory 节点使用 `Match`。
@@ -123,6 +125,32 @@ MATCH (d:Document)-[:in_directory]->(p:Directory)
 WHERE 'generated' IN d.tags
 RETURN d.path, d.tags, p.path
 ```
+
+## Symlink 材料与关系
+
+`Document{Path: "filea", Symlink: "file2"}` 表达普通文件软链接。Symlink 保存调用方提供的原始
+斜杠分隔目标，不要求目标已提供；相对路径以链接的父目录为基准。Content、Gitlink、Symlink
+互斥；空 Symlink 表示普通文件，链接目标不允许 NUL。链接自身不能使用根路径 `.`。
+链接 payload 参与缓存身份及材料字节预算；同一快照不得改变同一路径的材料类别或目标。
+
+链接仍是独立 Document，可通过 `g.Document`、Node JSON 的 `symlink` 和 Cypher `d.symlink`
+读取。它不复制目标的内容、符号、语言或标签，不触发磁盘读取。链接路径不能同时接纳后代材料；
+目录链接的目标材料应以实际目标路径提交。
+
+当目标是已接纳的 Document 或其已知祖先 Directory 时，图发布
+`(link:Document)-[:links_to]->(target)`，证据为 exact / symlink_target。
+它表达直接条目引用，与源码名称绑定的 aliases 分开；`a → b → c` 保留两条关系，
+直接自引用及环也如实保留，不表示解引用成功。目标为 gitlink 时只连接该不透明条目，不穿透子仓库。
+LinksTo 不属于源码语义的 IsDependency 集合，材料依赖消费者显式选择该关系及遍历策略。
+
+目标路径按已知目录逐段验证后处理 `..`，不先用词法清理跨越文件、缺失目录或链接。
+绝对路径、逃逸快照、缺失目标，以及需要穿过 symlink / gitlink 条目的路径，保留原始目标并报告
+`unresolved_symlink`，不虚构目标节点。这是快照内直接引用解析，不实现目录别名展开或宿主文件系统的
+解引用规则。目录节点只证明是已提供材料的祖先，不代表完整目录清单。
+
+补充目标材料后重建会补齐关系并移除已解决的诊断，之前发布的 Graph 不变。准入决定材料与端点
+是否发布，关系遵守两端均存在的约束及关系/证据预算。链接分类本身不保证消费者的验证复用安全；
+读取 Git mode / readlink、捕获目标、计算依赖闭包和选择执行策略仍由 RepoKit 等调用方负责。
 
 ## Manifest 材料
 

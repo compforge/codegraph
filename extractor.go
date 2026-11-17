@@ -166,7 +166,7 @@ func (c *ExtractionCache) put(key extractionKey, facts analysis.Facts) {
 	if _, exists := c.entries[key]; exists {
 		return
 	}
-	size := int64(len(facts.Source) + len(facts.Gitlink))
+	size := int64(len(facts.Source) + len(facts.Gitlink) + len(facts.Symlink))
 	if len(c.entries) >= c.maxDocuments || size > c.maxSourceBytes-c.sourceBytes {
 		return
 	}
@@ -190,9 +190,8 @@ func (g *Extractor) extractMaterial(ctx context.Context, document Document) (ana
 		}
 	}
 	var facts analysis.Facts
-	if document.Gitlink != "" {
-		facts = pipeline.DocumentOnly(document.Path, nil)
-		facts.Gitlink = document.Gitlink
+	if document.isLink() {
+		facts = documentFacts(document)
 	} else if language.Detect(document.Path) == nil {
 		facts = pipeline.DocumentOnly(document.Path, bytes.Clone(document.Content))
 		facts.Issues = append(facts.Issues, analysis.Issue{Code: "unsupported_language", Message: "no registered grammar for file", Subject: "document", Span: analysis.Span{End: len(document.Content)}})

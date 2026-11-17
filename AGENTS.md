@@ -80,7 +80,7 @@ docs/                                   # 按主题维护模型、构建、关�
 - [图模型与 lowering](docs/semantic-kinds.md) — 节点/关系词汇、映射标准及分析到公开模型的转换。
 - [关系与证据](docs/relations.md) — 关系身份、Confidence、源码使用及 import/export 绑定链。
 - [分析准入](docs/admission.md) — 材料分类、节点投影与解析事实边界。
-- [Document 契约](docs/document.md) — 源码和 gitlink 材料、身份、接纳及图中表达。
+- [Document 契约](docs/document.md) — 源码、symlink 和 gitlink 材料、身份、接纳及图中表达。
 - [命名空间组织](docs/namespaces.md) — 成员、嵌套、身份与源码贡献。
 - [语言能力](docs/language-support.md) — 各语言的静态证据与限制。
 - [语言构建流程](docs/language-pipeline.md) — 阶段职责、共享索引与适配器接入。

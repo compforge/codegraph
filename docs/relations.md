@@ -72,3 +72,8 @@ handler 等业务角色。extends / implements 使用也保留独立 TypeUse，�
 没有 binds_to / aliases 可能来自材料缺失、动态行为或分析能力限制，结合诊断与语言能力判断。
 身份取决于源码项而非目标。补入依赖后，同一使用或绑定项可获得新目标，旧边及其精度也可能修订；
 已返回的 Graph 保持不变。提取器演进可以扩大覆盖，未提取到某种结构不等于源码中不存在它。
+
+## 材料引用
+
+`links_to` 从 symlink Document 指向快照内直接引用的 Document 或 Directory，保留链接链及环。
+它不合并节点、不表达源码名称 aliases，也不保证成功解引用；路径及诊断契约见 [Document](document.md#symlink-材料与关系)。

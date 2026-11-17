@@ -23,20 +23,20 @@ func (g *Graph) Directory(path string) (DirectoryNode, bool) {
 // +why=Path structure is independent of semantic member ownership and admission.
 func (a *graphAssembler) publishDocumentStructure(ctx context.Context, failures map[string]Diagnostic) error {
 	a.stage = "directory"
-	documents := map[string]string{}
+	documents := map[string]Document{}
 	for p, f := range a.files {
-		documents[p] = f.Gitlink
+		documents[p] = Document{Path: p, Gitlink: f.Gitlink, Symlink: f.Symlink}
 	}
 	for p, d := range failures {
 		if d.Code == "parse_error" {
-			documents[p] = ""
+			documents[p] = Document{Path: p}
 		}
 	}
-	for p, gitlink := range documents {
+	for p, doc := range documents {
 		docID := DocumentID(p)
 		if n, ok := a.nodes[docID]; ok {
 			n.Path = p
-			n.Tags = a.tags.DocumentTags(Document{Path: p, Gitlink: gitlink})
+			n.Tags = a.tags.DocumentTags(doc)
 			if err := a.addNode(n); err != nil {
 				return err
 			}
@@ -65,5 +65,5 @@ func (a *graphAssembler) publishDocumentStructure(ctx context.Context, failures 
 			child, parent = id, path.Dir(parent)
 		}
 	}
-	return nil
+	return a.publishSymlinks(ctx, documents)
 }

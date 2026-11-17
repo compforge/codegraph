@@ -152,7 +152,7 @@ func (g *session) enqueueDocuments(ctx context.Context, documents ...Document) (
 	}
 	boundaries := make(map[string]Document, len(g.documents)+len(g.documentTasks)+len(seen))
 	for p, f := range g.documents {
-		boundaries[p] = Document{Path: p, Gitlink: f.Gitlink}
+		boundaries[p] = Document{Path: p, Gitlink: f.Gitlink, Symlink: f.Symlink}
 	}
 	for _, task := range g.documentTasks {
 		if !task.failed {
@@ -181,7 +181,7 @@ func (g *session) enqueueDocuments(ctx context.Context, documents ...Document) (
 		if g.pendingWorkers == nil {
 			g.pendingWorkers = &sync.WaitGroup{}
 		}
-		owned := Document{Path: document.Path, Content: bytes.Clone(document.Content), Gitlink: document.Gitlink}
+		owned := Document{Path: document.Path, Content: bytes.Clone(document.Content), Gitlink: document.Gitlink, Symlink: document.Symlink}
 		workers := g.pendingWorkers
 		workers.Add(1)
 		task := g.asyncPool.SubmitErr(func() (Facts, error) {
@@ -376,7 +376,7 @@ type factCacheEntry struct {
 // again, and facts of already loaded documents are projected without parsing.
 // Source documents without a registered grammar yield file-level facts carrying an
 // unsupported_language issue, mirroring how AddDocuments records them.
-// Gitlinks yield only their path and commit, without attempting language parsing.
+// Links yield only their path and target or commit, without attempting language parsing.
 // +spec=`Exploration extraction never reparses identical snapshot content`
 func (g *session) Extract(ctx context.Context, document Document) (Facts, error) {
 	if err := ctx.Err(); err != nil {
@@ -526,7 +526,7 @@ func (g *session) stageDocuments(ctx context.Context, documents []Document, stag
 				continue
 			}
 			staged[name] = result.facts
-			total += int64(len(result.facts.Source) + len(result.facts.Gitlink))
+			total += int64(len(result.facts.Source) + len(result.facts.Gitlink) + len(result.facts.Symlink))
 			delete(failures, name)
 		}
 	}
@@ -584,7 +584,7 @@ func (g *session) addPrepared(ctx context.Context, parseFailures map[string]erro
 	var total int64
 	for p, f := range g.documents {
 		staged[p] = f
-		total += int64(len(f.Source) + len(f.Gitlink))
+		total += int64(len(f.Source) + len(f.Gitlink) + len(f.Symlink))
 	}
 	failures := map[string]Diagnostic{}
 	for p, d := range g.failures {
@@ -606,7 +606,7 @@ func (g *session) addPrepared(ctx context.Context, parseFailures map[string]erro
 	g.documents, g.failures = staged, failures
 	g.sourceBytes = 0
 	for _, f := range staged {
-		g.sourceBytes += int64(len(f.Source) + len(f.Gitlink))
+		g.sourceBytes += int64(len(f.Source) + len(f.Gitlink) + len(f.Symlink))
 	}
 	g.result = newGraph(g.snapshot, g.opts, nodes, relations, report)
 	return cloneReport(report), nil

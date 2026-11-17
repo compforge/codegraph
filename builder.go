@@ -81,7 +81,7 @@ func (b *Builder) Add(facts ...Facts) error {
 			return fmt.Errorf("facts must be produced by an Extractor")
 		}
 		raw := *f.raw
-		doc := Document{Path: raw.Path, Content: raw.Source, Gitlink: raw.Gitlink}
+		doc := Document{Path: raw.Path, Content: raw.Source, Gitlink: raw.Gitlink, Symlink: raw.Symlink}
 		if !b.allowed(raw.Path) {
 			return fmt.Errorf("facts %s are outside allowed scope", raw.Path)
 		}
@@ -105,29 +105,29 @@ func (b *Builder) Add(facts ...Facts) error {
 		staged[raw.Path] = raw
 		total += doc.size()
 	}
-	// A regular source only needs its ancestors checked. Opaque gitlinks also
+	// A regular source only needs its ancestors checked. Link entries also
 	// check descendants. This keeps ordinary one-at-a-time admission linear in
 	// path depth rather than copying and sorting the growing snapshot each time.
 	for p, f := range staged {
 		for parent := path.Dir(p); ; parent = path.Dir(parent) {
-			if b.documents[parent].Gitlink != "" || staged[parent].Gitlink != "" {
-				return fmt.Errorf("document %s is inside opaque gitlink %s", p, parent)
+			if b.documents[parent].Gitlink != "" || staged[parent].Gitlink != "" || b.documents[parent].Symlink != "" || staged[parent].Symlink != "" {
+				return fmt.Errorf("document %s is inside link entry %s", p, parent)
 			}
 			if parent == "." {
 				break
 			}
 		}
-		if f.Gitlink == "" {
+		if f.Gitlink == "" && f.Symlink == "" {
 			continue
 		}
 		for name := range b.documents {
 			if strings.HasPrefix(name, p+"/") {
-				return fmt.Errorf("gitlink %s contains document %s", p, name)
+				return fmt.Errorf("link %s contains document %s", p, name)
 			}
 		}
 		for name := range staged {
 			if strings.HasPrefix(name, p+"/") {
-				return fmt.Errorf("gitlink %s contains document %s", p, name)
+				return fmt.Errorf("link %s contains document %s", p, name)
 			}
 		}
 	}
