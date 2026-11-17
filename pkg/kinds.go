@@ -39,7 +39,7 @@ func (k RelationKind) IsPublic() bool {
 	switch k {
 	case InDirectory, InNamespace, Encloses, Contains, Declares, Imports, Calls,
 		Reads, Writes, UsesType, Captures, UsesResource, Extends, Implements, OccursIn,
-		Aliases, Exports, Decorates, BindsTo:
+		Aliases, LinksTo, Exports, Decorates, BindsTo:
 		return true
 	}
 	return false

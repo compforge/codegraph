@@ -16,7 +16,8 @@ import (
 type Facts struct {
 	raw                     *analysis.Facts
 	Path, Package, Language string
-	// Gitlink retains the pinned commit for an opaque gitlink document.
+	// Symlink and Gitlink retain the raw target or pinned commit for link documents.
+	Symlink       string
 	Gitlink       string
 	Manifest      *ManifestMetadata
 	Declarations  []FactDeclaration
@@ -157,7 +158,7 @@ type FactCall struct {
 }
 
 func projectFacts(f analysis.Facts) (Facts, error) {
-	out := Facts{raw: &f, Path: f.Path, Package: f.Package, Language: f.Language, Gitlink: f.Gitlink, Manifest: projectManifest(f)}
+	out := Facts{raw: &f, Path: f.Path, Package: f.Package, Language: f.Language, Gitlink: f.Gitlink, Symlink: f.Symlink, Manifest: projectManifest(f)}
 	for _, d := range f.Declarations {
 		kind, err := declarationKind(d.Kind)
 		if err != nil {
@@ -314,5 +315,5 @@ func (f Facts) Digest() [32]byte {
 	if f.raw == nil {
 		return [32]byte{}
 	}
-	return (Document{Path: f.raw.Path, Content: f.raw.Source, Gitlink: f.raw.Gitlink}).digest()
+	return (Document{Path: f.raw.Path, Content: f.raw.Source, Gitlink: f.raw.Gitlink, Symlink: f.raw.Symlink}).digest()
 }

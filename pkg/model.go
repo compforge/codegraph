@@ -67,7 +67,8 @@ type Node struct {
 	Tags []Tag  `json:"tags,omitempty"`
 	// Manifest is present only on Document nodes.
 	Manifest *ManifestMetadata `json:"manifest,omitempty"`
-	// Gitlink is set only on an opaque gitlink Document, never on symbols.
+	// Symlink and Gitlink retain the raw target or commit on link Documents, never symbols.
+	Symlink       string   `json:"symlink,omitempty"`
 	Gitlink       string   `json:"gitlink,omitempty"`
 	Kind          NodeKind `json:"kind"`
 	Name          string   `json:"name"`
@@ -155,6 +156,9 @@ const (
 	OccursIn RelationKind = "occurs_in"
 	// Aliases connects a source name binding to the entity it denotes.
 	Aliases RelationKind = "aliases"
+	// LinksTo connects a symlink Document to its immediate snapshot entry.
+	// It preserves link chains, including cycles, without claiming dereference success.
+	LinksTo RelationKind = "links_to"
 	Exports RelationKind = "exports"
 	// Decorates connects a modifier occurrence to the declaration it modifies.
 	Decorates RelationKind = "decorates"

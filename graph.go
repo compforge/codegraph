@@ -262,6 +262,9 @@ func (g *Graph) materialize(ctx context.Context, nodes map[string]Node, relation
 				}
 			}
 		}
+		if n.Symlink != "" {
+			props["symlink"] = n.Symlink
+		}
 		if n.Gitlink != "" {
 			props["gitlink"] = n.Gitlink
 		}

@@ -108,6 +108,7 @@ const (
 	Implements  = pkg.Implements
 	OccursIn    = pkg.OccursIn
 	Aliases     = pkg.Aliases
+	LinksTo     = pkg.LinksTo
 	Exports     = pkg.Exports
 	Decorates   = pkg.Decorates
 )

@@ -20,6 +20,7 @@ type graphAssembler struct {
 	nodes                map[string]Node
 	relations            map[string]Relation
 	evidence, references int
+	diagnostics          []Diagnostic
 	stage                string
 }
 
@@ -100,7 +101,8 @@ func (a *graphAssembler) Assemble(ctx context.Context, selected selection, failu
 		}
 		if ref.IsDocument() {
 			n.Gitlink = a.files[ref.Path].Gitlink
-			if n.Language == "" && n.Gitlink == "" {
+			n.Symlink = a.files[ref.Path].Symlink
+			if n.Language == "" && n.Gitlink == "" && n.Symlink == "" {
 				n.Language = Language(ref.Path)
 			}
 			n.Manifest = projectManifest(a.files[ref.Path])

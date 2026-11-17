@@ -145,6 +145,7 @@ func (c *compilation) Run(ctx context.Context) (map[string]Node, map[string]Rela
 	if err := assembler.Assemble(ctx, selected, failures); err != nil {
 		return nil, nil, report, err
 	}
+	report.Diagnostics = append(report.Diagnostics, assembler.diagnostics...)
 	report.Publication.Duration = time.Since(started)
 	report.Publication.References = assembler.references
 	sort.Slice(report.Diagnostics, func(i, j int) bool {

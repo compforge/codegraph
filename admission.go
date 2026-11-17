@@ -81,6 +81,7 @@ func (b *Builder) parsesDocument(d Document) bool {
 func documentFacts(d Document) analysis.Facts {
 	f := pipeline.DocumentOnly(d.Path, bytes.Clone(d.Content))
 	f.Gitlink = d.Gitlink
+	f.Symlink = d.Symlink
 	return f
 }
 
@@ -93,7 +94,7 @@ func (b *Builder) admittedFiles(files map[string]analysis.Facts) (map[string]ana
 	out := make(map[string]analysis.Facts, len(files))
 	var excluded []Diagnostic
 	for name, f := range files {
-		d := Document{Path: name, Content: f.Source, Gitlink: f.Gitlink}
+		d := Document{Path: name, Content: f.Source, Gitlink: f.Gitlink, Symlink: f.Symlink}
 		if reason := b.excludedMaterial(d); reason != "" {
 			excluded = append(excluded, Diagnostic{Code: "excluded_material", Subject: DocumentSubject,
 				Message: reason, Location: location(f, analysis.Span{End: len(f.Source)})})

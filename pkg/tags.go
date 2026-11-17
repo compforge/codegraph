@@ -6,6 +6,8 @@ package pkg
 type Tag string
 
 const (
+	SymlinkTag       Tag = "symlink"
+	GitlinkTag       Tag = "gitlink"
 	UnknownTag       Tag = "unknown"
 	SourceTag        Tag = "source"
 	DocumentationTag Tag = "documentation"

@@ -135,6 +135,7 @@ type ResourceReference struct {
 
 type Facts struct {
 	Path, Package, Language string
+	Symlink                 string
 	Gitlink                 string
 	Manifest                *Manifest
 	Lexical                 *SymbolTable

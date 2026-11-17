@@ -53,7 +53,7 @@ func (b *Builder) AddDocument(ctx context.Context, doc Document) pond.ResultTask
 // again, and facts of already loaded documents are projected without parsing.
 // Source documents without a registered grammar yield file-level facts carrying an
 // unsupported_language issue, mirroring how AddDocuments records them.
-// Gitlinks yield only their path and commit, without attempting language parsing.
+// Links yield only their path and target or commit, without attempting language parsing.
 // +spec=`Exploration extraction never reparses identical snapshot content`
 func (b *Builder) Extract(ctx context.Context, doc Document) (Facts, error) {
 	s, err := b.documentSession()
