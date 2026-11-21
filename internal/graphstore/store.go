@@ -9,6 +9,7 @@ import (
 
 	"github.com/FlavioCFOliveira/GoGraph/cypher"
 	"github.com/FlavioCFOliveira/GoGraph/cypher/expr"
+	"github.com/FlavioCFOliveira/GoGraph/graph"
 	"github.com/FlavioCFOliveira/GoGraph/graph/adjlist"
 	"github.com/FlavioCFOliveira/GoGraph/graph/lpg"
 )
@@ -27,15 +28,14 @@ type Limits struct {
 	Hops  int
 }
 type Store struct {
-	graph       *lpg.Graph[string, float64]
-	engine      *cypher.Engine
-	limits      Limits
-	relationIDs map[uint64]string
+	graph  *lpg.Graph[string, float64]
+	engine *cypher.Engine
+	limits Limits
 }
 
 func New(limits Limits) *Store {
 	g := lpg.New[string, float64](adjlist.Config{Directed: true, Multigraph: true, Weightless: true})
-	return &Store{graph: g, engine: cypher.NewEngineWithOptions(g, cypher.EngineOptions{MaxResultRows: int64(limits.Rows), MaxResultBytes: limits.Bytes, MaxCollectItems: limits.Rows, GlobalMaxResultBytes: limits.Bytes}), limits: limits, relationIDs: map[uint64]string{}}
+	return &Store{graph: g, engine: cypher.NewEngineWithOptions(g, cypher.EngineOptions{MaxResultRows: int64(limits.Rows), MaxResultBytes: limits.Bytes, MaxCollectItems: limits.Rows, GlobalMaxResultBytes: limits.Bytes}), limits: limits}
 }
 
 func (s *Store) AddNode(id, label string, props map[string]any) error {
@@ -58,8 +58,7 @@ func (s *Store) AddNode(id, label string, props map[string]any) error {
 }
 
 func (s *Store) AddEdge(source, target, kind string, props map[string]any) error {
-	id, ok := props["id"].(string)
-	if !ok {
+	if _, ok := props["id"].(string); !ok {
 		return errors.New("edge requires source identity")
 	}
 	h, err := s.graph.AddEdgeH(source, target, 0)
@@ -67,7 +66,6 @@ func (s *Store) AddEdge(source, target, kind string, props map[string]any) error
 		return err
 	}
 	s.graph.SetEdgeLabelByHandle(source, target, h, kind)
-	s.relationIDs[h] = id
 	for k, v := range props {
 		pv, err := property(v)
 		if err != nil {
@@ -162,13 +160,16 @@ func entity(props expr.MapValue, relation bool) (Entity, error) {
 	return Entity{string(id), relation}, nil
 }
 
-func (s *Store) relationship(handle uint64) (Entity, error) {
-	// Entity identity is independent of property materialization. GoGraph's
-	// chained RETURN r fast path can omit by-handle properties; its stable
-	// relationship handle still identifies the exact parallel edge.
-	id, ok := s.relationIDs[handle]
+func (s *Store) relationship(start, end, handle uint64) (Entity, error) {
+	// Chained queries may omit materialized properties. The stored edge
+	// coordinates still identify the exact parallel edge.
+	v, ok := s.graph.EdgePropertyByHandleIDAsOf(graph.NodeID(start), graph.NodeID(end), handle, "id", nil)
 	if !ok {
-		return Entity{}, fmt.Errorf("unknown edge handle %d", handle)
+		return Entity{}, fmt.Errorf("edge %d (%d -> %d) absent", handle, start, end)
+	}
+	id, ok := v.String()
+	if !ok {
+		return Entity{}, errors.New("non-string edge id")
 	}
 	return Entity{ID: id, Relation: true}, nil
 }
@@ -180,11 +181,11 @@ func (s *Store) detach(v any) (any, error) {
 	case expr.NodeValue:
 		return entity(v.Properties, false)
 	case expr.RelationshipValue:
-		return s.relationship(v.ID)
+		return s.relationship(v.StartID, v.EndID, v.ID)
 	case *expr.LazyNodeValue:
 		return entity(expr.MapValue{"id": v.Property("id")}, false)
 	case *expr.LazyRelationshipValue:
-		return s.relationship(v.ID())
+		return s.relationship(v.StartID(), v.EndID(), v.ID())
 	case expr.PathValue:
 		p := Path{}
 		for _, n := range v.Nodes {
@@ -195,7 +196,7 @@ func (s *Store) detach(v any) (any, error) {
 			p.Nodes = append(p.Nodes, e)
 		}
 		for _, r := range v.Relationships {
-			e, err := s.relationship(r.ID)
+			e, err := s.relationship(r.StartID, r.EndID, r.ID)
 			if err != nil {
 				return nil, err
 			}

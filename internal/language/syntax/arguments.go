@@ -11,9 +11,12 @@ func ArgumentsByCall(arguments []gts.CallArgumentFact) map[Span][]gts.CallArgume
 	return calls
 }
 
-// NodesBySpan joins detached upstream captures to nodes during extraction only.
-func NodesBySpan(tree *gts.Tree) map[Span]*gts.Node {
-	nodes := map[Span]*gts.Node{}
-	Walk(tree.RootNode(), func(n *gts.Node) { nodes[NodeSpan(n)] = n })
-	return nodes
+// NodeAtExactRange joins a fact to its named syntax node. An enclosing node
+// alone cannot identify the argument or binding.
+func NodeAtExactRange(parent *gts.Node, start, end uint32) *gts.Node {
+	n := parent.NamedDescendantForByteRange(start, end)
+	if n != nil && n.StartByte() == start && n.EndByte() == end {
+		return n
+	}
+	return nil
 }

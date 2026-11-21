@@ -45,6 +45,28 @@ func declarationRules(entry grammars.LangEntry) []gts.DeclarationRule {
 	return rules
 }
 
+// declarationKind is shared by extraction and the advertised capabilities.
+func declarationKind(kind, nodeType, shape string) string {
+	switch nodeType {
+	case "variable_declarator":
+		// ECMAScript const binds a variable. Enum members remain constants.
+		if kind == "constant" {
+			return "variable"
+		}
+	case "property_signature":
+		return "property"
+	}
+	if kind == "type" {
+		switch shape {
+		case "alias":
+			return "type_alias"
+		case "struct", "interface", "class", "enum":
+			return shape
+		}
+	}
+	return kind
+}
+
 // Declarations projects syntax facts into graph declarations. Name captures
 // distinguish sibling identities even when their construct ranges coincide.
 func Declarations(f *Facts, facts gts.FactSet) {
@@ -69,22 +91,7 @@ func Declarations(f *Facts, facts gts.FactSet) {
 		if d.Kind == "embed" {
 			continue
 		}
-		kind := d.Kind
-		// ECMAScript const binds a variable; enum members remain constants.
-		if d.NodeType == "variable_declarator" && kind == "constant" {
-			kind = "variable"
-		}
-		if d.NodeType == "property_signature" {
-			kind = "property"
-		}
-		if kind == "type" {
-			switch d.Shape {
-			case "alias":
-				kind = "type_alias"
-			case "struct", "interface", "class", "enum":
-				kind = d.Shape
-			}
-		}
+		kind := declarationKind(d.Kind, d.NodeType, d.Shape)
 		if analysis.ConcreteKind(kind) == "" {
 			continue
 		}
