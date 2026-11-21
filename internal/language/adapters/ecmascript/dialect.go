@@ -14,7 +14,6 @@ func (Dialect) Enrich(f *Facts, tree *gts.Tree, facts gts.FactSet) {
 	recordDeclarationCoverage(f, tree)
 	attachDocumentation(f, tree)
 	lang := tree.Language()
-	nodes := syntax.NodesBySpan(tree)
 	arguments := syntax.ArgumentsByCall(facts.CallArguments)
 	if f.Exports == nil {
 		f.Exports = map[string]string{}
@@ -89,7 +88,7 @@ func (Dialect) Enrich(f *Facts, tree *gts.Tree, facts gts.FactSet) {
 				args := arguments[syntax.NodeSpan(n)]
 				if len(args) == 1 {
 					arg := args[0]
-					AddModuleImport(f, nodes[Span{Start: int(arg.StartByte), End: int(arg.EndByte)}], lang)
+					AddModuleImport(f, syntax.NodeAtExactRange(n, arg.StartByte, arg.EndByte), lang)
 				}
 			}
 		}

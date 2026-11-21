@@ -33,8 +33,6 @@ func visit(v reflect.Value, maxHops int) error {
 		}
 		if v.CanInterface() {
 			switch n := v.Interface().(type) {
-			case ast.UpdatingClause:
-				return ErrReadOnly
 			case *ast.Call:
 				return fmt.Errorf("%w: procedures are not exposed", ErrReadOnly)
 			case *ast.PathPattern:

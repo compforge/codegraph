@@ -1,7 +1,6 @@
 package syntax
 
 import (
-	"regexp"
 	"sort"
 	"strings"
 
@@ -9,34 +8,24 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
-var definitionCapture = regexp.MustCompile(`@definition\.([a-z_]+)`)
-
 // DeclarationKinds reads advertised capture data for the requested grammar.
 // Runtime omissions and unsupported categories still have diagnostics.
 func DeclarationKinds(entry grammars.LangEntry) []string {
 	seen := map[string]bool{}
 	for _, row := range declarationRules(entry) {
-		kind := row.Kind
-		if row.NodeType == "variable_declarator" && kind == "constant" {
-			kind = "variable"
-		}
-		if row.NodeType == "property_signature" {
-			kind = "property"
-		}
-		if row.Kind == "type" && row.Shape != "" {
-			kind = row.Shape
-			if kind == "alias" {
-				kind = "type_alias"
-			}
-		}
+		kind := declarationKind(row.Kind, row.NodeType, row.Shape)
 		if concrete := analysis.ConcreteKind(kind); concrete != "" {
 			seen[string(concrete)] = true
 		}
 	}
 
-	for _, match := range definitionCapture.FindAllStringSubmatch(entry.TagsQuery, -1) {
-		if kind := analysis.ConcreteKind(match[1]); kind != "" {
-			seen[string(kind)] = true
+	if entry.Language != nil && entry.TagsQuery != "" {
+		if outline, err := outlineProgram(entry.Language(), entry); err == nil {
+			for _, captured := range outline.DefinitionKinds() {
+				if kind := analysis.ConcreteKind(captured); kind != "" {
+					seen[string(kind)] = true
+				}
+			}
 		}
 	}
 	// The outliner refines these generic captures using the declaration shape.

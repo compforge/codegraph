@@ -216,6 +216,7 @@ func TestQueryBoundary(t *testing.T) {
 	}
 	for _, q := range []string{
 		`MATCH p=(a)-[*]->(b) RETURN p`,
+		`MATCH (a)-[*]->(b) DELETE b`,
 		`MATCH p=(a)-[*1..99]->(b) RETURN p`,
 		`MATCH (n) RETURN [(n)-[*]->(m) | m]`,
 		`MATCH (n) WHERE EXISTS { MATCH (n)-[*]->(m) } RETURN n`,

@@ -9,7 +9,6 @@ import (
 func (Dialect) Lexical(f *Facts, tree *gts.Tree, signatures []gts.SignatureFact) *analysis.SymbolTable {
 	l := analysis.NewSymbolTable(len(f.Source))
 	lang := tree.Language()
-	nodes := syntax.NodesBySpan(tree)
 	var pattern func(*gts.Node, *gts.Node, int, string)
 	pattern = func(n, owner *gts.Node, scope int, kind string) {
 		if n == nil {
@@ -69,8 +68,8 @@ func (Dialect) Lexical(f *Facts, tree *gts.Tree, signatures []gts.SignatureFact)
 		case "formal_parameters":
 			if parameters, ok := syntax.SignatureParameters(signatures, n, lang); ok {
 				for _, p := range parameters {
-					owner := nodes[Span{Start: int(p.StartByte), End: int(p.EndByte)}]
-					if name := nodes[Span{Start: int(p.NameStartByte), End: int(p.NameEndByte)}]; name != nil {
+					owner := syntax.NodeAtExactRange(n, p.StartByte, p.EndByte)
+					if name := syntax.NodeAtExactRange(n, p.NameStartByte, p.NameEndByte); name != nil {
 						pattern(name, owner, scope, "parameter")
 					} else if owner != nil {
 						// Anonymous destructured/this parameters retain only their pattern binding.

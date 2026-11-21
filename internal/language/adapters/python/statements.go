@@ -9,7 +9,6 @@ import (
 
 func pythonProgram(f *Facts, tree *gts.Tree, facts gts.FactSet) []Statement {
 	lang := tree.Language()
-	nodes := syntax.NodesBySpan(tree)
 	arguments := syntax.ArgumentsByCall(facts.CallArguments)
 	imports := map[int][]Import{}
 	for _, imp := range f.Imports {
@@ -66,7 +65,7 @@ func pythonProgram(f *Facts, tree *gts.Tree, facts gts.FactSet) []Statement {
 		case "call":
 			e.Children = []Expression{expr(n.ChildByFieldName("function", lang), depth+1)}
 			for _, arg := range arguments[syntax.NodeSpan(n)] {
-				e.Children = append(e.Children, expr(nodes[Span{Start: int(arg.StartByte), End: int(arg.EndByte)}], depth+1))
+				e.Children = append(e.Children, expr(syntax.NodeAtExactRange(n, arg.StartByte, arg.EndByte), depth+1))
 			}
 		default:
 			for i := 0; i < n.NamedChildCount(); i++ {
@@ -118,7 +117,7 @@ func pythonProgram(f *Facts, tree *gts.Tree, facts gts.FactSet) []Statement {
 				if parameters, ok := syntax.SignatureParameters(facts.Signatures, params, lang); ok {
 					for _, p := range parameters {
 						// Preserve splat target structure for context evaluation.
-						binding := nodes[Span{Start: int(p.NameStartByte), End: int(p.NameEndByte)}]
+						binding := syntax.NodeAtExactRange(params, p.NameStartByte, p.NameEndByte)
 						s.Target.Children = append(s.Target.Children, expr(binding, 0))
 					}
 				}
