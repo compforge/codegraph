@@ -139,9 +139,9 @@ func TestUpstreamGoAliasHeaders(t *testing.T) {
 			t.Fatal(err)
 		}
 		nodes := g.Find("app.go", codegraph.TypeAlias, "Literal")
-		want := "Literal = struct"
+		want := "type Literal = struct"
 		if body[0] == 'i' {
-			want = "Literal = interface"
+			want = "type Literal = interface"
 		}
 		if len(nodes) != 1 || nodes[0].Signature != want {
 			t.Fatal(nodes, want)
@@ -200,6 +200,31 @@ func TestUpstreamComputedMemberGap(t *testing.T) {
 		}
 		if len(g.Find(path, codegraph.Variable, "Box.value")) != 1 {
 			t.Fatal("computed expression changed lexical ownership")
+		}
+	}
+}
+
+// +case:id=upstream-dynamic-constructor,expect=`Only the inner factory call binds when a constructor target is computed`
+func TestUpstreamDynamicConstructor(t *testing.T) {
+	const source = "function factory() {}\nfunction entry(x) { new (factory())(x); }"
+	for _, path := range []string{"app.js", "app.ts", "app.tsx"} {
+		g, report, err := codegraph.Build(context.Background(), "upstream", []codegraph.Document{{Path: path, Content: []byte(source)}}, codegraph.Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		factory := g.Find(path, codegraph.Function, "factory")[0]
+		edges := g.RelationsTo(factory.ID, codegraph.Calls)
+		if len(edges) != 1 || source[edges[0].Location.StartByte:edges[0].Location.EndByte] != "factory()" {
+			t.Fatal(path, edges)
+		}
+		found := false
+		for _, diag := range report.Diagnostics {
+			if diag.Code == "dynamic_call" && source[diag.Location.StartByte:diag.Location.EndByte] == "new (factory())(x)" {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatal(path, report.Diagnostics)
 		}
 	}
 }

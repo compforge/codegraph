@@ -37,7 +37,7 @@ func (x ModuleExtractor) extractModuleTypeRelations(f *Facts, tree *gts.Tree) {
 				f.Issues = append(f.Issues, Issue{Code: "unsupported_type_relation", Message: "base type expression is not a named binding", Subject: "relations", Relation: kind, Span: span})
 				name = base.Text(f.Source)
 			}
-			allowed := !blocked && x.moduleTypeRelationAllowed(f, tree, base, owner, name, module)
+			allowed := !blocked && x.moduleTypeRelationAllowed(f, span, owner, name, module)
 			if !allowed && !blocked {
 				f.Issues = append(f.Issues, Issue{Code: "shadowed_type_relation", Message: "base type name has a conflicting lexical binding", Subject: "relations", Relation: kind, Span: span})
 			}
@@ -57,13 +57,12 @@ func (x ModuleExtractor) relationTypeName(n *gts.Node, lang *gts.Language, sourc
 	if n.Type(lang) == "nested_type_identifier" && n.NamedChildCount() == 2 && n.NamedChild(0).Type(lang) == "identifier" {
 		return n.NamedChild(1).Text(source), n.NamedChild(0).Text(source)
 	}
-	return x.moduleTypeName(n, lang, source)
+	return moduleTypeName(n, lang, source, nil)
 }
 
-func (x ModuleExtractor) moduleTypeRelationAllowed(f *Facts, tree *gts.Tree, use *gts.Node, owner int, name, module string) bool {
-	span := Span{Start: int(use.StartByte()), End: int(use.EndByte())}
+func (x ModuleExtractor) moduleTypeRelationAllowed(f *Facts, span Span, owner int, name, module string) bool {
 	if binding, ok := x.importBindingForUse(f, name, module, span); ok {
-		return !x.hasBindingConflict(tree, use, Declaration{Kind: "import", Span: binding.Span}, binding.Local)
+		return !x.hasBindingConflict(span, binding.Span, binding.Local)
 	}
 	if module != "" {
 		return true
@@ -74,7 +73,7 @@ func (x ModuleExtractor) moduleTypeRelationAllowed(f *Facts, tree *gts.Tree, use
 		for _, d := range f.Declarations {
 			if d.Parent == scope && d.Name == name && (d.Kind == "class" || d.Kind == "interface") {
 				found = true
-				if x.hasBindingConflict(tree, use, d, name) {
+				if x.hasBindingConflict(span, d.Span, name) {
 					return false
 				}
 			}
