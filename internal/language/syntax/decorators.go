@@ -29,7 +29,7 @@ func (x ModuleExtractor) extractDecorators(f *Facts, tree *gts.Tree) {
 				if target != nil && (target.Type(lang) == "call" || target.Type(lang) == "call_expression") {
 					target = target.ChildByFieldName("function", lang)
 				}
-				name, receiver := x.moduleTypeName(target, lang, f.Source)
+				name, receiver := moduleTypeName(target, lang, f.Source, nil)
 				span := NodeSpan(n)
 				r := analysis.Reference{Kind: "decorates", Name: name, Receiver: receiver, Span: span, Owner: ReferenceOwner(f, span), Target: -1, Decorated: owner}
 				if name == "" {

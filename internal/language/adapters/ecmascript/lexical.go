@@ -6,9 +6,15 @@ import (
 	gts "github.com/odvcencio/gotreesitter"
 )
 
-func (Dialect) Lexical(f *Facts, tree *gts.Tree, signatures []gts.SignatureFact) *analysis.SymbolTable {
+func (Dialect) Lexical(f *Facts, tree *gts.Tree, facts gts.FactSet) *analysis.SymbolTable {
 	l := analysis.NewSymbolTable(len(f.Source))
 	lang := tree.Language()
+	constructors := make(map[syntax.Span]gts.CallRef)
+	for _, ref := range facts.Calls {
+		if ref.Kind == "constructor" {
+			constructors[syntax.Span{Start: int(ref.StartByte), End: int(ref.EndByte)}] = ref
+		}
+	}
 	var pattern func(*gts.Node, *gts.Node, int, string)
 	pattern = func(n, owner *gts.Node, scope int, kind string) {
 		if n == nil {
@@ -16,7 +22,7 @@ func (Dialect) Lexical(f *Facts, tree *gts.Tree, signatures []gts.SignatureFact)
 		}
 		switch n.Type(lang) {
 		case "identifier", "type_identifier", "shorthand_property_identifier_pattern":
-			syntax.AddLexicalBinding(l, f, tree, scope, n, owner, kind)
+			syntax.AddLexicalBinding(l, f, tree, scope, n, owner, kind, constructors)
 			return
 		case "pair_pattern":
 			pattern(n.ChildByFieldName("value", lang), owner, scope, kind)
@@ -66,7 +72,7 @@ func (Dialect) Lexical(f *Facts, tree *gts.Tree, signatures []gts.SignatureFact)
 				}
 			}
 		case "formal_parameters":
-			if parameters, ok := syntax.SignatureParameters(signatures, n, lang); ok {
+			if parameters, ok := syntax.SignatureParameters(facts.Signatures, n, lang); ok {
 				for _, p := range parameters {
 					owner := syntax.NodeAtExactRange(n, p.StartByte, p.EndByte)
 					if name := syntax.NodeAtExactRange(n, p.NameStartByte, p.NameEndByte); name != nil {

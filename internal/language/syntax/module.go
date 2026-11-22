@@ -9,7 +9,7 @@ import (
 )
 
 func (x ModuleExtractor) Extract(ctx context.Context, f Facts, tree *gts.Tree, entry grammars.LangEntry) (Facts, gts.FactSet, error) {
-	program, err := FactProgram(tree.Language(), gts.FactDefinitions|gts.FactDeclarations|gts.FactSignatures|gts.FactCallArguments|gts.FactImports|gts.FactCalls, entry)
+	program, err := FactProgram(tree.Language(), gts.FactDefinitions|gts.FactDeclarations|gts.FactSignatures|gts.FactCallArguments|gts.FactImports|gts.FactCalls|gts.FactConstructorCalls, entry)
 	if err != nil {
 		return f, gts.FactSet{}, err
 	}
@@ -27,55 +27,12 @@ func (x ModuleExtractor) Extract(ctx context.Context, f Facts, tree *gts.Tree, e
 	}
 	x.enrichModuleSyntax(&f, tree, facts)
 	CaptureSignatures(&f, tree)
-	x.lexical = x.Dialect.Lexical(&f, tree, facts.Signatures)
+	x.lexical = x.Dialect.Lexical(&f, tree, facts)
 	f.Lexical = x.lexical
-	// Retain ancestry from downward traversal. Some grammars materialize hidden
-	// nodes whose Parent chain ends before the visible lexical scope.
-	callNodes := map[Span]*gts.Node{}
-	var closures []Span
-	Walk(tree.RootNode(), func(n *gts.Node) {
-		span := Span{Start: int(n.StartByte()), End: int(n.EndByte())}
-		switch n.Type(tree.Language()) {
-		case "call", "call_expression", "new_expression":
-			callNodes[span] = n
-		case "lambda", "arrow_function", "function_expression", "generator_function":
-			closures = append(closures, x.moduleClosureSpan(n, tree.Language()))
-		}
-	})
-	for _, c := range facts.Calls {
-		call := Call{Name: c.Name, Receiver: c.Receiver, Span: Span{Start: int(c.StartByte), End: int(c.EndByte)}}
-		var targets []Declaration
-		for _, d := range f.Declarations {
-			if d.Parent == -1 && d.Kind == "function" && d.Name == c.Name {
-				targets = append(targets, d)
-			}
-		}
-		n := callNodes[call.Span]
-		if n == nil {
-			call.Blocked = true
-		} else {
-			fn := n.ChildByFieldName("function", tree.Language())
-			if fn == nil || fn.Type(tree.Language()) != "identifier" {
-				call.Blocked = true
-			}
-			if len(targets) == 1 && x.hasBindingConflict(tree, n, targets[0], call.Name) {
-				call.Blocked = true
-			}
-			// Anonymous bodies do not execute merely because their enclosing
-			// declaration executes. Without a callable node, retain a gap instead
-			// of crediting the outer function with an immediate call.
-			for _, span := range closures {
-				if span.Start <= call.Start && span.End >= call.End {
-					call.Blocked = true
-				}
-			}
-		}
-		f.Calls = append(f.Calls, call)
-	}
 	x.extractModuleReferences(&f, tree)
 	x.extractDecorators(&f, tree)
-	x.bindModuleUses(&f, tree)
-	x.enrichModuleCallTargets(&f, tree)
+	x.bindModuleReferences(&f)
+	x.extractModuleCalls(&f, tree, facts.Calls)
 	x.extractModuleTypeRelations(&f, tree)
 	return f, facts, ctx.Err()
 }

@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/FlavioCFOliveira/GoGraph v0.15.0
 	github.com/alitto/pond/v2 v2.7.1
-	github.com/odvcencio/gotreesitter v0.58.0
+	github.com/odvcencio/gotreesitter v0.58.1-0.20261122062458-b1334ed9760b
 )
 
 require (

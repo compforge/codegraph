@@ -13,7 +13,7 @@ func NodeSpan(n *gts.Node) Span {
 }
 
 // AddLexicalBinding records only identifier leaves selected by the adapter.
-func AddLexicalBinding(l *analysis.SymbolTable, f *Facts, tree *gts.Tree, scope int, name, owner *gts.Node, kind string) {
+func AddLexicalBinding(l *analysis.SymbolTable, f *Facts, tree *gts.Tree, scope int, name, owner *gts.Node, kind string, constructors map[Span]gts.CallRef) {
 	if name == nil {
 		return
 	}
@@ -30,7 +30,7 @@ func AddLexicalBinding(l *analysis.SymbolTable, f *Facts, tree *gts.Tree, scope 
 		if value == nil {
 			continue
 		}
-		name, module := (ModuleExtractor{}).moduleTypeName(value, tree.Language(), f.Source)
+		name, module := moduleTypeName(value, tree.Language(), f.Source, constructors)
 		if name != "" {
 			b.Hints = append(b.Hints, CallTarget{ReceiverType: name, Module: module, Kind: "method", Basis: "receiver_binding"})
 		}

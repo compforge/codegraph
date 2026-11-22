@@ -1,9 +1,5 @@
 package syntax
 
-import (
-	gts "github.com/odvcencio/gotreesitter"
-)
-
 func (x ModuleExtractor) importBindingForUse(f *Facts, name, receiver string, span Span) (ImportBinding, bool) {
 	local := name
 	if receiver != "" {
@@ -24,18 +20,7 @@ func (x ModuleExtractor) importBindingForUse(f *Facts, name, receiver string, sp
 	return ImportBinding{}, false
 }
 
-func (x ModuleExtractor) bindModuleUses(f *Facts, tree *gts.Tree) {
-	lang := tree.Language()
-	nodes := map[Span]*gts.Node{}
-	var closures []Span
-	Walk(tree.RootNode(), func(n *gts.Node) {
-		span := Span{Start: int(n.StartByte()), End: int(n.EndByte())}
-		nodes[span] = n
-		switch n.Type(lang) {
-		case "lambda", "arrow_function", "function_expression", "generator_function":
-			closures = append(closures, x.moduleClosureSpan(n, lang))
-		}
-	})
+func (x ModuleExtractor) bindModuleReferences(f *Facts) {
 	for i := range f.References {
 		r := &f.References[i]
 		if r.Member && r.Receiver == "" {
@@ -65,30 +50,9 @@ func (x ModuleExtractor) bindModuleUses(f *Facts, tree *gts.Tree) {
 		if !ok {
 			continue
 		}
-		if n := nodes[r.Span]; n != nil && x.hasBindingConflict(tree, n, Declaration{Kind: "import", Span: b.Span}, b.Local) {
+		if x.hasBindingConflict(r.Span, b.Span, b.Local) {
 			r.Bound = true
 			r.Target = -1
-		}
-	}
-	for i := range f.Calls {
-		c := &f.Calls[i]
-		b, ok := x.importBindingForUse(f, c.Name, c.Receiver, c.Span)
-		if !ok {
-			continue
-		}
-		n := nodes[c.Span]
-		if n == nil || x.hasBindingConflict(tree, n, Declaration{Kind: "import", Span: b.Span}, b.Local) {
-			continue
-		}
-		closure := false
-		for _, span := range closures {
-			if span.Start <= c.Start && span.End >= c.End {
-				closure = true
-			}
-		}
-		if !closure {
-			c.Imported = true
-			c.Blocked = false
 		}
 	}
 }
