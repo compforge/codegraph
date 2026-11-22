@@ -14,7 +14,7 @@ type Lookup func(string) analysis.Adapter
 
 // Analyzer owns one analysis run and its language phase barriers.
 // +spec=Every language binds before any resolver runs; only this run registers contributions.
-// +link=component://docs/language-pipeline.md
+// +link=component://docs/build-pipeline.md
 type Analyzer struct {
 	Limits   analysis.Limits
 	Lookup   Lookup

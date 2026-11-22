@@ -1,7 +1,7 @@
 # 语言能力与限制
 
 本篇说明语言适配器能从已提供源码中建立哪些证据，以及哪些行为仍缺少静态依据。
-组织身份见 [命名空间组织](namespaces.md)，实现接入见 [语言构建流程](language-pipeline.md)。
+组织身份见 [命名空间组织](namespaces.md)，实现接入见 [构图流程](build-pipeline.md)。
 
 ## 查询能力
 
@@ -223,8 +223,8 @@ grammar 明确提供 body 边界时，声明节点也保留签名。未知声明
 仅提供 grammar 的语言以 unsupported_resolution 表示引用未覆盖，不使用通用 Symbol 节点兜底。
 
 Java、Rust、C/C++、Ruby 有真实源码声明契约测试；grammar 接入示例见
-[language_extension_test.go](../language_extension_test.go)。完整组织与绑定规则需要实现内部阶段接口，
-见 [语言构建流程](language-pipeline.md)。
+[TestRegisteredExtension](../api_test.go)。完整组织与绑定规则需要实现内部阶段接口，
+见 [构图流程](build-pipeline.md)。
 
 ## 声明到图的覆盖契约
 

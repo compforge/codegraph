@@ -10,7 +10,7 @@ import (
 
 // graphAssembler owns public object registration and publication budgets.
 // +spec=Only selected entities are materialized; every relation has published endpoints.
-// +link=component://docs/language-pipeline.md
+// +link=component://docs/build-pipeline.md
 type graphAssembler struct {
 	index                *analysis.Index
 	files                map[string]analysis.Facts

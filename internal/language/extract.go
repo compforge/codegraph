@@ -1,4 +1,4 @@
-package pipeline
+package language
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/compforge/codegraph/internal/analysis"
-	"github.com/compforge/codegraph/internal/language"
 )
 
 func lineStarts(source []byte) []int {
@@ -19,27 +18,23 @@ func lineStarts(source []byte) []int {
 	return starts
 }
 
-// DocumentOnly records a document that has no registered grammar. The file still
-// enters the graph as a file-level fact — without parsing, so no declarations,
-// imports, or calls — mirroring how reference code-graph indexers track
-// file-level-only languages (stored file record, zero symbol nodes).
+// DocumentOnly records source locations for a document without parsing it.
 func DocumentOnly(name string, source []byte) analysis.Facts {
 	return analysis.Facts{Path: name, Source: source, LineStarts: lineStarts(source)}
 }
 
-// Analyze releases the syntax tree before returning detached facts. Language
+// Extract releases the syntax tree before returning detached facts. Language
 // detection is registry-driven; language-specific binding rules never leak into
 // the graph model or the batch publication path.
 //
 // +spec=`Parsing observes caller cancellation and the per-document timeout; incomplete syntax trees are rejected.`
 // +why=`The parse budget ends before fact extraction, which continues under the caller context.`
-func Analyze(ctx context.Context, name string, source []byte, timeout time.Duration) (analysis.Facts, error) {
-	f := analysis.Facts{Path: name, Source: source}
-	f.LineStarts = lineStarts(source)
+func Extract(ctx context.Context, name string, source []byte, timeout time.Duration) (analysis.Facts, error) {
+	f := DocumentOnly(name, source)
 	if err := ctx.Err(); err != nil {
 		return f, err
 	}
-	entry := language.Detect(name)
+	entry := Detect(name)
 	if entry == nil {
 		return f, fmt.Errorf("no grammar for %s", name)
 	}
@@ -59,5 +54,5 @@ func Analyze(ctx context.Context, name string, source []byte, timeout time.Durat
 	if tree == nil || tree.RootNode() == nil || tree.RootNode().HasErrorOrMissing() {
 		return f, fmt.Errorf("parse %s: incomplete syntax tree", name)
 	}
-	return language.Lookup(f.Language).Extractor.Extract(ctx, f, tree, *entry)
+	return Lookup(f.Language).Extractor.Extract(ctx, f, tree, *entry)
 }

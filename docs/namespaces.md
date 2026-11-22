@@ -34,9 +34,9 @@ Document 可以与类型不同。方法通过 contains 归属接收者类型，�
 语言 Organizer 解释源码和 document path，给出实体、Document 的语义根以及组织关系。
 公共构图层把语义根发布为 in_namespace，全部实体登记后形成成员视图，
 Binder 补充跨文件接收者归属。组织与 Class 共用成员查询入口，源码贡献从 declares 读取。
-成员索引和已绑定的 extends 供后续引用与调用解析使用，阶段接口见 [语言构建流程](language-pipeline.md)。
+成员索引和已绑定的 extends 供后续引用与调用解析使用，阶段接口见 [构图流程](build-pipeline.md)。
 
-encloses 负责声明的源码嵌套，词法 Scope/Binding 负责可见性与遮蔽，contains 负责成员归属；词法查找见 [语言构建流程](language-pipeline.md#共享索引)。
+encloses 负责声明的源码嵌套，词法 Scope/Binding 负责可见性与遮蔽，contains 负责成员归属；词法查找见 [构图流程](build-pipeline.md#共享索引)。
 
 Go imports 指向 Package，每条导入语句对一个包只建立一条边。Python imports 指向 Module /
 Package，具名导入另保留最终声明目标；模块名称引用也指向相应组织节点。调用与声明引用仍直接

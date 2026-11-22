@@ -14,7 +14,7 @@ import (
 
 // compilation owns one build attempt; only Builder may publish its completed result.
 // +spec=Failure or cancellation discards this attempt without changing the last Graph.
-// +link=component://docs/language-pipeline.md
+// +link=component://docs/build-pipeline.md
 type compilation struct {
 	snapshot    string
 	opts        Options

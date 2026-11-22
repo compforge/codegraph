@@ -8,7 +8,7 @@ import (
 
 	"github.com/alitto/pond/v2"
 	"github.com/compforge/codegraph/internal/analysis"
-	"github.com/compforge/codegraph/internal/pipeline"
+	"github.com/compforge/codegraph/internal/language"
 )
 
 // session coordinates Builder document submission. Facts-only builders never
@@ -453,7 +453,7 @@ func (g *session) stageDocuments(ctx context.Context, documents []Document, stag
 			name, data := document.Path, document.Content
 			issue := func(code, message string) {
 				failures[name] = Diagnostic{Code: code, Message: message, Subject: DocumentSubject,
-					Location: location(pipeline.DocumentOnly(name, data), analysis.Span{End: len(data)})}
+					Location: location(language.DocumentOnly(name, data), analysis.Span{End: len(data)})}
 			}
 			if !g.allowed(name) {
 				issue("out_of_scope", "file is outside allowed scope")
@@ -522,7 +522,7 @@ func (g *session) stageDocuments(ctx context.Context, documents []Document, stag
 			name := batch[i].Path
 			if result.err != nil {
 				failures[name] = Diagnostic{Code: "parse_error", Message: result.err.Error(), Subject: DocumentSubject,
-					Location: location(pipeline.DocumentOnly(name, batch[i].Content), analysis.Span{End: len(batch[i].Content)})}
+					Location: location(language.DocumentOnly(name, batch[i].Content), analysis.Span{End: len(batch[i].Content)})}
 				continue
 			}
 			staged[name] = result.facts
