@@ -3,17 +3,16 @@ package analysis
 import (
 	"errors"
 
-	"github.com/compforge/codegraph/internal/confidence"
 	"github.com/compforge/codegraph/pkg"
 )
 
-type Confidence = confidence.Level
+type Confidence = pkg.Confidence
 
 const (
-	Exact     = confidence.Exact
-	Scoped    = confidence.Scoped
-	NameOnly  = confidence.NameOnly
-	Heuristic = confidence.Heuristic
+	Exact     = pkg.Exact
+	Scoped    = pkg.Scoped
+	NameOnly  = pkg.NameOnly
+	Heuristic = pkg.Heuristic
 )
 
 var ErrEvidenceLimit = errors.New("evidence limit reached")

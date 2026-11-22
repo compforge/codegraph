@@ -9,7 +9,7 @@ import "github.com/compforge/codegraph/internal/analysis"
 // +spec=Captured locals from the same assignment remain siblings regardless of reference order.
 // +why=Newly promoted storage is not a lexical container for later promotions.
 // +case=component://tests/semantics/python_capture_parent_test.go
-// +link=component://docs/language-pipeline.md
+// +link=component://docs/build-pipeline.md
 func retainCapturedLocals(f *Facts) {
 	if f.Lexical == nil {
 		return

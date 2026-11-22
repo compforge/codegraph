@@ -46,10 +46,9 @@ namespaces.go、namespace_index.go       # 从图派生带证据的 namespace �
 references.go                          # 将源码使用位置及其候选目标发布为图事实
 session.go、builder_documents.go        # Builder 的异步材料提交与构建调度
 internal/
-  confidence/                           # pkg.Confidence 的内部兼容别名
   analysis/                             # 实体、Namespace、Scope/Binding、Relation/Evidence 登记及阶段契约
-  pipeline/                             # parser 生命周期与 Organize → Bind → Resolve 阶段屏障
-  language/                             # 内置语言注册及能力声明
+  pipeline/                             # 跨文件分析与 Organize → Bind → Resolve 阶段屏障
+  language/                             # 内置语言注册、单文件解析提取及能力声明
     adapters/                           # 阶段接口的具体实现
       golang/、python/、ecmascript/       # 语言专有提取、组织、绑定与关系规则
       manifest/                          # 清单格式识别、元数据提取与模块声明
@@ -79,10 +78,10 @@ docs/                                   # 按主题维护模型、构建、关�
 - [使用指南](docs/usage.md) — 构建、补料、源码导航、Cypher 与诊断读取。
 - [图模型与 lowering](docs/semantic-kinds.md) — 节点/关系词汇、映射标准及分析到公开模型的转换。
 - [关系与证据](docs/relations.md) — 关系身份、Confidence、源码使用及 import/export 绑定链。
-- [分析准入](docs/admission.md) — 材料分类、节点投影与解析事实边界。
+- [材料准入与发布范围](docs/admission.md) — 材料准入、bridge 规则与分析及发布预算。
 - [Document 契约](docs/document.md) — 源码、symlink 和 gitlink 材料、身份、接纳及图中表达。
 - [命名空间组织](docs/namespaces.md) — 成员、嵌套、身份与源码贡献。
 - [语言能力](docs/language-support.md) — 各语言的静态证据与限制。
-- [语言构建流程](docs/language-pipeline.md) — 阶段职责、共享索引与适配器接入。
+- [构图流程](docs/build-pipeline.md) — 阶段职责、共享索引与适配器接入。
 - [真实仓库评测](docs/corpus.md) — Go 独立参照、统一评分、工具准备及验证入口。
 - [Python 仓库评测](docs/python-corpus.md)、[TypeScript 仓库评测](docs/typescript-corpus.md) — 各语言参照及动态语义边界。

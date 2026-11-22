@@ -6,8 +6,8 @@ import (
 	"slices"
 
 	"github.com/compforge/codegraph/internal/analysis"
+	"github.com/compforge/codegraph/internal/language"
 	"github.com/compforge/codegraph/internal/language/adapters/manifest"
-	"github.com/compforge/codegraph/internal/pipeline"
 )
 
 // AdmissionPolicy separates material selection from graph publication. NodeKinds
@@ -79,7 +79,7 @@ func (b *Builder) parsesDocument(d Document) bool {
 }
 
 func documentFacts(d Document) analysis.Facts {
-	f := pipeline.DocumentOnly(d.Path, bytes.Clone(d.Content))
+	f := language.DocumentOnly(d.Path, bytes.Clone(d.Content))
 	f.Gitlink = d.Gitlink
 	f.Symlink = d.Symlink
 	return f

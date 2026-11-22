@@ -20,7 +20,7 @@ type Binding struct {
 
 // SymbolTable is detached, immutable after extraction, and shared by every use pass.
 // +spec=Bindings without declaration targets still shadow outer names; snapshot binding results never enter this table.
-// +link=component://docs/language-pipeline.md
+// +link=component://docs/build-pipeline.md
 type SymbolTable struct {
 	Scopes   []Scope
 	Bindings []Binding

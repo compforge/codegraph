@@ -9,7 +9,7 @@ import (
 )
 
 // +why=Grammar-owned facts own syntax extraction; adapter rows only supply scopes absent from the upstream defaults.
-// +link=component://docs/language-pipeline.md
+// +link=component://docs/build-pipeline.md
 func declarationRules(entry grammars.LangEntry) []gts.DeclarationRule {
 	rules := grammars.DeclarationRules(entry)
 	switch entry.Name {

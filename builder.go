@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/compforge/codegraph/internal/analysis"
-	"github.com/compforge/codegraph/internal/pipeline"
+	"github.com/compforge/codegraph/internal/language"
 )
 
 // Builder collects complete Facts for one source snapshot and publishes a new
@@ -170,7 +170,7 @@ func (b *Builder) AddFailure(doc Document, failure error) error {
 	if doc.size() > b.opts.MaxDocumentBytes {
 		return fmt.Errorf("%w: %s", ErrBuildBudget, doc.Path)
 	}
-	b.failures[doc.Path] = Diagnostic{Code: "parse_error", Message: failure.Error(), Subject: DocumentSubject, Location: location(pipeline.DocumentOnly(doc.Path, doc.Content), analysis.Span{End: len(doc.Content)})}
+	b.failures[doc.Path] = Diagnostic{Code: "parse_error", Message: failure.Error(), Subject: DocumentSubject, Location: location(language.DocumentOnly(doc.Path, doc.Content), analysis.Span{End: len(doc.Content)})}
 	return nil
 }
 
