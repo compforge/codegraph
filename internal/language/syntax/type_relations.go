@@ -4,51 +4,51 @@ import (
 	gts "github.com/odvcencio/gotreesitter"
 )
 
-func (x ModuleExtractor) extractModuleTypeRelations(f *Facts, tree *gts.Tree) {
+func (x ModuleExtractor) extractModuleTypeRelations(f *Facts, tree *gts.Tree, refs []gts.HeritageRef) {
+	if len(refs) == 0 {
+		return
+	}
+	owners := make(map[Span]int)
+	for i, d := range f.Declarations {
+		if d.Kind == "class" || d.Kind == "interface" {
+			owners[d.Span] = i
+		}
+	}
 	lang := tree.Language()
-	Walk(tree.RootNode(), func(n *gts.Node) {
-		switch n.Type(lang) {
-		case "class_definition", "class_declaration", "abstract_class_declaration", "interface_declaration":
-		default:
-			return
+	for _, ref := range refs {
+		owner, ok := owners[Span{Start: int(ref.StartByte), End: int(ref.EndByte)}]
+		if !ok {
+			continue
 		}
-		owner, size := -1, len(f.Source)+1
-		for i, d := range f.Declarations {
-			if (d.Kind == "class" || d.Kind == "interface") && d.Start <= int(n.StartByte()) && d.End >= int(n.EndByte()) && d.End-d.Start < size {
-				owner, size = i, d.End-d.Start
-			}
+		kind := ref.Kind
+		if kind == "base" {
+			kind = "extends"
 		}
-		if owner < 0 {
-			return
+		span := Span{Start: int(ref.ParentStartByte), End: int(ref.ParentEndByte)}
+		base := tree.RootNode().NamedDescendantForByteRange(ref.ParentStartByte, ref.ParentEndByte)
+		// TypeScript keeps the value and its type arguments as siblings.
+		if base != nil && base.Type(lang) == "extends_clause" {
+			base = base.ChildByFieldName("value", lang)
 		}
-		add := func(base *gts.Node, kind string) {
-			if base.Type(lang) == "type_arguments" {
-				return
-			}
-			span := Span{Start: int(base.StartByte()), End: int(base.EndByte())}
-			name, module := x.relationTypeName(base, lang, f.Source)
-			// Calls such as mixin(Base) are dynamic base expressions, not a binding
-			// to the mixin function as a parent class.
-			if base.Type(lang) == "call" || base.Type(lang) == "call_expression" {
-				name = ""
-			}
-			blocked := name == ""
-			if blocked {
-				f.Issues = append(f.Issues, Issue{Code: "unsupported_type_relation", Message: "base type expression is not a named binding", Subject: "relations", Relation: kind, Span: span})
-				name = base.Text(f.Source)
-			}
-			allowed := !blocked && x.moduleTypeRelationAllowed(f, span, owner, name, module)
-			if !allowed && !blocked {
-				f.Issues = append(f.Issues, Issue{Code: "shadowed_type_relation", Message: "base type name has a conflicting lexical binding", Subject: "relations", Relation: kind, Span: span})
-			}
-			f.TypeRelations = append(f.TypeRelations, TypeRelation{Blocked: !allowed, Owner: owner, Name: name, Module: module, Kind: kind, Basis: "explicit_" + kind, Span: span})
+		var name, module string
+		if base != nil && base.StartByte() == ref.ParentStartByte && base.Type(lang) == ref.ParentNodeType {
+			name, module = x.relationTypeName(base, lang, f.Source)
 		}
-		x.Dialect.Bases(n, lang, add)
-	})
+		blocked := name == ""
+		if blocked {
+			f.Issues = append(f.Issues, Issue{Code: "unsupported_type_relation", Message: "base type expression is not a named binding", Subject: "relations", Relation: kind, Span: span})
+			name = ref.Parent
+		}
+		allowed := !blocked && x.moduleTypeRelationAllowed(f, span, owner, name, module)
+		if !allowed && !blocked {
+			f.Issues = append(f.Issues, Issue{Code: "shadowed_type_relation", Message: "base type name has a conflicting lexical binding", Subject: "relations", Relation: kind, Span: span})
+		}
+		f.TypeRelations = append(f.TypeRelations, TypeRelation{Blocked: !allowed, Owner: owner, Name: name, Module: module, Kind: kind, Basis: "explicit_" + kind, Span: span})
+	}
 }
 
 func (x ModuleExtractor) relationTypeName(n *gts.Node, lang *gts.Language, source []byte) (string, string) {
-	if n == nil {
+	if n == nil || n.Type(lang) == "call" || n.Type(lang) == "call_expression" {
 		return "", ""
 	}
 	if n.Type(lang) == "generic_type" {

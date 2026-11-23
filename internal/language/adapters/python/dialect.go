@@ -5,12 +5,16 @@ import (
 
 	"github.com/compforge/codegraph/internal/language/syntax"
 	gts "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/grammars"
 )
 
 type Dialect struct{}
 
 func (Dialect) Enrich(f *Facts, tree *gts.Tree, facts gts.FactSet) {
 	attachDocumentation(f, tree)
+	// Both upstream views enumerate the items of a statement in source order.
+	var statement Span
+	var items []grammars.ImportItem
 	for i := range f.Imports {
 		imp := &f.Imports[i]
 		// A bare relative prefix is still a from-import. Upstream leaves From
@@ -18,6 +22,15 @@ func (Dialect) Enrich(f *Facts, tree *gts.Tree, facts gts.FactSet) {
 		// not mistaken for a namespace import of `name` itself.
 		if imp.From == "" && imp.Relative > 0 {
 			imp.From = strings.Repeat(".", imp.Relative)
+		}
+		if imp.Span != statement {
+			statement = imp.Span
+			n := syntax.NodeAtExactRange(tree.RootNode(), uint32(imp.Start), uint32(imp.End))
+			items = grammars.ImportItems(n, tree.Language())
+		}
+		var item grammars.ImportItem
+		if len(items) > 0 {
+			item, items = items[0], items[1:]
 		}
 		local := imp.Binding
 		if imp.Alias != "" {
@@ -33,9 +46,12 @@ func (Dialect) Enrich(f *Facts, tree *gts.Tree, facts gts.FactSet) {
 		if len(imp.Names) == 1 {
 			b.Name = imp.Names[0]
 		}
+		if item.BindingRange.EndByte > item.BindingRange.StartByte && string(f.Source[item.BindingRange.StartByte:item.BindingRange.EndByte]) == local {
+			b.ItemSpan = syntax.ByteSpan(item.Range)
+			b.NameSpan = syntax.ByteSpan(item.BindingRange)
+		}
 		imp.Bindings = []ImportBinding{b}
 	}
-	locateImportItems(f, tree)
 }
 func (Dialect) Parameters(n *gts.Node, lang *gts.Language, signatures []gts.SignatureFact) (names []*gts.Node, expressions []syntax.ParameterExpression, handled bool) {
 	if n.Type(lang) != "parameters" && n.Type(lang) != "lambda_parameters" {
@@ -77,16 +93,6 @@ func (Dialect) Self(f *Facts, tree *gts.Tree, owner int, receiver string, signat
 		}
 	}
 	return false
-}
-func (Dialect) Bases(n *gts.Node, lang *gts.Language, add func(*gts.Node, string)) {
-	if bases := n.ChildByFieldName("superclasses", lang); bases != nil {
-		for i := 0; i < bases.NamedChildCount(); i++ {
-			base := bases.NamedChild(i)
-			if base.Type(lang) != "keyword_argument" {
-				add(base, "extends")
-			}
-		}
-	}
 }
 func (Dialect) Closure(n *gts.Node, lang *gts.Language) Span {
 	if n.Type(lang) == "lambda" {

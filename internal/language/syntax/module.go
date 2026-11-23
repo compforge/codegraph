@@ -9,7 +9,7 @@ import (
 )
 
 func (x ModuleExtractor) Extract(ctx context.Context, f Facts, tree *gts.Tree, entry grammars.LangEntry) (Facts, gts.FactSet, error) {
-	program, err := FactProgram(tree.Language(), gts.FactDefinitions|gts.FactDeclarations|gts.FactSignatures|gts.FactCallArguments|gts.FactImports|gts.FactCalls|gts.FactConstructorCalls, entry)
+	program, err := FactProgram(tree.Language(), gts.FactDefinitions|gts.FactDeclarations|gts.FactSignatures|gts.FactCallArguments|gts.FactImports|gts.FactCalls|gts.FactConstructorCalls|gts.FactHeritage, entry)
 	if err != nil {
 		return f, gts.FactSet{}, err
 	}
@@ -33,7 +33,7 @@ func (x ModuleExtractor) Extract(ctx context.Context, f Facts, tree *gts.Tree, e
 	x.extractDecorators(&f, tree)
 	x.bindModuleReferences(&f)
 	x.extractModuleCalls(&f, tree, facts.Calls)
-	x.extractModuleTypeRelations(&f, tree)
+	x.extractModuleTypeRelations(&f, tree, facts.Heritage)
 	return f, facts, ctx.Err()
 }
 

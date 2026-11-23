@@ -158,6 +158,11 @@ func TestTypeRelationsGenericsNamespaceAndShadowing(t *testing.T) {
 			for _, r := range g.Relations() {
 				if r.Kind == codegraph.Extends || r.Kind == codegraph.Implements {
 					count++
+					if tc.path == "app.ts" && r.Kind == codegraph.Extends {
+						if text := tc.source[r.Location.StartByte:r.Location.EndByte]; text != "lib.Base<string>" {
+							t.Fatalf("extends range = %q", text)
+						}
+					}
 				}
 			}
 			if count != tc.count {

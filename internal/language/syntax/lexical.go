@@ -12,6 +12,10 @@ func NodeSpan(n *gts.Node) Span {
 	return Span{Start: int(n.StartByte()), End: int(n.EndByte())}
 }
 
+func ByteSpan(r gts.Range) Span {
+	return Span{Start: int(r.StartByte), End: int(r.EndByte)}
+}
+
 // AddLexicalBinding records only identifier leaves selected by the adapter.
 func AddLexicalBinding(l *analysis.SymbolTable, f *Facts, tree *gts.Tree, scope int, name, owner *gts.Node, kind string, constructors map[Span]gts.CallRef) {
 	if name == nil {

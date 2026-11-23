@@ -132,6 +132,33 @@ func TestSourceModuleFormsAndTypeOnly(t *testing.T) {
 	}
 }
 
+func TestSourceTypeScriptRequireImport(t *testing.T) {
+	for _, tc := range []struct {
+		path, source string
+		typeOnly     bool
+	}{
+		{"app.ts", "import Lib = require('./lib'); function run(){ Lib.work() }", false},
+		{"app.tsx", "import type Lib = require('./lib');", true},
+	} {
+		t.Run(tc.path, func(t *testing.T) {
+			docs := []Document{{Path: tc.path, Content: []byte(tc.source)}, {Path: "lib.ts", Content: []byte("export function work(){}")}}
+			g, _, err := Build(context.Background(), "require", docs, Options{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			n := sourceItem(t, g, Import, tc.path, "Lib")
+			if n.Binding == nil || n.Binding.Form != "namespace" || n.Binding.Specifier != "./lib" || n.Binding.TypeOnly != tc.typeOnly ||
+				n.NameLocation == nil || tc.source[n.NameLocation.StartByte:n.NameLocation.EndByte] != "Lib" ||
+				tc.source[n.Location.StartByte:n.Location.EndByte] != "Lib = require('./lib')" {
+				t.Fatalf("unexpected import: %+v", n)
+			}
+			if !tc.typeOnly {
+				edgeTo(t, g, sourceItem(t, g, Function, tc.path, "run"), sourceItem(t, g, Function, "lib.ts", "work"), Calls)
+			}
+		})
+	}
+}
+
 func TestSourceTypeAndDecoratorRoles(t *testing.T) {
 	for _, tc := range []struct{ path, source string }{
 		{"a.py", "@route('/users')\nclass Child(Unknown):\n    pass\n"},
@@ -212,12 +239,12 @@ func TestSourceItemsPreserveOpaqueSyntaxAndNestedExports(t *testing.T) {
 }
 
 func TestSourcePythonImportItemLocations(t *testing.T) {
-	source := "from external import first as one, second as two\nimport alpha as a, beta as b\n"
+	source := "from external import first as one, first as two\nimport alpha as a, beta as b\n"
 	g, _, err := Build(context.Background(), "imports", []Document{{Path: "a.py", Content: []byte(source)}}, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for local, item := range map[string]string{"one": "first as one", "two": "second as two", "a": "alpha as a", "b": "beta as b"} {
+	for local, item := range map[string]string{"one": "first as one", "two": "first as two", "a": "alpha as a", "b": "beta as b"} {
 		n := sourceItem(t, g, Import, "a.py", local)
 		if source[n.Location.StartByte:n.Location.EndByte] != item || n.NameLocation == nil || source[n.NameLocation.StartByte:n.NameLocation.EndByte] != local {
 			t.Fatal(n)
