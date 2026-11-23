@@ -69,14 +69,7 @@ func (Dialect) Enrich(f *Facts, tree *gts.Tree, facts gts.FactSet) {
 	syntax.Walk(tree.RootNode(), func(n *gts.Node) {
 		typ := n.Type(lang)
 		if typ == "import_statement" || typ == "export_statement" {
-			if src := n.ChildByFieldName("source", lang); src != nil {
-				start := len(f.Imports)
-				AddModuleImport(f, src, lang)
-				if len(f.Imports) > start {
-					f.Imports[start].Names = ImportedNames(n, lang, f.Source)
-					f.Imports[start].Bindings = ImportBindings(n, lang, f.Source)
-				}
-			}
+			addStaticImport(f, n, lang)
 		}
 		if typ == "call_expression" {
 			fn := n.ChildByFieldName("function", lang)
@@ -88,7 +81,7 @@ func (Dialect) Enrich(f *Facts, tree *gts.Tree, facts gts.FactSet) {
 				args := arguments[syntax.NodeSpan(n)]
 				if len(args) == 1 {
 					arg := args[0]
-					AddModuleImport(f, syntax.NodeAtExactRange(n, arg.StartByte, arg.EndByte), lang)
+					addModuleImport(f, syntax.NodeAtExactRange(n, arg.StartByte, arg.EndByte), lang)
 				}
 			}
 		}
@@ -100,33 +93,6 @@ func (Dialect) Parameters(n *gts.Node, lang *gts.Language, signatures []gts.Sign
 }
 func (Dialect) Self(f *Facts, tree *gts.Tree, owner int, receiver string, signatures []gts.SignatureFact) bool {
 	return receiver == "this"
-}
-func (Dialect) Bases(n *gts.Node, lang *gts.Language, add func(*gts.Node, string)) {
-
-	for i := 0; i < n.NamedChildCount(); i++ {
-		clause := n.NamedChild(i)
-		switch clause.Type(lang) {
-		case "class_heritage":
-			for j := 0; j < clause.NamedChildCount(); j++ {
-				c := clause.NamedChild(j)
-				if c.Type(lang) == "extends_clause" || c.Type(lang) == "implements_clause" {
-					kind := "extends"
-					if c.Type(lang) == "implements_clause" {
-						kind = "implements"
-					}
-					for k := 0; k < c.NamedChildCount(); k++ {
-						add(c.NamedChild(k), kind)
-					}
-				} else {
-					add(c, "extends")
-				}
-			}
-		case "extends_type_clause":
-			for j := 0; j < clause.NamedChildCount(); j++ {
-				add(clause.NamedChild(j), "extends")
-			}
-		}
-	}
 }
 func (Dialect) Closure(n *gts.Node, lang *gts.Language) Span {
 	return Span{Start: int(n.StartByte()), End: int(n.EndByte())}

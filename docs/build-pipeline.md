@@ -101,7 +101,7 @@ Go、Python、ECMAScript 各自拥有语义规则；共享算法由它们显式�
 - gotreesitter 的 FactProgram 提供声明、结构化签名与调用参数。JS/TS 的构造调用来自 `FactConstructorCalls`，适配器结合词法作用域、导入项和接收者线索绑定目标。
 - `grammars.HeaderRange` 提供声明头的字节范围。CodeGraph 将范围关联到声明，供 Node.Signature 与 SignatureLocation 使用。同一个语法节点可以对应多个声明，例如 Go 的 `var a, b int`。
 - 通过 FactProgram 补充规则登记局部声明和 namespace 内的绑定。通用 outline 使用上游 Outliner，命名节点遍历复用上游 Walk。
-- Python 和 JS/TS 共享模块绑定、转导出及候选汇总算法。各自的适配器解释词法遮蔽、导入项位置、路径和导出策略。
+- Python 和 JS/TS 共享模块绑定、转导出及候选汇总算法。导入项及别名位置来自 `grammars.ImportItems`，继承表达式及范围来自 `FactHeritage`。适配器结合词法作用域、导入路径和导出规则绑定跨文件目标，动态基类保留诊断。
 - 文档、marker 与声明的归属由语言适配器确定。Go 入口识别复用已有语法树，Go 类型传播所需的证据由 Extension 携带。
 
 解析直接使用 LangEntry.ParseStrict，由上游处理 token source 和 cooperative cancellation；
