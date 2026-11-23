@@ -7,11 +7,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/FlavioCFOliveira/GoGraph/cypher"
-	"github.com/FlavioCFOliveira/GoGraph/cypher/expr"
-	"github.com/FlavioCFOliveira/GoGraph/graph"
-	"github.com/FlavioCFOliveira/GoGraph/graph/adjlist"
-	"github.com/FlavioCFOliveira/GoGraph/graph/lpg"
+	"github.com/qiankunli/GoGraph/cypher"
+	"github.com/qiankunli/GoGraph/cypher/expr"
+	"github.com/qiankunli/GoGraph/graph"
+	"github.com/qiankunli/GoGraph/graph/adjlist"
+	"github.com/qiankunli/GoGraph/graph/lpg"
 )
 
 var ErrBudget = errors.New("query budget exceeded")
@@ -34,7 +34,7 @@ type Store struct {
 }
 
 func New(limits Limits) *Store {
-	g := lpg.New[string, float64](adjlist.Config{Directed: true, Multigraph: true, Weightless: true})
+	g := lpg.New[string, float64](adjlist.Config{Weightless: true})
 	return &Store{graph: g, engine: cypher.NewEngineWithOptions(g, cypher.EngineOptions{MaxResultRows: int64(limits.Rows), MaxResultBytes: limits.Bytes, MaxCollectItems: limits.Rows, GlobalMaxResultBytes: limits.Bytes}), limits: limits}
 }
 
