@@ -209,7 +209,13 @@ func TestShadowingAndAmbiguity(t *testing.T) {
 
 func TestQueryBoundary(t *testing.T) {
 	g := built(t, Options{})
-	for _, q := range []string{`CREATE (:Function)`, `MATCH (n) DELETE n`, `MATCH (n) SET n.name='oops'`, `CALL db.labels()`} {
+	for _, q := range []string{
+		`CREATE (:Function)`,
+		`MATCH (n) DELETE n`,
+		`MATCH (n) SET n.name='oops'`,
+		`CALL db.labels()`,
+		`MATCH (n) WHERE EXISTS { CALL db.labels() YIELD label } RETURN n`,
+	} {
 		if _, err := g.Query(context.Background(), q, nil); !errors.Is(err, ErrReadOnly) {
 			t.Errorf("%s: %v", q, err)
 		}
@@ -218,6 +224,7 @@ func TestQueryBoundary(t *testing.T) {
 		`MATCH p=(a)-[*]->(b) RETURN p`,
 		`MATCH (a)-[*]->(b) DELETE b`,
 		`MATCH p=(a)-[*1..99]->(b) RETURN p`,
+		`MATCH p=(a)-[*1..4]->(b)-[*1..5]->(c) RETURN p`,
 		`MATCH (n) RETURN [(n)-[*]->(m) | m]`,
 		`MATCH (n) WHERE EXISTS { MATCH (n)-[*]->(m) } RETURN n`,
 	} {
