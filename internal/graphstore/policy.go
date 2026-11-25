@@ -3,13 +3,12 @@ package graphstore
 import (
 	"fmt"
 
-	"github.com/qiankunli/GoGraph/cypher/ast"
-	"github.com/qiankunli/GoGraph/cypher/parser"
+	"github.com/FlavioCFOliveira/GoGraph/cypher/ast"
+	"github.com/FlavioCFOliveira/GoGraph/cypher/parser"
 )
 
 // checkQuery visits the upstream AST, including patterns inside subqueries and
 // comprehensions. Regex checks would confuse strings/comments with syntax.
-// +tmp=Use the fork until an upstream GoGraph release includes cypher/ast.Walk (FlavioCFOliveira/GoGraph#30).
 func checkQuery(q string, maxHops int) error {
 	if len(q) > 64<<10 {
 		return fmt.Errorf("%w: query exceeds 64 KiB", ErrBudget)

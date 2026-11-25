@@ -3,9 +3,9 @@ module github.com/compforge/codegraph
 go 1.26.0
 
 require (
+	github.com/FlavioCFOliveira/GoGraph v0.17.3-0.20261123091815-186c4c48e5ea
 	github.com/alitto/pond/v2 v2.7.1
 	github.com/odvcencio/gotreesitter v0.58.1-0.20261123054809-3e8cac17b358
-	github.com/qiankunli/GoGraph v0.0.0-20261123062006-2511c40ce8c7
 )
 
 require (
